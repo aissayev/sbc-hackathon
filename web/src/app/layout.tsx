@@ -3,6 +3,8 @@ import { Playfair_Display, Inter } from 'next/font/google'
 import { BRAND, ASSETS } from '@/lib/brand'
 import { SiteHeader } from '@/components/brand/header'
 import { SiteFooter } from '@/components/brand/footer'
+import { Providers } from '@/components/providers'
+import { HelpWidget } from '@/components/help-widget/help-widget'
 import './globals.css'
 
 const display = Playfair_Display({
@@ -65,11 +67,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        <SiteHeader />
-        <main id="main" className="min-h-[60vh]">
-          {children}
-        </main>
-        <SiteFooter />
+        <Providers>
+          <SiteHeader />
+          <main id="main" className="min-h-[60vh]">
+            {children}
+          </main>
+          <SiteFooter />
+          <HelpWidget />
+        </Providers>
       </body>
     </html>
   )
