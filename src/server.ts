@@ -22,6 +22,7 @@ import {
   sendOwnerReply,
   sendOwnerThinking,
   finalizeOwnerThinking,
+  makeOwnerStreamSink,
   logInbound,
   logOutbound,
   logError,
@@ -78,12 +79,15 @@ const onMessage: MessageHandler = async (msg) => {
     logInbound(msg.channel, msg.threadId, role, msg.text)
   }
 
-  // Owner free text gets a "thinking…" placeholder we edit with the final
-  // reply + tool footer. Feels like Claude Code: live, with trace, in chat.
+  // Owner free text gets a "thinking…" placeholder that we live-edit as
+  // claude -p emits stream-json events. Each tool call and assistant text
+  // block updates the same TG message in place — "Streaming Text for Bots"
+  // UX over the existing editMessageText API. Throttled to ≤ 1/800ms.
   const thinkingMsgId = role === 'owner' ? await sendOwnerThinking(msg.threadId) : null
+  const onStream = role === 'owner' ? makeOwnerStreamSink(msg.threadId, thinkingMsgId) : undefined
 
   try {
-    const run = await invokeAgent({ role, msg, mcpConfigPath: MCP_CONFIG })
+    const run = await invokeAgent({ role, msg, mcpConfigPath: MCP_CONFIG, onStream })
     recordRun(msg.threadId, run)
     if (role === 'owner' && thinkingMsgId !== null) {
       await finalizeOwnerThinking(msg.threadId, thinkingMsgId, run)

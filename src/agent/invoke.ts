@@ -27,6 +27,22 @@ export interface AgentResult {
   error?: string
 }
 
+// Streaming events extracted from `claude -p --output-format stream-json` as
+// each subprocess stdout line lands. The wrapper emits these in real time so
+// callers (e.g. the TG owner cockpit) can edit a placeholder message live —
+// "Streaming Text for Bots" UX, but using the existing editMessageText API.
+//
+// stream-json grain: one event per assistant turn or tool round-trip, NOT
+// per-token. We get a complete `assistant` message after each LLM step, plus
+// `user` messages with `tool_result` blocks after each tool call. Final event
+// is `{type:'result',...}`. So "streaming" here is step-granular, not
+// character-granular — but it lines up with TG's edit cadence anyway.
+export type StreamEvent =
+  | { kind: 'text'; chunk: string; running: string }
+  | { kind: 'tool_start'; name: string }
+  | { kind: 'tool_end'; name: string }
+  | { kind: 'done'; final: string }
+
 interface InvokeOptions {
   role: AgentRole
   msg: IncomingMessage
@@ -34,6 +50,9 @@ interface InvokeOptions {
   mcpConfigPath?: string
   // Hard cap on subprocess wall time (ms). Default 90s.
   timeoutMs?: number
+  // Optional streaming hook. Fired for each assistant text block and tool
+  // call as they arrive on stdout. Errors thrown in the callback are swallowed.
+  onStream?: (event: StreamEvent) => void
 }
 
 // Tool names verified live against the sandbox MCP at https://www.steppebusinessclub.com/api/mcp.
@@ -235,45 +254,100 @@ export async function invokeAgent(opts: InvokeOptions): Promise<AgentResult> {
       },
     })
 
-    let stdout = ''
+    // Line-buffered stdout so we can parse + emit stream events as events
+    // arrive, not at process close.
+    let stdoutBuf = ''
     let stderr = ''
+    let reply = ''
+    let runningText = ''
+    let cost_usd: number | null = null
+    const tool_calls: AgentResult['tool_calls'] = []
+
+    const safeStream = (event: StreamEvent) => {
+      if (!opts.onStream) return
+      try {
+        opts.onStream(event)
+      } catch (err) {
+        console.error('[agent] onStream callback err:', (err as Error).message)
+      }
+    }
+
+    interface StreamJsonEvent {
+      type?: string
+      message?: { content?: Array<{ type: string; name?: string; input?: unknown; text?: string }> }
+      result?: string
+      total_cost_usd?: number
+    }
+
+    const handleEvent = (evt: StreamJsonEvent) => {
+      if (evt.type === 'result') {
+        reply = evt.result ?? reply
+        if (typeof evt.total_cost_usd === 'number') cost_usd = evt.total_cost_usd
+        safeStream({ kind: 'done', final: reply })
+        return
+      }
+      if (evt.type === 'assistant' && evt.message?.content) {
+        for (const block of evt.message.content) {
+          if (block.type === 'text' && typeof block.text === 'string' && block.text.length > 0) {
+            runningText = runningText ? `${runningText}\n\n${block.text}` : block.text
+            safeStream({ kind: 'text', chunk: block.text, running: runningText })
+          } else if (block.type === 'tool_use' && block.name && block.name !== 'ToolSearch') {
+            tool_calls.push({ name: block.name, input: block.input })
+            safeStream({ kind: 'tool_start', name: block.name })
+          }
+        }
+        return
+      }
+      if (evt.type === 'user' && evt.message?.content) {
+        for (const block of evt.message.content) {
+          // tool_result blocks confirm a tool call returned. Use the most recent
+          // tool_use name so the UI can show "✓ kitchen_get_capacity → ...".
+          const lastTool = tool_calls[tool_calls.length - 1]
+          if (block.type === 'tool_result' && lastTool) {
+            safeStream({ kind: 'tool_end', name: lastTool.name })
+          }
+        }
+      }
+    }
+
+    const flushLines = () => {
+      let nl = stdoutBuf.indexOf('\n')
+      while (nl !== -1) {
+        const line = stdoutBuf.slice(0, nl).trim()
+        stdoutBuf = stdoutBuf.slice(nl + 1)
+        if (line) {
+          try {
+            handleEvent(JSON.parse(line) as StreamJsonEvent)
+          } catch {
+            // not a complete JSON object — skip
+          }
+        }
+        nl = stdoutBuf.indexOf('\n')
+      }
+    }
+
     const timer = setTimeout(() => {
       child.kill('SIGTERM')
     }, timeoutMs)
 
     child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString()
+      stdoutBuf += chunk.toString()
+      flushLines()
     })
     child.stderr.on('data', (chunk) => {
       stderr += chunk.toString()
     })
     child.on('close', (code) => {
       clearTimeout(timer)
-      const duration_ms = Date.now() - start
-      // stream-json: one JSON object per line. Final line is {type:'result',...}.
-      let reply = ''
-      let cost_usd: number | null = null
-      const tool_calls: AgentResult['tool_calls'] = []
-      for (const line of stdout.split('\n')) {
-        const trimmed = line.trim()
-        if (!trimmed) continue
-        let evt: { type?: string; message?: { content?: Array<{ type: string; name?: string; input?: unknown; text?: string }> }; result?: string; total_cost_usd?: number }
+      // Drain any partial buffer (e.g. last line without trailing newline).
+      if (stdoutBuf.trim()) {
         try {
-          evt = JSON.parse(trimmed)
+          handleEvent(JSON.parse(stdoutBuf.trim()) as StreamJsonEvent)
         } catch {
-          continue
-        }
-        if (evt.type === 'result') {
-          reply = evt.result ?? reply
-          if (typeof evt.total_cost_usd === 'number') cost_usd = evt.total_cost_usd
-        } else if (evt.type === 'assistant' && evt.message?.content) {
-          for (const block of evt.message.content) {
-            if (block.type === 'tool_use' && block.name && block.name !== 'ToolSearch') {
-              tool_calls.push({ name: block.name, input: block.input })
-            }
-          }
+          /* ignore */
         }
       }
+      const duration_ms = Date.now() - start
       const out: AgentResult = {
         reply,
         tool_calls,
