@@ -61,16 +61,18 @@ services:
         scope: RUN_TIME
         value: production
       # BACKEND_URL is required for the website's /api/* rewrites to land on
-      # the Hono server. Set the actual value in the App's Settings → Env
-      # (mark it as a SECRET there). Spec keeps the slot but doesn't ship
-      # the URL — that lives in the DO dashboard so it can be rotated
-      # without redeploying.
+      # the Hono server. The backend is on the operator's laptop during the
+      # hackathon, exposed publicly via an ngrok / cloudflared tunnel.
+      # Set the actual value in the App's Settings → Env (mark it SECRET).
+      # Spec keeps the slot but doesn't ship the URL — that way the URL
+      # can rotate (ngrok free-tier rotates on every restart) without
+      # bumping the spec.
       - key: BACKEND_URL
         scope: RUN_TIME
         type: SECRET
-        # Placeholder — overwritten in dashboard. Example:
-        #   https://happycake-api.flowleads.dev
-        # or a private DO droplet IP if peered.
+        # Replace in dashboard. Examples:
+        #   https://abc123.ngrok-free.app          (laptop + ngrok)
+        #   https://happycake-api.flowleads.dev    (future: droplet via Caddy)
         value: REPLACE_IN_DASHBOARD
       - key: NEXT_PUBLIC_SITE_URL
         scope: BUILD_TIME
