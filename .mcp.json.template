@@ -1,0 +1,17 @@
+{
+  "_doc": "Template — token is substituted in at setup-time. Run `bun run setup:mcp` to render to .mcp.json (gitignored).",
+  "mcpServers": {
+    "happycake": {
+      "type": "http",
+      "url": "${SBC_MCP_URL}",
+      "headers": {
+        "X-Team-Token": "${SBC_TEAM_TOKEN}"
+      }
+    },
+    "local": {
+      "type": "stdio",
+      "command": "bun",
+      "args": ["src/agent/mcp/local-server.ts"]
+    }
+  }
+}

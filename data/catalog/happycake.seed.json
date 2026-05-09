@@ -1,0 +1,89 @@
+{
+  "_note": "Seed mirroring sandbox `square_list_catalog`. Source: docs/sandbox/SNAPSHOT.md. The agent reads the sandbox at runtime; this seed lets the website render before /api/chat is up. Prices in USD cents; lead_time_hours derived from prep minutes (kitchen capacity is its own concern).",
+  "products": [
+    {
+      "id": "honey-cake-slice",
+      "name": "Honey Cake (slice)",
+      "category": "slices",
+      "price_cents": 850,
+      "lead_time_hours": 1,
+      "allergens": "eggs,dairy,gluten",
+      "description": "Our signature — homemade-tasting honey cake. By the slice, fresh from the case.",
+      "photo_url": "/photos/honey-cake-slice.jpg",
+      "in_stock": 1,
+      "daily_capacity": 80
+    },
+    {
+      "id": "whole-honey-cake",
+      "name": "Whole Honey Cake",
+      "category": "whole-cakes",
+      "price_cents": 5500,
+      "lead_time_hours": 1,
+      "allergens": "eggs,dairy,gluten",
+      "description": "Whole signature honey cake — feeds about a dozen. Hand-decorated, hand-packed.",
+      "photo_url": "/photos/whole-honey-cake.jpg",
+      "in_stock": 1,
+      "daily_capacity": 12
+    },
+    {
+      "id": "pistachio-roll",
+      "name": "Pistachio Roll",
+      "category": "slices",
+      "price_cents": 950,
+      "lead_time_hours": 1,
+      "allergens": "eggs,dairy,gluten,nuts",
+      "description": "Soft sponge rolled with pistachio cream. By the slice.",
+      "photo_url": "/photos/pistachio-roll.jpg",
+      "in_stock": 1,
+      "daily_capacity": 30
+    },
+    {
+      "id": "custom-birthday-cake",
+      "name": "Custom Birthday Cake",
+      "category": "custom",
+      "price_cents": 9500,
+      "lead_time_hours": 24,
+      "allergens": "eggs,dairy,gluten",
+      "description": "Designed with you — flavors, fillings, message, photo or fondant. Serves 12–20.",
+      "photo_url": "/photos/custom-birthday-cake.jpg",
+      "in_stock": 1,
+      "daily_capacity": 4
+    },
+    {
+      "id": "office-dessert-box",
+      "name": "Office Dessert Box",
+      "category": "catering",
+      "price_cents": 12000,
+      "lead_time_hours": 3,
+      "allergens": "eggs,dairy,gluten,nuts",
+      "description": "Curated assortment for offices and gatherings — slices, rolls, mini cakes.",
+      "photo_url": "/photos/office-dessert-box.jpg",
+      "in_stock": 1,
+      "daily_capacity": 8
+    }
+  ],
+  "policies": {
+    "lead_time": {
+      "default_minutes": 45,
+      "kitchen_daily_capacity_minutes": 420,
+      "custom_min_hours": 24,
+      "catering_min_hours": 3,
+      "note": "Kitchen has 420 minutes/day total; per-product capacity is the limiting constraint. Always check via `kitchen_get_capacity` before promising."
+    },
+    "fulfillment": {
+      "pickup": { "available": true, "free": true, "address": "Sugar Land, TX (exact address shared at confirmation)" },
+      "local_delivery": { "available": true, "area": "Sugar Land + Houston metro", "fee_note": "confirmed at order time" },
+      "shipping": { "available": false }
+    },
+    "payment": { "methods": ["card", "cash_at_pickup", "zelle"], "note": "Card via Square at confirmation." },
+    "allergens": {
+      "shared_kitchen": "Eggs, dairy, gluten, tree nuts handled in same kitchen — cross-contamination possible.",
+      "critical_allergy_protocol": "For severe allergies, please escalate — Askhat reviews each request."
+    },
+    "cancellation": {
+      "free_until_hours_before": 24,
+      "late_cancel_charge_pct": 100,
+      "note": "Late cancellations are charged in full because the kitchen has already worked."
+    }
+  }
+}

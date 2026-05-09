@@ -1,0 +1,42 @@
+node_modules
+web/node_modules
+web/.next
+web/out
+bun.lockb
+bun.lock
+.data/
+.env
+.env.local
+.env.*.local
+*.db
+*.db-journal
+.DS_Store
+dist/
+build/
+.tmp/
+.cache/
+.vscode/
+.idea/
+
+# Claude Code per-machine settings
+.claude/settings.local.json
+
+# Resolved MCP config (contains team token). Use .mcp.json.template instead.
+.mcp.json
+
+# evidence outputs from sandbox MCP
+evidence/
+evals/reports/
+
+# NDA per hackathon brief: "Sandbox data, brand assets, and CSV stay confidential."
+docs/sandbox/
+docs/00-source/BRANDBOOK.md
+docs/00-source/SNAPSHOT.md
+docs/00-source/asset-pack.metadata.json
+docs/00-source/mcp-tools.json
+# BRIEF.md and any *.csv stay confidential per the same clause
+docs/00-source/*.csv
+# (docs/00-source/BRIEF.md is from the public hackathon page — OK to commit)
+
+# Internal team work board — not for the public submission repo
+docs/03-build/STATUS.md

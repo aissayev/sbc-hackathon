@@ -1,0 +1,309 @@
+// Headless agent runtime — spawns `claude -p` per event.
+//
+// The hackathon hard-rule:
+//   "Agents must run on Claude Code CLI with Opus 4.7. Submissions that route
+//    through Claude Agent SDK ... are disqualified."
+//
+// So this wrapper IS the agent runtime. It builds a per-role prompt, attaches
+// MCP servers (sandbox + local stdio), invokes `claude -p`, and returns the
+// reply text + tool-call trace.
+//
+// Each role has its own system prompt + tool allowlist (see prompts/<role>.md).
+
+import { spawn } from 'node:child_process'
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { config } from '../config.ts'
+import { getDb } from '../db/db.ts'
+import type { AgentRole, IncomingMessage } from '../channels/types.ts'
+import { loadHistory, saveHistory, trimHistory, type HistoryEntry } from '../db/threads.ts'
+
+export interface AgentResult {
+  reply: string
+  tool_calls: Array<{ name: string; input?: unknown }>
+  duration_ms: number
+  cost_usd: number | null
+  exit_code: number
+  error?: string
+}
+
+interface InvokeOptions {
+  role: AgentRole
+  msg: IncomingMessage
+  // MCP config file path. If unset, we use the repo's .claude/mcp.json (auto-discovered).
+  mcpConfigPath?: string
+  // Hard cap on subprocess wall time (ms). Default 90s.
+  timeoutMs?: number
+}
+
+// Tool names verified live against the sandbox MCP at https://www.steppebusinessclub.com/api/mcp.
+// All `mcp__happycake__*` names come from the system-init payload of `claude -p`.
+const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
+  concierge: [
+    // Sandbox: catalog + customer messaging + POS
+    'mcp__happycake__square_list_catalog',
+    'mcp__happycake__square_get_inventory',
+    'mcp__happycake__square_create_order',
+    'mcp__happycake__whatsapp_send',
+    'mcp__happycake__instagram_send_dm',
+    'mcp__happycake__kitchen_get_menu_constraints',
+    'mcp__happycake__kitchen_get_capacity',
+    // Local: thread state + drafts + escalation
+    'mcp__local__list_products',
+    'mcp__local__check_constraints',
+    'mcp__local__create_draft_order',
+    'mcp__local__get_order_status',
+    'mcp__local__escalate_to_owner',
+  ],
+  kitchen: [
+    'mcp__happycake__kitchen_create_ticket',
+    'mcp__happycake__kitchen_get_capacity',
+    'mcp__happycake__kitchen_accept_ticket',
+    'mcp__happycake__kitchen_reject_ticket',
+    'mcp__happycake__kitchen_mark_ready',
+    'mcp__happycake__kitchen_list_tickets',
+    'mcp__happycake__kitchen_get_production_summary',
+    'mcp__local__get_order_status',
+    'mcp__local__list_orders',
+    'mcp__local__notify_customer',
+  ],
+  marketing: [
+    'mcp__happycake__marketing_create_campaign',
+    'mcp__happycake__marketing_launch_simulated_campaign',
+    'mcp__happycake__marketing_get_campaign_metrics',
+    'mcp__happycake__marketing_get_margin_by_product',
+    'mcp__happycake__marketing_get_sales_history',
+    'mcp__happycake__marketing_get_budget',
+    'mcp__happycake__marketing_generate_leads',
+    'mcp__happycake__marketing_route_lead',
+    'mcp__happycake__marketing_adjust_campaign',
+    'mcp__happycake__marketing_report_to_owner',
+    'mcp__happycake__square_get_pos_summary',
+    'mcp__happycake__square_recent_sales_csv',
+    'mcp__happycake__gb_simulate_post',
+    'mcp__local__queue_owner_approval',
+  ],
+  owner: [
+    'mcp__local__list_orders',
+    'mcp__local__list_escalations',
+    'mcp__local__approve_order',
+    'mcp__local__reject_order',
+    'mcp__local__daily_report',
+    'mcp__happycake__evaluator_get_evidence_summary',
+    'mcp__happycake__evaluator_generate_team_report',
+    'mcp__happycake__square_get_pos_summary',
+    'mcp__happycake__kitchen_get_production_summary',
+    'mcp__happycake__marketing_get_campaign_metrics',
+  ],
+}
+
+// Everything Claude Code ships with that the headless agent must NEVER touch.
+// - Filesystem & shell:  Bash, Edit, Write, Read, Glob, Grep, NotebookEdit
+// - Internet:            WebFetch, WebSearch
+// - Subagents / tasks:   Agent, Task, TaskOutput, TaskStop
+// - Scheduling:          CronCreate, CronDelete, CronList, ScheduleWakeup
+// - System surface:      Monitor, PushNotification, RemoteTrigger
+// - Git / worktree:      EnterWorktree, ExitWorktree
+// - Interactive blockers: AskUserQuestion, EnterPlanMode, ExitPlanMode
+// - Skill discovery:     Skill (broad — could resolve arbitrary skill packs)
+// - Bookkeeping:         TodoWrite (no value in a one-shot subprocess)
+//
+// Intentionally NOT denied (benign + required):
+// - ToolSearch  — Claude Code uses this internally to hydrate deferred MCP
+//                 schemas when the tool list is large. Filtered from our trace.
+// - ListMcpResourcesTool / ReadMcpResourceTool — read MCP resources only,
+//                 not the local filesystem.
+const DENY_ALWAYS = [
+  'Bash', 'Edit', 'Write', 'Read', 'Glob', 'Grep', 'NotebookEdit',
+  'WebFetch', 'WebSearch',
+  'Agent', 'Task', 'TaskOutput', 'TaskStop',
+  'CronCreate', 'CronDelete', 'CronList', 'ScheduleWakeup',
+  'Monitor', 'PushNotification', 'RemoteTrigger',
+  'EnterWorktree', 'ExitWorktree',
+  'AskUserQuestion', 'EnterPlanMode', 'ExitPlanMode',
+  'Skill',
+  'TodoWrite',
+]
+
+function loadPrompt(role: AgentRole): string {
+  const path = resolve(`src/agent/prompts/${role}.md`)
+  if (!existsSync(path)) return `You are the Happy Cake US ${role} agent. Be helpful, concise, brand-voiced.`
+  return readFileSync(path, 'utf8')
+}
+
+function buildPrompt(msg: IncomingMessage, history: HistoryEntry[]): string {
+  const transcript = history.map((h) => `[${h.role}] ${h.content}`).join('\n')
+  return [
+    transcript ? `<conversation_history>\n${transcript}\n</conversation_history>` : '',
+    `<thread_meta>channel=${msg.channel} thread_id=${msg.threadId} sender=${msg.senderName ?? msg.senderId}</thread_meta>`,
+    `<customer_message>\n${msg.text}\n</customer_message>`,
+    'Reply to the customer. Use tools as needed. Do NOT include the tags above in your reply.',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+function logInvocation(row: {
+  id: string
+  role: AgentRole
+  thread_id: string
+  prompt_chars: number
+  response_chars: number
+  duration_ms: number
+  cost_usd: number | null
+  exit_code: number
+  error?: string
+}) {
+  try {
+    getDb()
+      .prepare(
+        `INSERT INTO agent_invocations
+         (id, role, thread_id, prompt_chars, response_chars, duration_ms, cost_usd, exit_code, error, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        row.id,
+        row.role,
+        row.thread_id,
+        row.prompt_chars,
+        row.response_chars,
+        row.duration_ms,
+        row.cost_usd,
+        row.exit_code,
+        row.error ?? null,
+        Date.now(),
+      )
+  } catch (err) {
+    console.error('[agent] invocation log failed:', (err as Error).message)
+  }
+}
+
+export async function invokeAgent(opts: InvokeOptions): Promise<AgentResult> {
+  const { role, msg } = opts
+  const timeoutMs = opts.timeoutMs ?? 90_000
+
+  const history = trimHistory(loadHistory(msg.threadId))
+  const userPrompt = buildPrompt(msg, history)
+  const systemPrompt = loadPrompt(role)
+  const allowedTools = ROLE_TOOL_ALLOWLIST[role]
+
+  const args: string[] = [
+    '-p',
+    userPrompt,
+    '--model',
+    config.agent.model,
+    '--output-format',
+    'stream-json',
+    '--verbose',
+    '--append-system-prompt',
+    systemPrompt,
+    '--allowedTools',
+    allowedTools.join(' '),
+    '--disallowedTools',
+    DENY_ALWAYS.join(' '),
+    '--max-budget-usd',
+    String(config.agent.maxBudgetUsd),
+    '--dangerously-skip-permissions',
+    '--no-session-persistence',
+  ]
+  if (opts.mcpConfigPath) {
+    args.push('--mcp-config', opts.mcpConfigPath)
+  }
+
+  const start = Date.now()
+  const id = `inv_${start}_${Math.random().toString(36).slice(2, 8)}`
+
+  const result = await new Promise<AgentResult>((resolveOuter) => {
+    const child = spawn(config.agent.bin, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        // Inject sandbox MCP token only at subprocess level; never log.
+        SBC_TEAM_TOKEN: config.sandbox.teamToken ?? '',
+        SBC_MCP_URL: config.sandbox.mcpUrl,
+      },
+    })
+
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM')
+    }, timeoutMs)
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString()
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      const duration_ms = Date.now() - start
+      // stream-json: one JSON object per line. Final line is {type:'result',...}.
+      let reply = ''
+      let cost_usd: number | null = null
+      const tool_calls: AgentResult['tool_calls'] = []
+      for (const line of stdout.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        let evt: { type?: string; message?: { content?: Array<{ type: string; name?: string; input?: unknown; text?: string }> }; result?: string; total_cost_usd?: number }
+        try {
+          evt = JSON.parse(trimmed)
+        } catch {
+          continue
+        }
+        if (evt.type === 'result') {
+          reply = evt.result ?? reply
+          if (typeof evt.total_cost_usd === 'number') cost_usd = evt.total_cost_usd
+        } else if (evt.type === 'assistant' && evt.message?.content) {
+          for (const block of evt.message.content) {
+            if (block.type === 'tool_use' && block.name && block.name !== 'ToolSearch') {
+              tool_calls.push({ name: block.name, input: block.input })
+            }
+          }
+        }
+      }
+      const out: AgentResult = {
+        reply,
+        tool_calls,
+        duration_ms,
+        cost_usd,
+        exit_code: code ?? -1,
+        error: code === 0 ? undefined : stderr.slice(0, 1000) || `exit ${code}`,
+      }
+      logInvocation({
+        id,
+        role,
+        thread_id: msg.threadId,
+        prompt_chars: userPrompt.length,
+        response_chars: reply.length,
+        duration_ms,
+        cost_usd,
+        exit_code: code ?? -1,
+        error: out.error,
+      })
+      resolveOuter(out)
+    })
+  })
+
+  if (result.exit_code === 0 && result.reply) {
+    const newHistory: HistoryEntry[] = [
+      ...history,
+      { role: 'user', content: msg.text, ts: msg.timestamp },
+      { role: 'assistant', content: result.reply, ts: Date.now() },
+    ]
+    saveHistory(msg.threadId, msg.channel, newHistory, msg.senderName, msg.senderId)
+  }
+
+  return result
+}
+
+// Keyed by threadId so /test/incoming can return the last tool-call trace
+// for evaluator inspection without rerunning the agent.
+const lastRun = new Map<string, AgentResult>()
+export function recordRun(threadId: string, run: AgentResult) {
+  lastRun.set(threadId, run)
+}
+export function getLastRun(threadId: string): AgentResult | undefined {
+  return lastRun.get(threadId)
+}

@@ -1,0 +1,246 @@
+// Pure domain operations. No HTTP, no MCP wire concerns. The local MCP server
+// in src/agent/mcp/local-server.ts wraps these; HTTP routes call them too.
+//
+// The sandbox MCP is the source of truth at runtime for: real catalog, kitchen
+// capacity, marketing campaigns. These local versions are fallbacks for the
+// website (always-on) and for thread/order state we own.
+
+import { z } from 'zod'
+import { getDb } from '../db/db.ts'
+import type { Channel } from '../channels/types.ts'
+
+// ─── Products / catalog ──────────────────────────────────────────────────
+
+export const listProductsSchema = z.object({
+  category: z.string().optional(),
+  in_stock_only: z.boolean().default(true),
+})
+
+export type ListProductsArgs = z.infer<typeof listProductsSchema>
+
+export interface Product {
+  id: string
+  name: string
+  category: string
+  price_cents: number
+  lead_time_hours: number
+  allergens: string | null
+  description: string | null
+  photo_url: string | null
+  in_stock: number
+  daily_capacity: number | null
+}
+
+export function listProducts(args: ListProductsArgs): Product[] {
+  const where: string[] = []
+  const params: string[] = []
+  if (args.category) {
+    where.push('category = ?')
+    params.push(args.category)
+  }
+  if (args.in_stock_only) where.push('in_stock = 1')
+  const sql = `SELECT id, name, category, price_cents, lead_time_hours, allergens, description, photo_url, in_stock, daily_capacity
+              FROM products ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+              ORDER BY category, name`
+  return getDb().prepare(sql).all(...params) as Product[]
+}
+
+export function getProduct(id: string): Product | null {
+  return (
+    (getDb()
+      .prepare(
+        'SELECT id, name, category, price_cents, lead_time_hours, allergens, description, photo_url, in_stock, daily_capacity FROM products WHERE id = ?',
+      )
+      .get(id) as Product | undefined) ?? null
+  )
+}
+
+// ─── Constraints check ──────────────────────────────────────────────────
+
+export const checkConstraintsSchema = z.object({
+  product_id: z.string(),
+  scheduled_at_iso: z.string(),
+})
+
+export function checkConstraints(args: z.infer<typeof checkConstraintsSchema>) {
+  const product = getProduct(args.product_id)
+  if (!product) return { ok: false, reason: 'product not found' }
+  if (!product.in_stock) return { ok: false, reason: 'out of stock' }
+  const scheduled = new Date(args.scheduled_at_iso).getTime()
+  if (Number.isNaN(scheduled)) return { ok: false, reason: 'invalid scheduled_at_iso' }
+  const minimumStart = Date.now() + product.lead_time_hours * 3600_000
+  if (scheduled < minimumStart) {
+    return {
+      ok: false,
+      reason: `lead time is ${product.lead_time_hours}h`,
+      earliest_iso: new Date(minimumStart).toISOString(),
+    }
+  }
+  return { ok: true }
+}
+
+// ─── Orders ──────────────────────────────────────────────────────────────
+
+export const createDraftOrderSchema = z.object({
+  thread_id: z.string(),
+  channel: z.enum(['whatsapp', 'instagram', 'web', 'telegram']),
+  customer_name: z.string().optional(),
+  customer_phone: z.string().optional(),
+  items: z.array(z.object({ product_id: z.string(), quantity: z.number().int().positive() })).min(1),
+  scheduled_at_iso: z.string().optional(),
+  pickup_or_delivery: z.enum(['pickup', 'delivery']).default('pickup'),
+  notes: z.string().optional(),
+})
+
+export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>) {
+  let total = 0
+  const itemsResolved: Array<{ sku: string; qty: number; unit_cents: number; line_total_cents: number; name: string }> = []
+  for (const it of args.items) {
+    const p = getProduct(it.product_id)
+    if (!p) return { ok: false, reason: `unknown product ${it.product_id}` }
+    const lineTotal = p.price_cents * it.quantity
+    total += lineTotal
+    itemsResolved.push({
+      sku: p.id,
+      qty: it.quantity,
+      unit_cents: p.price_cents,
+      line_total_cents: lineTotal,
+      name: p.name,
+    })
+  }
+  const id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const now = Date.now()
+  getDb()
+    .prepare(
+      `INSERT INTO orders
+       (id, thread_id, channel, status, customer_name, customer_phone, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, created_at, updated_at)
+       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      args.thread_id,
+      args.channel,
+      args.customer_name ?? null,
+      args.customer_phone ?? null,
+      JSON.stringify(itemsResolved),
+      total,
+      args.scheduled_at_iso ?? null,
+      args.pickup_or_delivery,
+      args.notes ?? null,
+      now,
+      now,
+    )
+  return { ok: true, order_id: id, total_cents: total, items: itemsResolved, status: 'draft' as const }
+}
+
+export const getOrderStatusSchema = z.object({
+  order_id: z.string(),
+})
+
+export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
+  const row = getDb()
+    .prepare(
+      'SELECT id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id FROM orders WHERE id = ?',
+    )
+    .get(args.order_id)
+  return row ?? { ok: false, reason: 'order not found' }
+}
+
+export function listOrders(filter?: { status?: string; limit?: number }) {
+  const limit = filter?.limit ?? 50
+  if (filter?.status) {
+    return getDb()
+      .prepare(
+        `SELECT id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+         WHERE status = ? ORDER BY created_at DESC LIMIT ?`,
+      )
+      .all(filter.status, limit)
+  }
+  return getDb()
+    .prepare(
+      `SELECT id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+       ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(limit)
+}
+
+export function updateOrderStatus(orderId: string, status: string, note?: string) {
+  const now = Date.now()
+  const result = getDb()
+    .prepare('UPDATE orders SET status = ?, updated_at = ?, notes = COALESCE(?, notes) WHERE id = ?')
+    .run(status, now, note ?? null, orderId)
+  return { ok: result.changes > 0 }
+}
+
+// ─── Escalations ─────────────────────────────────────────────────────────
+
+export const escalateSchema = z.object({
+  thread_id: z.string(),
+  channel: z.enum(['whatsapp', 'instagram', 'web', 'telegram']),
+  reason: z.string(),
+  context: z.string().optional(),
+  severity: z.enum(['low', 'medium', 'high']).default('low'),
+})
+
+export function escalate(args: z.infer<typeof escalateSchema>) {
+  const id = `esc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  getDb()
+    .prepare(
+      `INSERT INTO escalations (id, thread_id, channel, reason, severity, context_json, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
+    )
+    .run(id, args.thread_id, args.channel, args.reason, args.severity, args.context ?? null, Date.now())
+  return { ok: true, escalation_id: id }
+}
+
+export function listEscalations(filter?: { status?: string }) {
+  if (filter?.status) {
+    return getDb()
+      .prepare(
+        `SELECT id, thread_id, channel, reason, severity, status, created_at FROM escalations
+         WHERE status = ? ORDER BY created_at DESC LIMIT 100`,
+      )
+      .all(filter.status)
+  }
+  return getDb()
+    .prepare(
+      `SELECT id, thread_id, channel, reason, severity, status, created_at FROM escalations
+       ORDER BY created_at DESC LIMIT 100`,
+    )
+    .all()
+}
+
+// ─── Reporting ───────────────────────────────────────────────────────────
+
+export function dailyReport(): {
+  date: string
+  orders_count: number
+  revenue_cents: number
+  pending_approval: number
+  escalations_open: number
+} {
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  const since = startOfDay.getTime()
+  const db = getDb()
+  const orders = db
+    .prepare("SELECT COUNT(*) as n, COALESCE(SUM(total_cents), 0) as rev FROM orders WHERE created_at >= ? AND status NOT IN ('rejected','cancelled')")
+    .get(since) as { n: number; rev: number }
+  const pending = db
+    .prepare("SELECT COUNT(*) as n FROM orders WHERE status = 'draft'")
+    .get() as { n: number }
+  const escs = db
+    .prepare("SELECT COUNT(*) as n FROM escalations WHERE status = 'open'")
+    .get() as { n: number }
+  return {
+    date: new Date(since).toISOString().slice(0, 10),
+    orders_count: orders.n,
+    revenue_cents: orders.rev,
+    pending_approval: pending.n,
+    escalations_open: escs.n,
+  }
+}
+
+// ─── Channel types re-export for MCP server's convenience ────────────────
+
+export type { Channel }

@@ -1,0 +1,35 @@
+{
+  "name": "happycake-agents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Happy Cake US — agentic multi-channel sales system. Built for Steppe Business Club hackathon May 9–10 2026. Runtime: Claude Code CLI (Opus 4.7) only.",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "setup:mcp": "bun src/scripts/setup-mcp.ts",
+    "preflight": "bun src/scripts/preflight.ts",
+    "smoke:agent": "bun src/scripts/smoke-agent.ts",
+    "agent:concierge": "bun src/scripts/agent-cli.ts concierge",
+    "agent:kitchen": "bun src/scripts/agent-cli.ts kitchen",
+    "agent:marketing": "bun src/scripts/agent-cli.ts marketing",
+    "agent:owner": "bun src/scripts/agent-cli.ts owner",
+    "smoke:wa": "bun src/scripts/smoke-wa.ts",
+    "mcp:local": "bun src/agent/mcp/local-server.ts",
+    "db:init": "bun src/scripts/db-init.ts",
+    "db:seed": "bun src/scripts/db-init.ts --seed",
+    "world:start": "bun src/scripts/world-start.ts",
+    "world:tick": "bun src/scripts/world-tick.ts",
+    "evidence": "bun src/scripts/evidence.ts"
+  },
+  "dependencies": {
+    "hono": "^4.6.13",
+    "zod": "^3.24.1",
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.7.2"
+  }
+}
