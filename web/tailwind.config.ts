@@ -6,27 +6,47 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: '1rem',
-      screens: { '2xl': '1200px' },
+      padding: { DEFAULT: '1.25rem', md: '2rem' },
+      screens: { '2xl': '1240px' },
     },
     extend: {
       colors: {
-        // HappyCake palette — see docs/00-source/BRANDBOOK.md §4
-        happy: {
-          900: '#0E2A3C',
-          700: '#1B4868',
-          500: '#3B7BA8',
-          200: '#BFD8E8',
+        // Canonical Happy Cake palette — docs/00-source/asset-pack.metadata.json
+        sky: {
+          DEFAULT: '#00AEEA',           // Happy Sky Blue — primary CTA / accent
+          50: '#EAF7FE',
+          100: '#D2EFFC',
+          200: '#9DDCF7',
+          300: '#5EC5F1',
+          500: '#00AEEA',
+          700: '#0388B3',
+          900: '#054766',
+        },
+        cocoa: {
+          DEFAULT: '#6B3A1E',           // Chocolate Brown — wordmark, body text
+          50: '#F8EFE8',
+          100: '#EDD9C8',
+          200: '#D6B093',
+          500: '#6B3A1E',
+          700: '#4A2614',
+          900: '#2A140A',
         },
         cream: {
-          50: '#FBF6E8',
-          100: '#F4ECD3',
-          200: '#E9DBB4',
+          DEFAULT: '#FFF7EA',
+          50: '#FFFBF3',
+          100: '#FFF7EA',               // Vanilla Cream — primary background
+          200: '#F8ECD3',
+          300: '#EFDFB7',
         },
-        coral: '#E08066',
-        sage: '#6E9D74',
-        ink: '#1A1816',
-        // shadcn semantic tokens — wired to HappyCake palette so primitives feel native
+        berry: {
+          DEFAULT: '#E94B7B',           // Berry Accent — promos, sparingly
+          100: '#FBE0E9',
+        },
+        bakery: '#FFFFFF',              // Bakery White — cards, logo safe-space
+        ink: '#2A140A',                 // Body text on cream (= cocoa-900)
+
+        // shadcn semantic tokens — wired to Happy Cake palette so primitives
+        // feel native instead of greyish defaults.
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -63,20 +83,32 @@ const config: Config = {
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'calc(var(--radius) - 4px)',
+        sm: 'calc(var(--radius) - 8px)',
       },
       fontFamily: {
-        display: ['var(--font-display)', 'Cormorant Garamond', 'serif'],
+        display: ['var(--font-display)', '"Playfair Display"', 'Georgia', 'serif'],
         body: ['var(--font-body)', 'Inter', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        // Brand book §4 typographic scale
-        h1: ['3rem', { lineHeight: '1.05', fontWeight: '500' }],
-        h2: ['2rem', { lineHeight: '1.15', fontWeight: '500' }],
-        h3: ['1.375rem', { lineHeight: '1.25', fontWeight: '500' }],
+        h1: ['clamp(2.5rem, 6vw, 4.25rem)', { lineHeight: '1.05', fontWeight: '600' }],
+        h2: ['clamp(1.875rem, 3.6vw, 2.625rem)', { lineHeight: '1.15', fontWeight: '600' }],
+        h3: ['1.5rem', { lineHeight: '1.25', fontWeight: '600' }],
+      },
+      boxShadow: {
+        soft: '0 12px 40px -16px rgba(107, 58, 30, 0.18)',
+        lift: '0 18px 50px -22px rgba(107, 58, 30, 0.28)',
+        ring: '0 0 0 6px rgba(0, 174, 234, 0.18)',
+      },
+      backgroundImage: {
+        'hero-glow':
+          'radial-gradient(60% 60% at 78% 18%, rgba(0, 174, 234, 0.18) 0%, transparent 70%), linear-gradient(165deg, #FFFBF3 0%, #FFF7EA 50%, #FBE9F0 100%)',
       },
       keyframes: {
+        'fade-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
         'accordion-down': {
           from: { height: '0' },
           to: { height: 'var(--radix-accordion-content-height)' },
@@ -85,15 +117,11 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
-        'fade-in': {
-          from: { opacity: '0', transform: 'translateY(4px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
-        },
       },
       animation: {
+        'fade-in': 'fade-in 0.35s ease-out',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'fade-in': 'fade-in 0.2s ease-out',
       },
     },
   },

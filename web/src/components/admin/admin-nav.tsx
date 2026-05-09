@@ -23,8 +23,8 @@ export function AdminNav() {
             className={cn(
               'px-4 h-10 inline-flex items-center rounded-md text-sm whitespace-nowrap',
               active
-                ? 'bg-happy-700 text-cream-50'
-                : 'text-happy-900 hover:bg-cream-100 border border-happy-700/15',
+                ? 'bg-cocoa-700 text-cream-50'
+                : 'text-cocoa-900 hover:bg-cream-100 border border-cocoa-700/15',
             )}
           >
             {it.label}

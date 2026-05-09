@@ -1,22 +1,21 @@
+'use client'
+
+import * as React from 'react'
+import Image from 'next/image'
+import { pickProductPhoto } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
-// We don't ship product photography in the seed yet — BRANDBOOK §4 forbids
-// AI-generated cake photos. Until real shots arrive we render a tasteful
-// placeholder built from the brand patterns and palette so cards still feel
-// like HappyCake instead of a Lorem-Picsum holding pattern.
-
-const SWATCHES = [
-  { from: 'from-cream-100', to: 'to-cream-200', dot: 'pattern-dots-blue' },
-  { from: 'from-happy-200', to: 'to-cream-100', dot: 'pattern-dots-cream' },
-  { from: 'from-cream-200', to: 'to-happy-200', dot: 'pattern-dots-blue' },
-  { from: 'from-cream-50', to: 'to-cream-200', dot: 'pattern-dots-blue' },
-]
-
-function pickSwatch(seed: string) {
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
-  return SWATCHES[h % SWATCHES.length]
-}
+// Picks a real photo from the canonical asset pack when one isn't provided
+// in the catalog. The `photo_url` field on a product still wins — that's how
+// the kitchen will assign specific shots to specific cakes once they're paired
+// in the seed. In the hackathon timeline we deterministically rotate through
+// the 10 approved product shots so each card always shows the same image
+// for the same id.
+//
+// While the binaries aren't on disk yet, next/image's onError lets us fall
+// back to a tasteful brand pattern so cards never render as broken-image
+// glyphs. Once the user drops the .webp files into web/public/assets/, the
+// fallback disappears.
 
 export function CakePhoto({
   productId,
@@ -24,51 +23,55 @@ export function CakePhoto({
   src,
   className,
   aspect = 'square',
+  priority = false,
 }: {
   productId: string
   name: string
   src?: string | null
   className?: string
   aspect?: 'square' | 'portrait' | 'wide'
+  priority?: boolean
 }) {
   const aspectClass =
     aspect === 'portrait' ? 'aspect-[4/5]' : aspect === 'wide' ? 'aspect-[16/10]' : 'aspect-square'
-
-  if (src) {
-    return (
-      <div className={cn('overflow-hidden rounded-lg bg-cream-100', aspectClass, className)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
+  const finalSrc = src && src.trim().length > 0 ? src : pickProductPhoto(productId)
+  const [failed, setFailed] = React.useState(false)
+  return (
+    <div className={cn('relative overflow-hidden rounded-2xl bg-cream-200', aspectClass, className)}>
+      <Fallback productId={productId} className={cn('absolute inset-0', failed ? '' : 'opacity-0')} />
+      {!failed && (
+        <Image
+          src={finalSrc}
           alt={name}
-          className="h-full w-full object-cover"
-          loading="lazy"
-          decoding="async"
+          fill
+          sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw"
+          className="object-cover"
+          priority={priority}
+          onError={() => setFailed(true)}
         />
-      </div>
-    )
-  }
+      )}
+    </div>
+  )
+}
 
-  const swatch = pickSwatch(productId)
+const SWATCHES = [
+  { from: '#FFFBF3', to: '#F8ECD3' },
+  { from: '#FFF7EA', to: '#FBE0E9' },
+  { from: '#F8ECD3', to: '#D2EFFC' },
+  { from: '#FBE0E9', to: '#FFF7EA' },
+]
+
+function Fallback({ productId, className }: { productId: string; className?: string }) {
+  let h = 0
+  for (let i = 0; i < productId.length; i++) h = (h * 31 + productId.charCodeAt(i)) >>> 0
+  const swatch = SWATCHES[h % SWATCHES.length]
   return (
     <div
-      className={cn(
-        'relative overflow-hidden rounded-lg bg-gradient-to-br',
-        swatch.from,
-        swatch.to,
-        aspectClass,
-        className,
-      )}
-      role="img"
-      aria-label={name}
+      className={cn('flex items-center justify-center pattern-dots-cocoa', className)}
+      style={{ background: `linear-gradient(135deg, ${swatch.from}, ${swatch.to})` }}
+      aria-hidden
     >
-      <div className={cn('absolute inset-0 opacity-70', swatch.dot)} aria-hidden />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <CakeMark className="h-16 w-16 text-happy-700/70" />
-      </div>
-      <div className="absolute bottom-3 left-4 right-4 text-[11px] uppercase tracking-[0.16em] text-happy-900/70">
-        ◆ photo coming soon
-      </div>
+      <CakeMark className="h-16 w-16 text-cocoa-700/65" />
     </div>
   )
 }

@@ -40,21 +40,21 @@ function Section({
         {orders.length > 0 && tone === 'blue' && <Badge variant="blue">{orders.length}</Badge>}
       </div>
       {orders.length === 0 ? (
-        <div className="mt-3 rounded-md bg-cream-100 p-6 text-sm text-happy-900/70">{empty}</div>
+        <div className="mt-3 rounded-md bg-cream-100 p-6 text-sm text-cocoa-900/70">{empty}</div>
       ) : (
-        <ul className={`mt-3 divide-y divide-happy-700/10 rounded-md border border-happy-700/15 bg-white ${muted ? 'opacity-80' : ''}`}>
+        <ul className={`mt-3 divide-y divide-cocoa-700/10 rounded-md border border-cocoa-700/15 bg-white ${muted ? 'opacity-80' : ''}`}>
           {orders.map((o) => (
             <li key={o.id} className="p-4 flex items-center gap-3 justify-between flex-wrap">
               <div>
                 <Link
                   href={`/admin/orders/${o.id}`}
-                  className="font-medium text-happy-900 hover:text-happy-700"
+                  className="font-medium text-cocoa-900 hover:text-cocoa-700"
                 >
                   #{o.id.slice(-8)}
                 </Link>
-                <span className="ml-3 text-sm text-happy-900/70">{o.customer_name ?? '—'}</span>
+                <span className="ml-3 text-sm text-cocoa-900/70">{o.customer_name ?? '—'}</span>
               </div>
-              <div className="text-sm text-happy-900/70 flex items-center gap-3">
+              <div className="text-sm text-cocoa-900/70 flex items-center gap-3">
                 <span>{fmtUsd(o.total_cents)}</span>
                 {o.scheduled_at && <span>· {fmtRelativeDate(o.scheduled_at)}</span>}
                 <Badge>{o.status}</Badge>

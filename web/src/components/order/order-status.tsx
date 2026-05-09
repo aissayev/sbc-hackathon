@@ -50,7 +50,7 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
   const failed = order.status === 'rejected' || order.status === 'cancelled'
 
   return (
-    <div className="rounded-lg border border-happy-700/15 bg-white p-6 md:p-8">
+    <div className="rounded-lg border border-cocoa-700/15 bg-white p-6 md:p-8">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <p className="eyebrow">Order #{order.id.slice(-8)}</p>
@@ -78,11 +78,11 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
                 className={cn(
                   'rounded-md p-3 text-center text-xs border',
                   done
-                    ? 'border-happy-700 bg-happy-700/5 text-happy-900'
-                    : 'border-happy-700/15 bg-cream-50 text-happy-900/40',
+                    ? 'border-cocoa-700 bg-cocoa-700/5 text-cocoa-900'
+                    : 'border-cocoa-700/15 bg-cream-50 text-cocoa-900/40',
                 )}
               >
-                <Icon className={cn('h-5 w-5 mx-auto', done ? 'text-happy-700' : 'text-happy-900/30')} />
+                <Icon className={cn('h-5 w-5 mx-auto', done ? 'text-cocoa-700' : 'text-cocoa-900/30')} />
                 <span className="mt-1 block">{s.label}</span>
               </li>
             )
@@ -91,7 +91,7 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
       )}
 
       {failed && (
-        <div className="mt-6 rounded-md bg-coral/10 p-4 text-coral flex items-start gap-2">
+        <div className="mt-6 rounded-md bg-berry/10 p-4 text-berry flex items-start gap-2">
           <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
           <div>
             <p className="font-medium">{status.label}</p>
@@ -104,23 +104,23 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
       )}
 
       <dl className="mt-8 grid sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
-        <div className="flex justify-between border-b border-happy-700/10 pb-2">
-          <dt className="text-happy-900/60">Total</dt>
+        <div className="flex justify-between border-b border-cocoa-700/10 pb-2">
+          <dt className="text-cocoa-900/60">Total</dt>
           <dd className="font-medium">{fmtUsd(order.total_cents)}</dd>
         </div>
-        <div className="flex justify-between border-b border-happy-700/10 pb-2">
-          <dt className="text-happy-900/60">Method</dt>
+        <div className="flex justify-between border-b border-cocoa-700/10 pb-2">
+          <dt className="text-cocoa-900/60">Method</dt>
           <dd className="capitalize">{order.pickup_or_delivery}</dd>
         </div>
         {order.scheduled_at && (
-          <div className="flex justify-between border-b border-happy-700/10 pb-2">
-            <dt className="text-happy-900/60">Scheduled</dt>
+          <div className="flex justify-between border-b border-cocoa-700/10 pb-2">
+            <dt className="text-cocoa-900/60">Scheduled</dt>
             <dd>{fmtRelativeDate(order.scheduled_at)}</dd>
           </div>
         )}
         {order.customer_name && (
-          <div className="flex justify-between border-b border-happy-700/10 pb-2">
-            <dt className="text-happy-900/60">Name</dt>
+          <div className="flex justify-between border-b border-cocoa-700/10 pb-2">
+            <dt className="text-cocoa-900/60">Name</dt>
             <dd>{order.customer_name}</dd>
           </div>
         )}
@@ -129,12 +129,12 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
       {order.items?.length ? (
         <div className="mt-6">
           <p className="eyebrow">In the box</p>
-          <ul className="mt-2 divide-y divide-happy-700/10">
+          <ul className="mt-2 divide-y divide-cocoa-700/10">
             {order.items.map((it) => (
               <li key={it.sku} className="py-2 flex justify-between text-sm">
                 <span>
                   {it.name}
-                  <span className="text-happy-900/60"> × {it.qty}</span>
+                  <span className="text-cocoa-900/60"> × {it.qty}</span>
                 </span>
                 <span className="font-medium">{fmtUsd(it.line_total_cents)}</span>
               </li>
@@ -144,7 +144,7 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
       ) : null}
 
       {polling && !failed && (
-        <p className="mt-6 text-xs text-happy-900/60">
+        <p className="mt-6 text-xs text-cocoa-900/60">
           Live status — this page refreshes every few seconds.
         </p>
       )}

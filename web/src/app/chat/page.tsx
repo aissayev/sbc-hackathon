@@ -6,7 +6,7 @@ import { ChatWidget } from '@/components/chat/chat-widget'
 export const metadata: Metadata = {
   title: 'Chat',
   description:
-    'Talk to the HappyCake on-site assistant — ask about today\'s bake, allergens, custom cakes, lead times, and order status.',
+    'Talk to the Happy Cake on-site assistant — ask about today\'s bake, allergens, custom cakes, lead times, and order status.',
   alternates: { canonical: '/chat' },
 }
 
@@ -22,7 +22,7 @@ export default async function ChatPage(props: { searchParams?: SearchParams }) {
       <div className="max-w-2xl">
         <Eyebrow>Chat with us</Eyebrow>
         <h1 className="display-h1 mt-3">We're listening</h1>
-        <p className="mt-3 text-happy-900/80">
+        <p className="mt-3 text-cocoa-900/80">
           Ask anything — what's in the case today, allergens, custom cakes, status of an order.
           Real cake people, real-time. The assistant can check kitchen capacity and draft an order
           for the owner to approve.
@@ -31,7 +31,7 @@ export default async function ChatPage(props: { searchParams?: SearchParams }) {
       <div className="mt-8 max-w-2xl">
         <ChatWidget seedProduct={params.product} productNames={productNames} />
       </div>
-      <p className="mt-6 max-w-2xl text-xs text-happy-900/60">
+      <p className="mt-6 max-w-2xl text-xs text-cocoa-900/60">
         Drafts are queued for the owner to approve in Telegram before the kitchen starts. Replies
         appear in this thread as soon as we have them. Press Start over to begin a fresh conversation.
       </p>

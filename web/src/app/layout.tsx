@@ -1,25 +1,25 @@
 import type { Metadata, Viewport } from 'next'
-import { Cormorant_Garamond, Inter } from 'next/font/google'
-import { BRAND } from '@/lib/brand'
+import { Playfair_Display, Inter } from 'next/font/google'
+import { BRAND, ASSETS } from '@/lib/brand'
 import { SiteHeader } from '@/components/brand/header'
 import { SiteFooter } from '@/components/brand/footer'
 import './globals.css'
 
-const display = Cormorant_Garamond({
+const display = Playfair_Display({
   subsets: ['latin'],
-  weight: ['500', '600'],
+  weight: ['500', '600', '700'],
   display: 'swap',
   variable: '--font-display',
 })
 const body = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  weight: ['300', '400', '500', '600'],
   display: 'swap',
   variable: '--font-body',
 })
 
 export const viewport: Viewport = {
-  themeColor: '#FBF6E8',
+  themeColor: '#FFF7EA',
   width: 'device-width',
   initialScale: 1,
 }
@@ -27,7 +27,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(BRAND.origin),
   title: { default: `${BRAND.name} — ${BRAND.tagline}`, template: `%s · ${BRAND.name}` },
-  description: `${BRAND.tagline} ${BRAND.slogan} Real cakes, made by hand in our Sugar Land kitchen.`,
+  description: BRAND.slogan,
   applicationName: BRAND.name,
   alternates: {
     canonical: '/',
@@ -39,15 +39,20 @@ export const metadata: Metadata = {
     description: BRAND.slogan,
     siteName: BRAND.name,
     locale: 'en_US',
+    images: [{ url: ASSETS.hero[0], width: 1600, height: 1000, alt: 'Happy Cake' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: `${BRAND.name} — ${BRAND.tagline}`,
     description: BRAND.slogan,
+    images: [ASSETS.hero[0]],
   },
   icons: {
-    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
-    apple: '/apple-icon.png',
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: ASSETS.logo.px256, type: 'image/png', sizes: '256x256' },
+    ],
+    apple: ASSETS.logo.px512,
   },
   robots: { index: true, follow: true },
 }
@@ -55,10 +60,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body className="min-h-screen bg-cream-50 text-ink antialiased font-body">
+      <body className="min-h-screen bg-cream text-ink antialiased font-body">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-happy-900 focus:px-3 focus:py-2 focus:text-cream-50"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-cocoa-900 focus:px-3 focus:py-2 focus:text-cream"
         >
           Skip to content
         </a>
