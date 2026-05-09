@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getProduct, listProducts } from '@/lib/api'
 import { BRAND, ALLERGEN_LABELS, CATEGORY_LABELS } from '@/lib/brand'
+import { KIND_LABELS } from '@/lib/catalog'
 import { fmtUsd, leadTimeLabel } from '@/lib/format'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
@@ -94,7 +95,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
           className="md:max-w-[540px]"
         />
         <div>
-          <Eyebrow>{CATEGORY_LABELS[product.category] ?? product.category}</Eyebrow>
+          <Eyebrow>{KIND_LABELS[product.kind]?.singular ?? CATEGORY_LABELS[product.category] ?? product.category}</Eyebrow>
           <h1 className="display-h1 mt-3 text-[2.4rem] md:text-[3.25rem] leading-[1.05] [text-wrap:balance]">
             {product.name}
           </h1>

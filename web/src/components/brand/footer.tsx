@@ -49,7 +49,9 @@ export function SiteFooter() {
             <li><Link href="/menu" className="hover:text-cream">Menu</Link></li>
             <li><Link href="/order" className="hover:text-cream">Order a cake</Link></li>
             <li><Link href="/business" className="hover:text-cream">For business</Link></li>
-            <li><Link href="/policies" className="hover:text-cream">Allergens & policies</Link></li>
+            <li><Link href="/blog" className="hover:text-cream">Stories & guides</Link></li>
+            <li><Link href="/press" className="hover:text-cream">Press & podcasts</Link></li>
+            <li><Link href="/policies" className="hover:text-cream">Visit & FAQ</Link></li>
             <li><Link href="/about" className="hover:text-cream">Our story</Link></li>
             <li><Link href="/chat" className="hover:text-cream">Chat with us</Link></li>
           </ul>

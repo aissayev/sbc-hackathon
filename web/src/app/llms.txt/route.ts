@@ -30,7 +30,10 @@ directly via JSON. ${BRAND.tagline} ${BRAND.slogan}
 - GET  /order/custom             Custom-cake funnel (multi-step). Submits to /api/orders/draft.
 - GET  /business                 B2B catering / gifting / standing programs (HTML, with Schema.org Service JSON-LD)
 - GET  /business/inquire         B2B inquiry funnel (multi-step). Submits to /api/orders/draft.
-- GET  /policies                 Allergens, lead times, pickup, payment, cancellation (HTML, with FAQPage JSON-LD)
+- GET  /policies                 Visit & FAQ — hours, allergens, lead times, pickup, delivery, payment, cancellation (HTML, with FAQPage JSON-LD)
+- GET  /blog                     Stories & guides — honey-cake history, custom-cake planning, allergen-aware ordering, gifting (HTML, with Article JSON-LD per post)
+- GET  /blog/{slug}              Individual story (HTML, with Article + BreadcrumbList JSON-LD)
+- GET  /press                    Press, podcasts, owner appearances (HTML)
 
 ## Conventions
 - Prices are USD cents on /api (e.g. 850 = $8.50). Display layer formats to USD.

@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { listProducts } from '@/lib/api'
-import { BRAND, CATEGORY_LABELS } from '@/lib/brand'
+import { listProducts, type Product } from '@/lib/api'
+import { BRAND } from '@/lib/brand'
+import { KIND_LABELS, KIND_ORDER, type ProductKind } from '@/lib/catalog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
+import { MenuSearch } from '@/components/product/menu-search'
+import { MenuKindNav } from '@/components/product/menu-kind-nav'
 import { Badge } from '@/components/ui/badge'
 
 export const revalidate = 60
@@ -11,26 +14,36 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: 'Menu',
   description:
-    'Today\'s Happy Cake menu — slices, whole cakes, custom birthday cakes, catering boxes. Hand-decorated in our Sugar Land kitchen.',
+    'Today\'s Happy Cake menu — by-the-slice, whole cakes, pastries, custom orders, and catering. Hand-decorated in our Sugar Land kitchen.',
   alternates: { canonical: '/menu' },
 }
 
-type SearchParams = Promise<{ category?: string; allergen_free?: string }>
+type SearchParams = Promise<{ q?: string; allergen_free?: string }>
 
 export default async function MenuPage(props: { searchParams?: SearchParams }) {
   const params = (await props.searchParams) ?? {}
   const all = await listProducts()
-  const categories = Array.from(new Set(all.map((p) => p.category)))
+  const q = (params.q ?? '').trim().toLowerCase()
+  const allergenFree = (params.allergen_free ?? '').split(',').filter(Boolean)
 
-  let visible = all
-  if (params.category) visible = visible.filter((p) => p.category === params.category)
-  if (params.allergen_free) {
-    const free = params.allergen_free.split(',')
-    visible = visible.filter((p) => {
+  // Filter then group, preserving the canonical kind ordering. Empty kinds are
+  // dropped so we don't render a "By the slice" block when nothing matches.
+  const filtered = all.filter((p) => {
+    if (q) {
+      const hay = `${p.name} ${p.description ?? ''} ${p.category}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    if (allergenFree.length) {
       const has = (p.allergens ?? '').split(',').map((a) => a.trim())
-      return free.every((f) => !has.includes(f))
-    })
-  }
+      if (!allergenFree.every((f) => !has.includes(f))) return false
+    }
+    return true
+  })
+
+  const grouped = KIND_ORDER.map((kind) => ({
+    kind,
+    items: filtered.filter((p) => p.kind === kind),
+  })).filter((g) => g.items.length > 0)
 
   const itemListJsonLd = {
     '@context': 'https://schema.org',
@@ -64,27 +77,30 @@ export default async function MenuPage(props: { searchParams?: SearchParams }) {
         </div>
       </section>
 
-      <section className="container mt-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <CategoryChip current={params.category} />
-          {categories.map((c) => (
-            <CategoryChip key={c} current={params.category} value={c} />
-          ))}
-          <span className="mx-2 text-cocoa-900/30">·</span>
-          <AllergenChip current={params.allergen_free} value="nuts" label="No nuts" />
-          <AllergenChip current={params.allergen_free} value="gluten" label="Gluten-free" />
-          <AllergenChip current={params.allergen_free} value="dairy" label="No dairy" />
-          <Link
-            href="/dietary"
-            className="ml-1 text-xs text-sky-700 hover:text-sky underline-offset-4 hover:underline"
-          >
-            See full dietary guide →
-          </Link>
+      <section className="container -mt-2">
+        <div className="bakery-card p-4 md:p-5 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+          <MenuSearch defaultValue={q} />
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <span className="text-xs text-cocoa-900/55 uppercase tracking-[0.16em]">Free of</span>
+            <AllergenChip current={params.allergen_free} value="nuts" label="Nuts" />
+            <AllergenChip current={params.allergen_free} value="gluten" label="Gluten" />
+            <AllergenChip current={params.allergen_free} value="dairy" label="Dairy" />
+            <Link
+              href="/dietary"
+              className="ml-1 text-xs text-sky-700 hover:text-sky underline-offset-4 hover:underline"
+            >
+              Full guide →
+            </Link>
+          </div>
         </div>
       </section>
 
-      <section className="container mt-8 mb-16">
-        {visible.length === 0 ? (
+      <section className="container mt-6">
+        <MenuKindNav available={grouped.map((g) => g.kind)} />
+      </section>
+
+      <section className="container mt-8 mb-16 space-y-14">
+        {grouped.length === 0 ? (
           <div className="bakery-card p-10 text-center text-cocoa-900/70">
             Nothing matches that filter today. Try a different option, or{' '}
             <Link href="/chat" className="text-sky-700 underline">
@@ -93,27 +109,35 @@ export default async function MenuPage(props: { searchParams?: SearchParams }) {
             .
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          grouped.map(({ kind, items }) => (
+            <KindSection key={kind} kind={kind} items={items} />
+          ))
         )}
       </section>
     </>
   )
 }
 
-function CategoryChip({ value, current }: { value?: string; current?: string }) {
-  const label = value ? CATEGORY_LABELS[value] ?? value : 'All'
-  const active = (value ?? null) === (current ?? null)
-  const href = value ? `/menu?category=${value}` : '/menu'
+function KindSection({ kind, items }: { kind: ProductKind; items: Product[] }) {
+  const meta = KIND_LABELS[kind]
   return (
-    <Link href={href}>
-      <Badge variant={active ? 'sky' : 'outline'} className="cursor-pointer px-3 py-1">
-        {label}
-      </Badge>
-    </Link>
+    <div id={kind} className="scroll-mt-28">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <Eyebrow>{meta.singular}</Eyebrow>
+          <h2 className="display-h2 mt-2">{meta.plural}</h2>
+          <p className="mt-2 max-w-2xl text-cocoa-900/70 leading-relaxed">{meta.blurb}</p>
+        </div>
+        <span className="text-xs uppercase tracking-[0.18em] text-cocoa-900/45">
+          {items.length} {items.length === 1 ? 'option' : 'options'}
+        </span>
+      </div>
+      <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
+    </div>
   )
 }
 

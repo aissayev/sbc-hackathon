@@ -12,7 +12,8 @@ const NAV = [
   { href: '/menu', label: 'Menu' },
   { href: '/business', label: 'For business' },
   { href: '/about', label: 'Our story' },
-  { href: '/policies', label: 'Hours & policies' },
+  { href: '/blog', label: 'Stories' },
+  { href: '/policies', label: 'Visit & FAQ' },
   { href: '/chat', label: 'Chat' },
 ]
 
