@@ -23,7 +23,7 @@ import {
   getOrderStatus,
 } from './domain/tools.ts'
 import { getPolicies } from './domain/policies.ts'
-import { home, menu, productDetail, policies, chat, openApiSpec } from './web/pages.ts'
+import { openApiSpec } from './web/openapi.ts'
 
 const app = new Hono()
 
@@ -72,16 +72,9 @@ app.get('/', (c) =>
   }),
 )
 
-// ─── Public website (server-rendered HTML) ──────────────────────────────
-
-app.get('/', (c) => c.html(home()))
-app.get('/menu', (c) => c.html(menu(listProducts({ in_stock_only: true }))))
-app.get('/menu/:id', (c) => {
-  const p = getProduct(c.req.param('id'))
-  return p ? c.html(productDetail(p)) : c.notFound()
-})
-app.get('/policies', (c) => c.html(policies()))
-app.get('/chat', (c) => c.html(chat()))
+// The public website now lives in web/ (Next.js, see web/src/app/*). The
+// backend serves only API + agent surfaces; nginx routes / to the Next.js
+// process and /api/* to here.
 
 // ─── Public catalog API (Agent-Friendliness) ─────────────────────────────
 

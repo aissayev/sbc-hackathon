@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
 import { HoursTable } from '@/components/brand/hours'
+import { HeroImage } from '@/components/brand/hero-image'
 import { BRAND, ASSETS } from '@/lib/brand'
 import { MapPin, Phone, Instagram } from 'lucide-react'
 
@@ -30,15 +30,11 @@ export default function AboutPage() {
             </p>
           </div>
           <div className="lg:col-span-6">
-            <div className="relative aspect-[4/3] rounded-[28px] overflow-hidden shadow-lift bg-cream-200">
-              <Image
-                src={ASSETS.hero[1] ?? ASSETS.hero[0]}
-                alt="Inside the Happy Cake kitchen"
-                fill
-                sizes="(min-width: 1024px) 540px, 100vw"
-                className="object-cover"
-              />
-            </div>
+            <HeroImage
+              src={ASSETS.hero[1] ?? ASSETS.hero[0]}
+              alt="Inside the Happy Cake kitchen"
+              className="aspect-[4/3]"
+            />
           </div>
         </div>
       </section>

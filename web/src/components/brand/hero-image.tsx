@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 // renders underneath and stays visible until the photo loads. If the .webp
 // is missing (the binaries land in web/public/assets/* on a separate cycle),
 // the photo never paints and the brand panel stays — no broken-image alt
-// text, no jarring empty rectangle.
+// text, no jarring empty rectangle. Drop the asset → photo fades in.
 
 export function HeroImage({
   src,

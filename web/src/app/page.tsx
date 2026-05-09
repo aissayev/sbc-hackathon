@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { listProducts } from '@/lib/api'
 import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
 import { Eyebrow } from '@/components/brand/eyebrow'
@@ -7,6 +6,7 @@ import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoursTable, isOpenNow } from '@/components/brand/hours'
+import { HeroImage } from '@/components/brand/hero-image'
 import {
   ArrowRight,
   MessageSquareHeart,
@@ -150,16 +150,11 @@ function Hero({ status }: { status: { open: boolean; nextChange?: string } }) {
           </div>
         </div>
         <div className="lg:col-span-6 relative">
-          <div className="relative aspect-[4/5] sm:aspect-[5/4] lg:aspect-[4/5] rounded-[28px] overflow-hidden shadow-lift bg-cream-200">
-            <Image
-              src={ASSETS.hero[0]}
-              alt="A cake from Happy Cake"
-              fill
-              priority
-              sizes="(min-width: 1024px) 540px, 100vw"
-              className="object-cover"
-            />
-          </div>
+          <HeroImage
+            src={ASSETS.hero[0]}
+            alt="A cake from Happy Cake"
+            className="aspect-[4/5] sm:aspect-[5/4] lg:aspect-[4/5]"
+          />
           <div className="absolute -bottom-6 -left-6 sm:-left-10 hidden md:flex items-center gap-3 bakery-card px-5 py-4">
             <Sparkles className="h-5 w-5 text-sky" />
             <div className="text-sm">
