@@ -2,12 +2,14 @@ import Link from 'next/link'
 import type { Product } from '@/lib/api'
 import { fmtUsd, leadTimeLabel } from '@/lib/format'
 import { CATEGORY_LABELS } from '@/lib/brand'
+import { KIND_LABELS } from '@/lib/catalog'
 import { Badge } from '@/components/ui/badge'
 import { CakePhoto } from './cake-photo'
 import { cn } from '@/lib/utils'
 
 export function ProductCard({ product, className }: { product: Product; className?: string }) {
   const allergens = product.allergens?.split(',').map((a) => a.trim()).filter(Boolean) ?? []
+  const kindLabel = KIND_LABELS[product.kind]?.singular ?? CATEGORY_LABELS[product.category] ?? product.category
   return (
     <Link
       href={`/menu/${product.id}`}
@@ -17,13 +19,15 @@ export function ProductCard({ product, className }: { product: Product; classNam
         className,
       )}
     >
-      <CakePhoto productId={product.id} name={product.name} src={product.photo_url} />
+      <div className="relative">
+        <CakePhoto productId={product.id} name={product.name} src={product.photo_url} />
+        <span className="absolute top-3 left-3 inline-flex items-center rounded-full bg-cream/95 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-cocoa-900 shadow-sm">
+          {kindLabel}
+        </span>
+      </div>
       <div className="p-5 flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="eyebrow">{CATEGORY_LABELS[product.category] ?? product.category}</p>
-            <h3 className="display-h3 mt-1 group-hover:text-sky-700 transition-colors">{product.name}</h3>
-          </div>
+          <h3 className="display-h3 group-hover:text-sky-700 transition-colors">{product.name}</h3>
           <div className="text-right shrink-0">
             <div className="text-xl font-semibold text-cocoa-900">{fmtUsd(product.price_cents)}</div>
           </div>

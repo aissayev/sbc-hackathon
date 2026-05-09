@@ -3,9 +3,9 @@ import Link from 'next/link'
 import { Eyebrow } from '@/components/brand/eyebrow'
 
 export const metadata: Metadata = {
-  title: 'Allergens, lead times, policies',
+  title: 'Visit & FAQ',
   description:
-    'Plain-English Happy Cake policies — allergens, lead times, pickup, delivery, payment, cancellation, halal-friendly options.',
+    'Plain-English answers from Happy Cake — hours, location, allergens, lead times, pickup, delivery, payment, cancellation, halal-friendly options.',
   alternates: { canonical: '/policies' },
 }
 
@@ -23,14 +23,15 @@ export default function PoliciesPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <section className="container pt-12 md:pt-16 max-w-3xl">
-        <Eyebrow>Policies</Eyebrow>
-        <h1 className="display-h1 mt-3">Allergens, lead times, cancellations</h1>
+        <Eyebrow>Visit & FAQ</Eyebrow>
+        <h1 className="display-h1 mt-3">Plain answers — hours, allergens, ordering details</h1>
         <p className="mt-3 text-cocoa-900/80">
-          Plain English. If something here is unclear,{' '}
+          Everything you might want to check before walking in or placing an order. If something
+          here is unclear,{' '}
           <Link href="/chat" className="underline">
             send us a message
           </Link>{' '}
-          — we'll explain it the way we'd explain it to a neighbour.
+          — we&apos;ll explain it the way we&apos;d explain it to a neighbour.
         </p>
       </section>
 

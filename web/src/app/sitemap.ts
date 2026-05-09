@@ -20,6 +20,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { path: '/chat', priority: 0.7, changeFrequency: 'monthly' },
       { path: '/about', priority: 0.6, changeFrequency: 'monthly' },
       { path: '/policies', priority: 0.6, changeFrequency: 'monthly' },
+      { path: '/blog', priority: 0.7, changeFrequency: 'weekly' },
+      { path: '/press', priority: 0.5, changeFrequency: 'monthly' },
     ] as Array<{
       path: string
       priority: number
@@ -39,5 +41,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }))
 
-  return [...STATIC, ...products_entries]
+  const { BLOG_POSTS } = await import('@/lib/blog')
+  const blog_entries: MetadataRoute.Sitemap = BLOG_POSTS.map((b) => ({
+    url: `${BRAND.origin}/blog/${b.slug}`,
+    lastModified: new Date(b.published_at),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }))
+
+  return [...STATIC, ...products_entries, ...blog_entries]
 }

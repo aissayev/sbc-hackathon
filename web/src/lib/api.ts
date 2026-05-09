@@ -15,6 +15,11 @@ import { CATALOG, findCatalogProduct } from './catalog'
 export interface Product {
   id: string
   name: string
+  // Drives /menu's section grouping (By the slice / Whole cakes / Pastries /
+  // Custom / Catering). Backend's Square catalog doesn't carry this yet, so
+  // products from the backend default to 'slice' until lib/catalog.ts is the
+  // source of truth.
+  kind: 'slice' | 'whole' | 'pastry' | 'custom' | 'catering'
   category: string
   price_cents: number
   lead_time_hours: number
@@ -68,8 +73,20 @@ async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> 
   }
 }
 
-// TODO once the backend imports the canonical catalog: re-enable a /api/products
-// pass-through here and merge live `in_stock` from the backend onto our list.
+// TODO (backend handoff): the canonical catalog should come from the sandbox
+// MCP `square_list_catalog` tool the backend already wires up — see
+// `src/agent/mcp/local-server.ts` and `src/lib/sandbox-mcp.ts`. When the backend
+// imports SKUs into its SQLite seed (or exposes a /api/catalog passthrough that
+// wraps `square_list_catalog`), swap this function to:
+//
+//   const live = await safeFetch<{ products: Product[] }>(`${BACKEND}/api/products`)
+//   if (!live?.products?.length) return CATALOG.filter(p => p.in_stock)
+//   // merge live in_stock + daily_capacity onto our typed catalog rows by id
+//   return CATALOG.map(p => ({ ...p, ...findById(live.products, p.id) }))
+//                 .filter(p => p.in_stock)
+//
+// Until then we serve from lib/catalog.ts so /menu and /order match the photo
+// pack and brand voice.
 export async function listProducts(): Promise<Product[]> {
   return CATALOG.filter((p) => p.in_stock)
 }

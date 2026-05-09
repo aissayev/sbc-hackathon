@@ -5,7 +5,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Minus, Trash2, ShoppingBag } from 'lucide-react'
+import { Plus, Minus, Trash2, ShoppingBag, Truck, Store } from 'lucide-react'
 
 import type { Product } from '@/lib/api'
 import { fmtUsd, leadTimeLabel } from '@/lib/format'
@@ -15,8 +15,74 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { DELIVERY_CITIES, validateZipForDelivery } from '@/lib/delivery'
 
-const schema = z.object({
+// Browser-side thread id reused across visits so admin can correlate web-form
+// orders with prior chat threads from the same browser. Persisted in
+// localStorage (best-effort — falls back to per-render id if blocked).
+function useWebThreadId(): string {
+  return React.useMemo(() => {
+    if (typeof window === 'undefined') return `web_${Math.random().toString(36).slice(2, 10)}`
+    try {
+      const existing = window.localStorage.getItem('hc_thread_id')
+      if (existing) return existing
+      const fresh = `web_${Math.random().toString(36).slice(2, 10)}`
+      window.localStorage.setItem('hc_thread_id', fresh)
+      return fresh
+    } catch {
+      return `web_${Math.random().toString(36).slice(2, 10)}`
+    }
+  }, [])
+}
+
+// Robust JSON parse — Next.js will return HTML for upstream proxy failures
+// (e.g. BACKEND_URL unset on the droplet → 404 page → `<!DOC...`). Catch that
+// before .json() throws a confusing positional error in the UI.
+async function postJson<T>(
+  url: string,
+  body: unknown,
+): Promise<{ ok: true; data: T } | { ok: false; reason: string }> {
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    return { ok: false, reason: (err as Error).message ?? 'Network error.' }
+  }
+  const ct = res.headers.get('content-type') ?? ''
+  if (!ct.toLowerCase().includes('application/json')) {
+    return {
+      ok: false,
+      reason: 'The kitchen system is offline right now. Try again in a minute, or message us on WhatsApp.',
+    }
+  }
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch {
+    return {
+      ok: false,
+      reason: 'Sorry — couldn\'t read the response. Try again, or message us on WhatsApp.',
+    }
+  }
+  if (!res.ok) {
+    const reason =
+      (data && typeof data === 'object' && 'reason' in data && typeof (data as { reason: unknown }).reason === 'string'
+        ? (data as { reason: string }).reason
+        : null) ??
+      (data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string'
+        ? (data as { error: string }).error
+        : null) ??
+      `Order didn't go through (${res.status}).`
+    return { ok: false, reason }
+  }
+  return { ok: true, data: data as T }
+}
+
+const baseSchema = z.object({
   items: z
     .array(
       z.object({
@@ -30,13 +96,39 @@ const schema = z.object({
   customer_name: z.string().min(1, 'Your name'),
   customer_phone: z.string().min(7, 'Phone or WhatsApp number'),
   notes: z.string().optional(),
+  // Delivery-only — validated conditionally below.
+  street: z.string().optional(),
+  city: z.string().optional(),
+  zip: z.string().optional(),
 })
+
+const schema = baseSchema.superRefine((v, ctx) => {
+  if (v.pickup_or_delivery !== 'delivery') return
+  if (!v.street || v.street.trim().length < 4) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['street'], message: 'Street address required for delivery.' })
+  }
+  if (!v.city || v.city.trim().length < 2) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['city'], message: 'City required for delivery.' })
+  }
+  const zipCheck = validateZipForDelivery(v.zip ?? '')
+  if (!zipCheck.ok) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['zip'], message: zipCheck.reason ?? 'Invalid ZIP.' })
+  }
+})
+
 type FormValues = z.infer<typeof schema>
+
+interface DraftOrderResponse {
+  order_id: string
+  total_cents: number
+  status: string
+}
 
 export function OrderForm({ products }: { products: Product[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const seededProduct = searchParams.get('product') ?? products[0]?.id ?? ''
+  const threadId = useWebThreadId()
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -55,11 +147,15 @@ export function OrderForm({ products }: { products: Product[] }) {
       customer_name: '',
       customer_phone: '',
       notes: '',
+      street: '',
+      city: 'Sugar Land',
+      zip: '',
     },
   })
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'items' })
   const watchItems = form.watch('items')
+  const mode = form.watch('pickup_or_delivery')
 
   const total = React.useMemo(() => {
     return watchItems.reduce((acc, it) => {
@@ -78,27 +174,34 @@ export function OrderForm({ products }: { products: Product[] }) {
   async function onSubmit(values: FormValues) {
     setSubmitting(true)
     setError(null)
-    try {
-      const payload = {
-        ...values,
-        scheduled_at_iso: new Date(values.scheduled_at_iso).toISOString(),
-      }
-      const res = await fetch('/api/orders/draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, channel: 'web' }),
-      })
-      const data = (await res.json()) as { ok: boolean; order_id?: string; reason?: string }
-      if (!data.ok || !data.order_id) {
-        setError(data.reason ?? 'Something went wrong on our side. Try again, or chat with us.')
-        return
-      }
-      router.push(`/order/confirm/${data.order_id}`)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setSubmitting(false)
+
+    // Compose delivery address into a single human-readable string in `notes`
+    // until the backend's order schema gains a structured `address` field.
+    // This keeps the kitchen-facing ticket honest without changing the API.
+    const addressLine =
+      values.pickup_or_delivery === 'delivery'
+        ? `Deliver to: ${values.street}, ${values.city}, TX ${values.zip}`
+        : null
+    const composedNotes = [addressLine, values.notes?.trim() || null].filter(Boolean).join('\n')
+
+    const payload = {
+      thread_id: threadId,
+      channel: 'web' as const,
+      customer_name: values.customer_name,
+      customer_phone: values.customer_phone,
+      items: values.items.map((it) => ({ product_id: it.product_id, quantity: Number(it.quantity) })),
+      scheduled_at_iso: new Date(values.scheduled_at_iso).toISOString(),
+      pickup_or_delivery: values.pickup_or_delivery,
+      notes: composedNotes || undefined,
     }
+
+    const result = await postJson<DraftOrderResponse>('/api/orders/draft', payload)
+    setSubmitting(false)
+    if (!result.ok) {
+      setError(result.reason)
+      return
+    }
+    router.push(`/order/confirm/${result.data.order_id}`)
   }
 
   return (
@@ -232,30 +335,100 @@ export function OrderForm({ products }: { products: Product[] }) {
             <div>
               <Label>How would you like it?</Label>
               <div className="mt-1 grid grid-cols-2 gap-2">
-                {(['pickup', 'delivery'] as const).map((mode) => {
+                {(
+                  [
+                    { mode: 'pickup', label: 'Pickup', icon: Store },
+                    { mode: 'delivery', label: 'Delivery', icon: Truck },
+                  ] as const
+                ).map(({ mode: m, label, icon: Icon }) => {
                   const value = form.watch('pickup_or_delivery')
                   return (
                     <button
-                      key={mode}
+                      key={m}
                       type="button"
-                      onClick={() => form.setValue('pickup_or_delivery', mode)}
+                      onClick={() => form.setValue('pickup_or_delivery', m)}
                       className={cn(
-                        'h-11 rounded-md border text-sm font-medium capitalize transition-colors',
-                        value === mode
+                        'h-11 rounded-md border text-sm font-medium transition-colors inline-flex items-center justify-center gap-2',
+                        value === m
                           ? 'border-cocoa-700 bg-cocoa-700 text-cream-50'
                           : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
                       )}
                     >
-                      {mode}
+                      <Icon className="h-4 w-4" />
+                      {label}
                     </button>
                   )
                 })}
               </div>
               <p className="mt-1 text-xs text-cocoa-900/60">
-                Pickup is free. Delivery fee confirmed at order time.
+                {mode === 'delivery'
+                  ? 'Delivery in Sugar Land + Greater Houston only. Fee confirmed at order time.'
+                  : 'Pickup is free at our Promenade Way location.'}
               </p>
             </div>
           </div>
+
+          {mode === 'delivery' && (
+            <div className="mt-5 rounded-lg border border-cocoa-700/15 bg-cream-100 p-5">
+              <p className="text-sm font-medium text-cocoa-900">Delivery address</p>
+              <p className="mt-1 text-xs text-cocoa-900/65">
+                We deliver to {DELIVERY_CITIES.slice(0, 5).join(', ')}, and Greater Houston (ZIPs starting 770–777).
+                Outside that? <a href="/chat" className="text-sky-700 underline">Message us</a> for a custom quote.
+              </p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
+                <div>
+                  <Label htmlFor="street">Street address</Label>
+                  <Input
+                    id="street"
+                    placeholder="123 Main St"
+                    autoComplete="address-line1"
+                    {...form.register('street')}
+                    className="mt-1"
+                  />
+                  {form.formState.errors.street && (
+                    <p className="mt-1 text-xs text-berry">{form.formState.errors.street.message}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    list="hc-delivery-cities"
+                    autoComplete="address-level2"
+                    {...form.register('city')}
+                    className="mt-1"
+                  />
+                  <datalist id="hc-delivery-cities">
+                    {DELIVERY_CITIES.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                  {form.formState.errors.city && (
+                    <p className="mt-1 text-xs text-berry">{form.formState.errors.city.message}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="zip">ZIP</Label>
+                  <Input
+                    id="zip"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={5}
+                    placeholder="77478"
+                    autoComplete="postal-code"
+                    {...form.register('zip')}
+                    className="mt-1"
+                  />
+                  {form.formState.errors.zip && (
+                    <p className="mt-1 text-xs text-berry">{form.formState.errors.zip.message}</p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-cocoa-900/55">
+                State is locked to <span className="font-medium">TX</span> — we don't deliver out of state.
+              </p>
+            </div>
+          )}
         </section>
 
         <section>
@@ -263,7 +436,7 @@ export function OrderForm({ products }: { products: Product[] }) {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="customer_name">Your name</Label>
-              <Input id="customer_name" {...form.register('customer_name')} className="mt-1" />
+              <Input id="customer_name" autoComplete="name" {...form.register('customer_name')} className="mt-1" />
               {form.formState.errors.customer_name && (
                 <p className="mt-1 text-xs text-berry">{form.formState.errors.customer_name.message}</p>
               )}
@@ -272,6 +445,8 @@ export function OrderForm({ products }: { products: Product[] }) {
               <Label htmlFor="customer_phone">Phone or WhatsApp</Label>
               <Input
                 id="customer_phone"
+                type="tel"
+                autoComplete="tel"
                 placeholder="+1 555 555 1234"
                 {...form.register('customer_phone')}
                 className="mt-1"
@@ -318,8 +493,8 @@ export function OrderForm({ products }: { products: Product[] }) {
           <span className="text-2xl font-medium text-cocoa-900">{fmtUsd(total)}</span>
         </div>
         <p className="mt-2 text-xs text-cocoa-900/60">
-          Tax and delivery (if any) are confirmed at checkout. Payment by card via Square at
-          confirmation, cash at pickup, or Zelle.
+          Tax and {mode === 'delivery' ? 'delivery fee' : 'any extras'} confirmed at checkout. Payment by card via
+          Square at confirmation, cash at pickup, or Zelle.
         </p>
         {error && (
           <p className="mt-3 text-sm text-berry bg-berry/10 rounded-md p-3" role="alert">

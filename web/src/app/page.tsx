@@ -1,6 +1,9 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { listProducts } from '@/lib/api'
 import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
+import { BLOG_POSTS } from '@/lib/blog'
+import { KIND_LABELS } from '@/lib/catalog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
@@ -25,7 +28,16 @@ const PILLAR_ICONS = { sparkles: Sparkles, coffee: Coffee, gift: Gift, heart: He
 
 export default async function HomePage() {
   const products = await listProducts()
-  const featured = products.slice(0, 4)
+  // Pull one of each major kind so the home grid reads as the case browser
+  // would: by-the-slice, whole, pastry, custom. This also addresses
+  // "show by slice, whole cake separation" without rebuilding /menu.
+  const pickByKind = (kind: string) => products.find((p) => p.kind === kind)
+  const featured = [
+    pickByKind('slice'),
+    pickByKind('whole'),
+    pickByKind('pastry'),
+    pickByKind('custom'),
+  ].filter((p): p is NonNullable<typeof p> => Boolean(p))
   const status = isOpenNow()
 
   const localBusinessJsonLd = {
@@ -74,12 +86,13 @@ export default async function HomePage() {
       <Pillars />
 
       <section className="container mt-24">
-        <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+        <div className="flex items-end justify-between flex-wrap gap-4 mb-3">
           <div>
-            <Eyebrow>Today's bake</Eyebrow>
-            <h2 className="display-h2 mt-3">Our specialties</h2>
+            <Eyebrow>Today&apos;s bake</Eyebrow>
+            <h2 className="display-h2 mt-3">One of each — start here</h2>
             <p className="mt-2 text-cocoa-900/70 max-w-xl">
-              Hand-decorated, hand-packed, baked this morning in our Sugar Land kitchen.
+              By-the-slice, whole cakes, pastries, and custom. Tap any to see the rest of that
+              section.
             </p>
           </div>
           <Button asChild variant="outline-sky" shape="pill" size="default">
@@ -89,14 +102,26 @@ export default async function HomePage() {
             </Link>
           </Button>
         </div>
+        <div className="mt-5 flex flex-wrap gap-2 mb-8">
+          {(['slice', 'whole', 'pastry', 'custom', 'catering'] as const).map((k) => (
+            <Link
+              key={k}
+              href={`/menu#${k}`}
+              className="inline-flex items-center rounded-full border border-cocoa-700/15 bg-white px-4 h-9 text-sm text-cocoa-900 hover:bg-cream-100 transition-colors"
+            >
+              {KIND_LABELS[k].plural}
+            </Link>
+          ))}
+        </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((p, i) => (
+          {featured.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
       </section>
 
       <Manifesto />
+      <StoriesBand />
       <VisitSection />
       <BusinessBand />
       <ClosingCta />
@@ -189,6 +214,62 @@ function Pillars() {
           )
         })}
       </div>
+    </section>
+  )
+}
+
+function StoriesBand() {
+  const featured = BLOG_POSTS.slice(0, 3)
+  return (
+    <section className="container mt-24">
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+        <div>
+          <Eyebrow>Stories & guides</Eyebrow>
+          <h2 className="display-h2 mt-3">Notes from the bench</h2>
+          <p className="mt-2 text-cocoa-900/70 max-w-xl">
+            Honest, useful pieces — honey-cake history, planning a custom cake, allergens. Same
+            voice as the counter conversation.
+          </p>
+        </div>
+        <Button asChild variant="outline-sky" shape="pill">
+          <Link href="/blog">
+            All stories
+            <ArrowRight />
+          </Link>
+        </Button>
+      </div>
+      <ul className="grid gap-6 md:grid-cols-3">
+        {featured.map((p) => (
+          <li key={p.slug}>
+            <Link
+              href={`/blog/${p.slug}`}
+              className="group bakery-card flex flex-col h-full overflow-hidden hover:-translate-y-0.5 transition-transform"
+            >
+              <div className="relative aspect-[4/3] bg-cream-100">
+                <Image
+                  src={p.hero_url}
+                  alt={p.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+              <div className="p-5 flex flex-col gap-2 flex-1">
+                <span className="text-xs uppercase tracking-[0.16em] text-cocoa-900/55">
+                  {p.read_minutes} min read
+                </span>
+                <h3 className="display-h3 group-hover:text-sky-700 transition-colors [text-wrap:balance]">
+                  {p.title}
+                </h3>
+                <p className="text-sm text-cocoa-900/70 leading-relaxed line-clamp-3">
+                  {p.description}
+                </p>
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

@@ -7,6 +7,13 @@
 //
 // When the backend's seed catches up, this list can be retired or used
 // only as a fallback. For now: source of truth for what /menu shows.
+//
+// Each product carries a `kind` so the menu can group cleanly:
+//   slice   — by-the-slice from the case (no notice)
+//   whole   — full cakes (about an hour notice)
+//   pastry  — small format, sold by piece / pair / cluster
+//   custom  — designed-to-order (24h+ notice)
+//   catering — boxes / assortments for groups (3h+ notice)
 
 import { ASSETS } from './brand'
 import type { Product } from './api'
@@ -14,7 +21,8 @@ import type { Product } from './api'
 export const CATALOG: Product[] = [
   {
     id: 'honey-cake-slice',
-    name: 'Honey Cake (slice)',
+    name: 'Honey Cake',
+    kind: 'slice',
     category: 'slices',
     price_cents: 850,
     lead_time_hours: 1,
@@ -28,6 +36,7 @@ export const CATALOG: Product[] = [
   {
     id: 'whole-honey-cake',
     name: 'Whole Honey Cake',
+    kind: 'whole',
     category: 'whole-cakes',
     price_cents: 5500,
     lead_time_hours: 1,
@@ -41,6 +50,7 @@ export const CATALOG: Product[] = [
   {
     id: 'pistachio-roll',
     name: 'Pistachio Roll',
+    kind: 'slice',
     category: 'slices',
     price_cents: 950,
     lead_time_hours: 1,
@@ -53,7 +63,8 @@ export const CATALOG: Product[] = [
   },
   {
     id: 'cloud-cake-slice',
-    name: 'Cloud Cake (slice)',
+    name: 'Cloud Cake',
+    kind: 'slice',
     category: 'slices',
     price_cents: 900,
     lead_time_hours: 1,
@@ -66,7 +77,8 @@ export const CATALOG: Product[] = [
   },
   {
     id: 'tiramisu-slice',
-    name: 'Tiramisu (slice)',
+    name: 'Tiramisu',
+    kind: 'slice',
     category: 'slices',
     price_cents: 850,
     lead_time_hours: 1,
@@ -80,6 +92,7 @@ export const CATALOG: Product[] = [
   {
     id: 'chak-chak',
     name: 'Chak-chak',
+    kind: 'pastry',
     category: 'pastries',
     price_cents: 700,
     lead_time_hours: 1,
@@ -93,6 +106,7 @@ export const CATALOG: Product[] = [
   {
     id: 'truffle-bites',
     name: 'Chocolate Truffle Bites',
+    kind: 'pastry',
     category: 'pastries',
     price_cents: 750,
     lead_time_hours: 1,
@@ -106,6 +120,7 @@ export const CATALOG: Product[] = [
   {
     id: 'custom-birthday-cake',
     name: 'Custom Birthday Cake',
+    kind: 'custom',
     category: 'custom',
     price_cents: 9500,
     lead_time_hours: 24,
@@ -119,6 +134,7 @@ export const CATALOG: Product[] = [
   {
     id: 'office-dessert-box',
     name: 'Office Dessert Box',
+    kind: 'catering',
     category: 'catering',
     price_cents: 12000,
     lead_time_hours: 3,
@@ -132,6 +148,7 @@ export const CATALOG: Product[] = [
   {
     id: 'morning-pastry-mix',
     name: 'Morning Pastry Mix',
+    kind: 'catering',
     category: 'catering',
     price_cents: 5800,
     lead_time_hours: 3,
@@ -146,4 +163,38 @@ export const CATALOG: Product[] = [
 
 export function findCatalogProduct(id: string): Product | null {
   return CATALOG.find((p) => p.id === id) ?? null
+}
+
+// Display order for the menu sections. "Most popular first" so the case
+// browser reads slice → whole → pastry → custom → catering.
+export const KIND_ORDER: ProductKind[] = ['slice', 'whole', 'pastry', 'custom', 'catering']
+
+export type ProductKind = 'slice' | 'whole' | 'pastry' | 'custom' | 'catering'
+
+export const KIND_LABELS: Record<ProductKind, { plural: string; singular: string; blurb: string }> = {
+  slice: {
+    plural: 'By the slice',
+    singular: 'Slice',
+    blurb: 'Ready from the case — no notice. Grab one with your coffee.',
+  },
+  whole: {
+    plural: 'Whole cakes',
+    singular: 'Whole cake',
+    blurb: 'Full cakes for the table. About an hour\'s notice for cutting and packaging.',
+  },
+  pastry: {
+    plural: 'Pastries & bites',
+    singular: 'Pastry',
+    blurb: 'Small format, sold by the cluster or pair. Great with tea.',
+  },
+  custom: {
+    plural: 'Custom orders',
+    singular: 'Custom',
+    blurb: 'Birthdays, anniversaries, baby showers — designed with you. 24 hours notice.',
+  },
+  catering: {
+    plural: 'Catering & boxes',
+    singular: 'Catering',
+    blurb: 'Curated assortments for offices and gatherings. Three hours notice and up.',
+  },
 }
