@@ -20,6 +20,7 @@
     "db:init": "bun src/scripts/db-init.ts",
     "db:seed": "bun src/scripts/db-init.ts --seed",
     "world:start": "bun src/scripts/world-start.ts",
+    "world:run": "bun src/scripts/world-run.ts",
     "world:tick": "bun src/scripts/world-tick.ts",
     "evidence": "bun src/scripts/evidence.ts"
   },
