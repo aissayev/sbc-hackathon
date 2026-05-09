@@ -125,20 +125,19 @@ export async function createDraftOrder(input: DraftOrderInput): Promise<DraftOrd
   }
 }
 
-export async function getDailyReport(initData?: string): Promise<DailyReport | null> {
-  const headers: Record<string, string> = {}
-  if (initData) headers['X-Telegram-Init-Data'] = initData
-  return safeFetch<DailyReport>(`${BACKEND}/api/admin/today`, { headers })
+// Admin endpoints. Auth — if any — is the backend's call (cookie / IP allowlist /
+// shared secret). The website forwards the request as-is; it doesn't itself
+// participate in authentication.
+export async function getDailyReport(): Promise<DailyReport | null> {
+  return safeFetch<DailyReport>(`${BACKEND}/api/admin/today`)
 }
 
-export async function listAdminOrders(initData?: string): Promise<OrderStatus[]> {
-  const headers: Record<string, string> = {}
-  if (initData) headers['X-Telegram-Init-Data'] = initData
-  const data = await safeFetch<{ orders: OrderStatus[] }>(`${BACKEND}/api/admin/orders`, { headers })
+export async function listAdminOrders(): Promise<OrderStatus[]> {
+  const data = await safeFetch<{ orders: OrderStatus[] }>(`${BACKEND}/api/admin/orders`)
   return data?.orders ?? []
 }
 
-export async function listEscalations(initData?: string): Promise<
+export async function listEscalations(): Promise<
   Array<{
     id: string
     thread_id: string
@@ -149,8 +148,6 @@ export async function listEscalations(initData?: string): Promise<
     created_at: number
   }>
 > {
-  const headers: Record<string, string> = {}
-  if (initData) headers['X-Telegram-Init-Data'] = initData
   const data = await safeFetch<{
     escalations: Array<{
       id: string
@@ -161,6 +158,6 @@ export async function listEscalations(initData?: string): Promise<
       status: string
       created_at: number
     }>
-  }>(`${BACKEND}/api/admin/escalations`, { headers })
+  }>(`${BACKEND}/api/admin/escalations`)
   return data?.escalations ?? []
 }

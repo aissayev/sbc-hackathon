@@ -4,12 +4,10 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { useInitData } from '@/components/admin/mini-app-bridge'
 import { Check, X } from 'lucide-react'
 
 export function OrderActions({ orderId, status }: { orderId: string; status: string }) {
   const router = useRouter()
-  const initData = useInitData()
   const [reason, setReason] = React.useState('')
   const [busy, setBusy] = React.useState<'approve' | 'reject' | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -22,11 +20,9 @@ export function OrderActions({ orderId, status }: { orderId: string; status: str
     setBusy(kind)
     setError(null)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (initData) headers['X-Telegram-Init-Data'] = initData
       const res = await fetch(`/api/admin/orders/${orderId}/${kind}`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(kind === 'reject' ? { reason } : {}),
       })
       if (!res.ok) {
