@@ -16,6 +16,7 @@ import { pickRole } from './agent/router.ts'
 import { createWebhookRoutes } from './routes/webhooks.ts'
 import type { IncomingMessage, MessageHandler, ChannelAdapter } from './channels/types.ts'
 import { listProducts, getProduct } from './domain/tools.ts'
+import { getPolicies } from './domain/policies.ts'
 import { home, menu, productDetail, policies, chat, openApiSpec } from './web/pages.ts'
 
 const app = new Hono()
@@ -84,6 +85,7 @@ app.get('/api/products/:id', (c) => {
   return p ? c.json(p) : c.json({ error: 'not found' }, 404)
 })
 app.get('/openapi.json', (c) => c.json(openApiSpec()))
+app.get('/api/policies', (c) => c.json(getPolicies()))
 app.get('/llms.txt', (c) =>
   c.text(`# HappyCake — agent-readable surface
 
