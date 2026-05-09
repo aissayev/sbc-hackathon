@@ -27,6 +27,7 @@ directly via JSON. ${BRAND.tagline} ${BRAND.slogan}
 - GET  /menu/{id}                Product detail (HTML, with Schema.org Product JSON-LD)
 - GET  /menu?allergen_free=nuts,gluten,dairy,eggs   Filtered menu (combine via comma)
 - GET  /dietary                  Dietary guide — gluten-free, no-nuts, dairy-free, vegan, halal-friendly (HTML, with FAQPage JSON-LD)
+- GET  /order/custom             Custom-cake funnel (multi-step). Submits to /api/orders/draft.
 - GET  /policies                 Allergens, lead times, pickup, payment, cancellation (HTML, with FAQPage JSON-LD)
 
 ## Conventions

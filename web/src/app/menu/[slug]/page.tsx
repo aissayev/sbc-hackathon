@@ -160,7 +160,13 @@ export default async function ProductDetailPage(props: { params: Params }) {
             </Button>
           </div>
 
-          <p className="mt-6 text-sm text-cocoa-900/65">{BRAND.closing}</p>
+          <p className="mt-6 text-sm text-cocoa-900/65">
+            Want this with a different flavor or as a custom build?{' '}
+            <Link href="/order/custom" className="text-sky-700 underline-offset-4 hover:underline font-medium">
+              Design a custom cake →
+            </Link>
+          </p>
+          <p className="mt-3 text-sm text-cocoa-900/65">{BRAND.closing}</p>
         </div>
       </article>
 
