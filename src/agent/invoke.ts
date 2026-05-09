@@ -125,10 +125,21 @@ const DENY_ALWAYS = [
   'TodoWrite',
 ]
 
+// Customer-facing roles get the HappyCake brand book v1.0 prepended to their
+// system prompt. Internal roles (kitchen tickets, owner reports) skip it —
+// brand voice doesn't apply to operator surfaces.
+const BRAND_ROLES: AgentRole[] = ['concierge', 'marketing']
+
 function loadPrompt(role: AgentRole): string {
   const path = resolve(`src/agent/prompts/${role}.md`)
-  if (!existsSync(path)) return `You are the Happy Cake US ${role} agent. Be helpful, concise, brand-voiced.`
-  return readFileSync(path, 'utf8')
+  const role_md = existsSync(path)
+    ? readFileSync(path, 'utf8')
+    : `You are the HappyCake US ${role} agent. Be helpful, concise, brand-voiced.`
+  if (!BRAND_ROLES.includes(role)) return role_md
+  const brandPath = resolve('src/agent/prompts/brand.md')
+  if (!existsSync(brandPath)) return role_md
+  const brand_md = readFileSync(brandPath, 'utf8')
+  return `${brand_md}\n\n---\n\n${role_md}`
 }
 
 function buildPrompt(msg: IncomingMessage, history: HistoryEntry[]): string {

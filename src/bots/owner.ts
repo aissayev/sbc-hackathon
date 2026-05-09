@@ -13,4 +13,9 @@ export {
   postEscalationCard,
   sendOwnerThinking,
   finalizeOwnerThinking,
+  logToOwner,
+  logInbound,
+  logOutbound,
+  logError,
+  logSystem,
 } from './owner/index.ts'
