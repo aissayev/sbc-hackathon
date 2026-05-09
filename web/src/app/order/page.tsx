@@ -7,7 +7,7 @@ import { OrderForm } from '@/components/order/order-form'
 export const metadata: Metadata = {
   title: 'Order a cake',
   description:
-    'Send your order to the HappyCake kitchen in Sugar Land — Askhat reviews and confirms within an hour during open hours.',
+    'Send your order to the Happy Cake kitchen in Sugar Land — Askhat reviews and confirms within an hour during open hours.',
   alternates: { canonical: '/order' },
 }
 
@@ -18,7 +18,7 @@ export default async function OrderPage() {
       <div className="max-w-2xl">
         <Eyebrow>Order a cake</Eyebrow>
         <h1 className="display-h1 mt-3">Tell us what you'd like</h1>
-        <p className="mt-3 text-happy-900/80">
+        <p className="mt-3 text-cocoa-900/80">
           Three steps. We'll review every order before the kitchen starts — usually within the
           hour. Prefer to talk it through?{' '}
           <a href="/chat" className="underline">

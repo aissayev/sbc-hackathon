@@ -5,7 +5,7 @@ import { Eyebrow } from '@/components/brand/eyebrow'
 export const metadata: Metadata = {
   title: 'Allergens, lead times, policies',
   description:
-    'Plain-English HappyCake policies — allergens, lead times, pickup, delivery, payment, cancellation, halal-friendly options.',
+    'Plain-English Happy Cake policies — allergens, lead times, pickup, delivery, payment, cancellation, halal-friendly options.',
   alternates: { canonical: '/policies' },
 }
 
@@ -25,7 +25,7 @@ export default function PoliciesPage() {
       <section className="container pt-12 md:pt-16 max-w-3xl">
         <Eyebrow>Policies</Eyebrow>
         <h1 className="display-h1 mt-3">Allergens, lead times, cancellations</h1>
-        <p className="mt-3 text-happy-900/80">
+        <p className="mt-3 text-cocoa-900/80">
           Plain English. If something here is unclear,{' '}
           <Link href="/chat" className="underline">
             send us a message
@@ -38,20 +38,20 @@ export default function PoliciesPage() {
         {SECTIONS.map((s) => (
           <div key={s.title} id={slug(s.title)}>
             <h2 className="display-h2">{s.title}</h2>
-            <div className="mt-3 text-happy-900/85 space-y-3">{s.body}</div>
+            <div className="mt-3 text-cocoa-900/85 space-y-3">{s.body}</div>
           </div>
         ))}
 
         <div id="faq" className="mt-16">
           <h2 className="display-h2">Common questions</h2>
-          <div className="mt-4 divide-y divide-happy-700/15 rounded-lg border border-happy-700/15 bg-white">
+          <div className="mt-4 divide-y divide-cocoa-700/15 rounded-lg border border-cocoa-700/15 bg-white">
             {FAQ.map((q) => (
               <details key={q.q} className="group p-5">
                 <summary className="cursor-pointer list-none flex items-center justify-between gap-3">
-                  <span className="font-medium text-happy-900">{q.q}</span>
-                  <span className="text-happy-700 group-open:rotate-45 transition-transform">+</span>
+                  <span className="font-medium text-cocoa-900">{q.q}</span>
+                  <span className="text-cocoa-700 group-open:rotate-45 transition-transform">+</span>
                 </summary>
-                <p className="mt-3 text-happy-900/80 text-sm">{q.a}</p>
+                <p className="mt-3 text-cocoa-900/80 text-sm">{q.a}</p>
               </details>
             ))}
           </div>

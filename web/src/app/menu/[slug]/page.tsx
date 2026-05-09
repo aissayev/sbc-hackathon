@@ -8,7 +8,7 @@ import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CakePhoto } from '@/components/product/cake-photo'
-import { ChevronLeft, MessageSquareHeart, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, MessageSquareHeart, ShoppingBag, Clock, Cake, ShieldCheck } from 'lucide-react'
 
 export const revalidate = 60
 
@@ -36,8 +36,7 @@ export default async function ProductDetailPage(props: { params: Params }) {
   const product = await getProduct(slug)
   if (!product) notFound()
   const all = await listProducts()
-  const related = all.filter((p) => p.id !== product.id && p.category === product.category).slice(0, 3)
-
+  const related = all.filter((p) => p.id !== product.id).slice(0, 3)
   const allergens = product.allergens?.split(',').map((a) => a.trim()).filter(Boolean) ?? []
 
   const productJsonLd = {
@@ -55,7 +54,10 @@ export default async function ProductDetailPage(props: { params: Params }) {
       url: `${BRAND.origin}/menu/${product.id}`,
       priceCurrency: 'USD',
       price: (product.price_cents / 100).toFixed(2),
-      availability: product.in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      availability:
+        product.in_stock !== 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',
       seller: { '@type': 'Organization', name: BRAND.name },
     },
@@ -63,9 +65,6 @@ export default async function ProductDetailPage(props: { params: Params }) {
       { '@type': 'PropertyValue', name: 'lead_time_hours', value: product.lead_time_hours },
       ...(allergens.length
         ? [{ '@type': 'PropertyValue', name: 'allergens', value: allergens.join(', ') }]
-        : []),
-      ...(product.daily_capacity
-        ? [{ '@type': 'PropertyValue', name: 'daily_capacity', value: product.daily_capacity }]
         : []),
     ],
   }
@@ -79,65 +78,66 @@ export default async function ProductDetailPage(props: { params: Params }) {
       <div className="container pt-8">
         <Link
           href="/menu"
-          className="inline-flex items-center text-sm text-happy-700 hover:text-happy-900 transition-colors"
+          className="inline-flex items-center text-sm text-sky-700 hover:text-sky transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
           All cakes
         </Link>
       </div>
-      <article className="container mt-6 grid gap-10 md:grid-cols-2 md:gap-14">
-        <CakePhoto productId={product.id} name={product.name} src={product.photo_url} className="md:max-w-[520px]" />
+      <article className="container mt-6 grid gap-10 md:grid-cols-2 md:gap-14 pb-12">
+        <CakePhoto
+          productId={product.id}
+          name={product.name}
+          src={product.photo_url}
+          aspect="portrait"
+          priority
+          className="md:max-w-[540px]"
+        />
         <div>
           <Eyebrow>{CATEGORY_LABELS[product.category] ?? product.category}</Eyebrow>
-          <h1 className="display-h1 mt-3 text-[2.4rem] md:text-[3rem] leading-[1.05]">{product.name}</h1>
+          <h1 className="display-h1 mt-3 text-[2.4rem] md:text-[3.25rem] leading-[1.05] [text-wrap:balance]">
+            {product.name}
+          </h1>
           {product.description && (
-            <p className="mt-4 text-lg text-happy-900/80 max-w-prose">{product.description}</p>
+            <p className="mt-4 text-lg text-cocoa-900/80 leading-relaxed max-w-prose">
+              {product.description}
+            </p>
           )}
 
-          <div className="mt-8 grid grid-cols-2 gap-3 max-w-md">
-            <div className="rounded-md bg-cream-100 p-4">
-              <div className="text-xs text-happy-900/60">Price</div>
-              <div className="text-2xl font-medium text-happy-900 mt-1">
-                {fmtUsd(product.price_cents)}
-              </div>
-            </div>
-            <div className="rounded-md bg-cream-100 p-4">
-              <div className="text-xs text-happy-900/60">Lead time</div>
-              <div className="text-base font-medium text-happy-900 mt-1">
-                {leadTimeLabel(product.lead_time_hours)}
-              </div>
-            </div>
-            {product.daily_capacity ? (
-              <div className="rounded-md bg-cream-100 p-4">
-                <div className="text-xs text-happy-900/60">Daily capacity</div>
-                <div className="text-base font-medium text-happy-900 mt-1">
-                  {product.daily_capacity} per day
-                </div>
-              </div>
-            ) : null}
-            <div className="rounded-md bg-cream-100 p-4">
-              <div className="text-xs text-happy-900/60">Status</div>
-              <div className="text-base font-medium mt-1">
-                {product.in_stock === 0 ? (
-                  <span className="text-coral">Sold out today</span>
-                ) : (
-                  <span className="text-sage">In the case today</span>
-                )}
-              </div>
-            </div>
+          <div className="mt-8 flex items-baseline gap-3">
+            <span className="font-display text-4xl text-cocoa-900">{fmtUsd(product.price_cents)}</span>
+            {product.in_stock === 0 ? (
+              <Badge variant="berry">Sold out today</Badge>
+            ) : (
+              <Badge variant="sage">In the case today</Badge>
+            )}
           </div>
 
+          <dl className="mt-6 grid grid-cols-2 gap-3 max-w-md">
+            <Stat
+              icon={Clock}
+              label="Lead time"
+              value={leadTimeLabel(product.lead_time_hours)}
+            />
+            <Stat
+              icon={Cake}
+              label={product.daily_capacity ? 'Daily capacity' : 'Made fresh'}
+              value={product.daily_capacity ? `${product.daily_capacity} per day` : 'Every morning'}
+            />
+          </dl>
+
           {allergens.length > 0 && (
-            <div className="mt-6">
-              <p className="text-xs uppercase tracking-[0.16em] text-happy-900/60 mb-2">Allergens</p>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="mt-7">
+              <Eyebrow decorator={false}>Allergens</Eyebrow>
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {allergens.map((a) => (
                   <Badge key={a} variant="outline">
                     {ALLERGEN_LABELS[a] ?? a}
                   </Badge>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-happy-900/60">
+              <p className="mt-3 text-xs text-cocoa-900/55 leading-relaxed inline-flex items-start gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                 Our kitchen handles eggs, dairy, gluten, and tree nuts in shared spaces.{' '}
                 <Link href="/policies" className="underline">
                   Read more
@@ -153,23 +153,37 @@ export default async function ProductDetailPage(props: { params: Params }) {
                 <ShoppingBag /> Start an order
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
+            <Button asChild size="lg" variant="outline-sky">
               <Link href={`/chat?product=${product.id}`}>
                 <MessageSquareHeart /> Ask a question
               </Link>
             </Button>
           </div>
 
-          <p className="mt-6 text-xs text-happy-900/60">{BRAND.closing}</p>
+          <p className="mt-6 text-sm text-cocoa-900/65">{BRAND.closing}</p>
         </div>
       </article>
 
       {related.length > 0 && (
-        <section className="container mt-24">
-          <h2 className="display-h2">Pairs well with</h2>
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="container mt-16 mb-16">
+          <Eyebrow>You might also like</Eyebrow>
+          <h2 className="display-h2 mt-3">Pairs well with</h2>
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((p) => (
-              <RelatedCard key={p.id} id={p.id} name={p.name} price={p.price_cents} />
+              <Link
+                key={p.id}
+                href={`/menu/${p.id}`}
+                className="bakery-card p-5 flex items-center gap-4 hover:bg-cream-100 transition-colors"
+              >
+                <div className="h-16 w-16 shrink-0">
+                  <CakePhoto productId={p.id} name={p.name} src={p.photo_url} className="h-16 w-16" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-lg text-cocoa-900 truncate">{p.name}</div>
+                  <div className="text-xs text-cocoa-900/60">{leadTimeLabel(p.lead_time_hours)}</div>
+                </div>
+                <span className="text-sm font-semibold text-sky-700 shrink-0">{fmtUsd(p.price_cents)}</span>
+              </Link>
             ))}
           </div>
         </section>
@@ -178,14 +192,14 @@ export default async function ProductDetailPage(props: { params: Params }) {
   )
 }
 
-function RelatedCard({ id, name, price }: { id: string; name: string; price: number }) {
+function Stat({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
   return (
-    <Link
-      href={`/menu/${id}`}
-      className="rounded-lg border border-happy-700/15 bg-white p-5 hover:bg-cream-100 transition-colors flex items-center justify-between"
-    >
-      <span className="font-display text-h3">{name}</span>
-      <span className="text-sm text-happy-700">{fmtUsd(price)}</span>
-    </Link>
+    <div className="rounded-2xl bg-cream-100 p-4 border border-cocoa-700/8">
+      <div className="flex items-center gap-2 text-cocoa-900/60">
+        <Icon className="h-3.5 w-3.5" />
+        <span className="text-xs uppercase tracking-[0.16em]">{label}</span>
+      </div>
+      <div className="text-base font-medium text-cocoa-900 mt-1.5">{value}</div>
+    </div>
   )
 }

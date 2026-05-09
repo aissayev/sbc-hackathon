@@ -3,28 +3,39 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
+// Pill-shaped buttons matching happycake.us café feel — chocolate filled,
+// sky outline, soft cream secondary. Default radius is full-pill; the
+// `square` variant brings back the rounded-md for in-form usage where
+// pills look out of place.
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-cream-50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-cream disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        default: 'bg-happy-700 text-cream-50 hover:bg-happy-900',
-        secondary:
-          'bg-cream-100 text-happy-900 hover:bg-cream-200 border border-happy-700/15',
+        default: 'bg-cocoa-700 text-cream hover:bg-cocoa-900 hover:-translate-y-0.5',
+        sky: 'bg-sky text-white hover:bg-sky-700 hover:-translate-y-0.5 shadow-sm',
+        secondary: 'bg-cream-200 text-cocoa-900 hover:bg-cream-300 border border-cocoa-700/15',
         outline:
-          'border border-happy-700/30 bg-transparent text-happy-900 hover:bg-cream-100',
-        ghost: 'text-happy-900 hover:bg-cream-100',
-        link: 'text-happy-700 underline-offset-4 hover:underline',
-        destructive: 'bg-coral text-cream-50 hover:bg-coral/90',
+          'border border-cocoa-700/30 bg-transparent text-cocoa-900 hover:bg-cream-100',
+        'outline-sky':
+          'border border-sky text-sky hover:bg-sky hover:text-white hover:-translate-y-0.5',
+        ghost: 'text-cocoa-900 hover:bg-cream-200',
+        link: 'text-sky-700 underline-offset-4 hover:underline',
+        destructive: 'bg-berry text-cream hover:bg-berry/90',
       },
       size: {
-        default: 'h-11 px-5 py-2 text-sm',
-        sm: 'h-9 px-3 text-sm',
-        lg: 'h-12 px-6 text-base',
+        default: 'h-11 px-6 text-sm',
+        sm: 'h-9 px-4 text-sm',
+        lg: 'h-12 px-7 text-base',
+        xl: 'h-14 px-8 text-base',
         icon: 'h-10 w-10',
       },
+      shape: {
+        pill: 'rounded-full',
+        square: 'rounded-md',
+      },
     },
-    defaultVariants: { variant: 'default', size: 'default' },
+    defaultVariants: { variant: 'default', size: 'default', shape: 'pill' },
   },
 )
 
@@ -35,10 +46,10 @@ export interface ButtonProps
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, shape, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button'
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp className={cn(buttonVariants({ variant, size, shape, className }))} ref={ref} {...props} />
     )
   },
 )

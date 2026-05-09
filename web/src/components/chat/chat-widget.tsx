@@ -17,7 +17,7 @@ interface Message {
 const STORAGE_KEY = 'hc_thread'
 
 const SUGGESTIONS = [
-  'What\'s in the case today?',
+  "What's in the case today?",
   'I need a cake for ten guests on Saturday.',
   'Anything without nuts?',
   'How far ahead do I order a custom cake?',
@@ -27,7 +27,13 @@ function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-export function ChatWidget({ seedProduct, productNames }: { seedProduct?: string; productNames?: Record<string, string> }) {
+export function ChatWidget({
+  seedProduct,
+  productNames,
+}: {
+  seedProduct?: string
+  productNames?: Record<string, string>
+}) {
   const [threadId, setThreadId] = React.useState<string | null>(null)
   const [messages, setMessages] = React.useState<Message[]>([])
   const [input, setInput] = React.useState('')
@@ -35,7 +41,6 @@ export function ChatWidget({ seedProduct, productNames }: { seedProduct?: string
   const logRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
-  // Hydrate the thread id and the seeded greeting once on mount.
   React.useEffect(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
     if (saved) setThreadId(saved)
@@ -110,20 +115,20 @@ export function ChatWidget({ seedProduct, productNames }: { seedProduct?: string
   }
 
   return (
-    <div className="rounded-lg border border-happy-700/15 bg-white overflow-hidden flex flex-col">
-      <div className="px-5 py-3 border-b border-happy-700/10 flex items-center justify-between bg-cream-50">
+    <div className="bakery-card overflow-hidden flex flex-col">
+      <div className="px-5 py-3 border-b border-cocoa-700/10 flex items-center justify-between bg-cream-50">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-sage animate-pulse" aria-hidden />
-          <span className="text-sm font-medium text-happy-900">Live with the HappyCake team</span>
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+          <span className="text-sm font-medium text-cocoa-900">Live with the Happy Cake team</span>
         </div>
         <button
           onClick={reset}
-          className="text-xs text-happy-700 hover:text-happy-900 underline-offset-4 hover:underline"
+          className="text-xs text-sky-700 hover:text-sky underline-offset-4 hover:underline"
         >
           Start over
         </button>
       </div>
-      <div ref={logRef} className="p-5 space-y-3 h-[420px] overflow-y-auto" aria-live="polite">
+      <div ref={logRef} className="p-5 space-y-3 h-[440px] overflow-y-auto" aria-live="polite">
         {messages.map((m) => (
           <Bubble key={m.id} message={m} />
         ))}
@@ -136,7 +141,7 @@ export function ChatWidget({ seedProduct, productNames }: { seedProduct?: string
               key={s}
               type="button"
               onClick={() => send(s)}
-              className="text-xs px-3 py-1.5 rounded-full bg-cream-100 hover:bg-cream-200 text-happy-900 border border-happy-700/10"
+              className="text-xs px-3 py-1.5 rounded-full bg-cream-100 hover:bg-sky-100 text-cocoa-900 hover:text-sky-700 border border-cocoa-700/10 transition-colors"
             >
               {s}
             </button>
@@ -149,7 +154,7 @@ export function ChatWidget({ seedProduct, productNames }: { seedProduct?: string
           e.preventDefault()
           send(input)
         }}
-        className="border-t border-happy-700/10 p-3 flex gap-2 bg-cream-50"
+        className="border-t border-cocoa-700/10 p-3 flex gap-2 bg-cream-50"
       >
         <Input
           ref={inputRef}
@@ -158,9 +163,9 @@ export function ChatWidget({ seedProduct, productNames }: { seedProduct?: string
           placeholder="What can we help with?"
           disabled={sending}
           autoComplete="off"
-          className="bg-white"
+          className="bg-bakery"
         />
-        <Button type="submit" disabled={sending || !input.trim()} className="px-4">
+        <Button type="submit" disabled={sending || !input.trim()} variant="sky" size="default" shape="pill" className="px-5">
           <Send className="h-4 w-4" />
           <span className="hidden sm:inline">Send</span>
         </Button>
@@ -177,8 +182,8 @@ function Bubble({ message }: { message: Message }) {
         className={cn(
           'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed',
           isUser
-            ? 'bg-happy-700 text-cream-50 rounded-br-sm'
-            : 'bg-cream-100 text-happy-900 rounded-bl-sm',
+            ? 'bg-cocoa-700 text-cream rounded-br-sm'
+            : 'bg-cream-100 text-cocoa-900 rounded-bl-sm border border-cocoa-700/8',
           message.pending && 'opacity-70 italic',
         )}
       >
@@ -199,7 +204,7 @@ function Bubble({ message }: { message: Message }) {
 function Dot({ delay }: { delay: string }) {
   return (
     <span
-      className="inline-block h-1.5 w-1.5 rounded-full bg-happy-900/50 animate-pulse"
+      className="inline-block h-1.5 w-1.5 rounded-full bg-cocoa-900/50 animate-pulse"
       style={{ animationDelay: delay }}
     />
   )

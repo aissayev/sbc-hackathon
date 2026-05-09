@@ -1,33 +1,53 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
-import { BRAND } from '@/lib/brand'
+import { HoursTable } from '@/components/brand/hours'
+import { BRAND, ASSETS } from '@/lib/brand'
+import { MapPin, Phone, Instagram } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Our story',
   description:
-    'How HappyCake started — homemade taste, Sugar Land kitchen, hand-decorated cakes for the moments that matter.',
+    'How Happy Cake started — European traditions, warm Kazakh hospitality, hand-decorated cakes from our Sugar Land kitchen.',
   alternates: { canonical: '/about' },
 }
 
 export default function AboutPage() {
   return (
     <>
-      <section className="container pt-12 md:pt-16 max-w-3xl">
-        <Eyebrow>Our story</Eyebrow>
-        <h1 className="display-h1 mt-3">{BRAND.slogan}</h1>
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 hero-bg pointer-events-none" aria-hidden />
+        <div className="container relative pt-12 md:pt-20 pb-12 grid gap-10 lg:grid-cols-12 items-center">
+          <div className="lg:col-span-6">
+            <Eyebrow>Our story</Eyebrow>
+            <h1 className="display-h1 mt-4 [text-wrap:balance]">
+              Made with heart, served with <span className="text-sky">soul</span>.
+            </h1>
+            <p className="mt-5 text-lg text-cocoa-900/80 leading-relaxed max-w-xl">
+              {BRAND.slogan}
+            </p>
+          </div>
+          <div className="lg:col-span-6">
+            <div className="relative aspect-[4/3] rounded-[28px] overflow-hidden shadow-lift bg-cream-200">
+              <Image
+                src={ASSETS.hero[1] ?? ASSETS.hero[0]}
+                alt="Inside the Happy Cake kitchen"
+                fill
+                sizes="(min-width: 1024px) 540px, 100vw"
+                className="object-cover"
+              />
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="container mt-10 max-w-3xl text-happy-900/85 space-y-5 text-lg leading-relaxed">
+      <section className="container mt-16 max-w-3xl text-cocoa-900/85 space-y-5 text-lg leading-relaxed">
         <p>
-          It started with a phrase: <em>"It's just like homemade."</em>
-        </p>
-        <p>
-          We started baking cakes. As if for ourselves. Delicious, sweet, fresh cakes. People kept
-          coming back saying <em>"It tastes like I baked it myself"</em> and{' '}
-          <em>"It tastes so good — like real home baking"</em>. And we realised that homemade taste
-          was the centre of what we wanted to make.
+          Happy Cake was born from a love of bringing people together through exceptional baked
+          goods. From layered honey cakes to delicate cloud cakes, every item is crafted fresh,
+          every day.
         </p>
         <p>
           Every ingredient is carefully selected. Every cake is hand-decorated and hand-packed.
@@ -40,43 +60,89 @@ export default function AboutPage() {
         </p>
         <p>
           We love watching people be happy. We love making delicious things. The combination is
-          HappyCake.
+          Happy Cake.
         </p>
       </section>
 
-      <section className="container mt-16 max-w-3xl">
-        <div className="grid gap-6 sm:grid-cols-2">
+      <section className="container mt-16 max-w-5xl">
+        <Eyebrow>What we believe</Eyebrow>
+        <h2 className="display-h2 mt-3">Four small commitments</h2>
+        <div className="mt-6 grid gap-5 sm:grid-cols-2">
           <Pillar title="Open and honest">
             We share the way we run this business — the wins and the imperfect days. Nothing about
-            HappyCake is staged. We don't delete negative comments; we answer them.
+            Happy Cake is staged. We don't delete negative comments; we answer them.
           </Pillar>
           <Pillar title="Creating value">
-            A cake is more than a cake. It's emotion, care, and warmth. Every detail of the order,
-            the box, the slice, the moment — counts.
+            A cake is more than a cake. It's emotion, care, and warmth. Every detail of the
+            order, the box, the slice, the moment — counts.
           </Pillar>
-          <Pillar title="Confident">
+          <Pillar title="Confident, not loud">
             We work daily on the only thing that matters: making sure the cake will be delicious.
             Confidence comes from the work, not from talking about the work.
           </Pillar>
           <Pillar title="Happy">
-            HappyCake is not HappyCake unless it brings happiness and joy. Every cake we make,
-            every interaction we have, is a chance to add a brighter moment to someone's day.
+            Happy Cake is not Happy Cake unless it brings happiness and joy. Every cake we make
+            is a chance to add a brighter moment to someone's day.
           </Pillar>
         </div>
       </section>
 
-      <section className="container mt-16 max-w-3xl mb-16">
-        <div className="rounded-lg bg-happy-900 text-cream-50 p-8 md:p-10 relative overflow-hidden">
+      <section className="container mt-20 max-w-5xl">
+        <Eyebrow>Visit us</Eyebrow>
+        <h2 className="display-h2 mt-3">Come say hello</h2>
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          <div className="bakery-card p-7">
+            <Eyebrow decorator={false}>Hours</Eyebrow>
+            <h3 className="display-h3 mt-2 text-xl">When we're open</h3>
+            <HoursTable className="mt-4" />
+          </div>
+          <div className="bakery-card p-7">
+            <Eyebrow decorator={false}>Location</Eyebrow>
+            <h3 className="display-h3 mt-2 text-xl">Where to find us</h3>
+            <p className="mt-4 text-cocoa-900/85 leading-relaxed">
+              {BRAND.address.line1}
+              <br />
+              {BRAND.address.city}, {BRAND.address.region} {BRAND.address.postalCode}
+            </p>
+            <p className="mt-3 text-sm text-cocoa-900/65">{BRAND.address.parkingNote}</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button asChild variant="sky" size="sm">
+                <a href={BRAND.mapsUrl} target="_blank" rel="noopener">
+                  <MapPin /> Get directions
+                </a>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <a href={BRAND.phone.hrefTel}>
+                  <Phone /> {BRAND.phone.display}
+                </a>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <a href={BRAND.instagram} target="_blank" rel="noopener">
+                  <Instagram /> {BRAND.instagramHandle}
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="container mt-20 mb-20 max-w-5xl">
+        <div className="rounded-[28px] bg-cocoa-900 text-cream p-10 md:p-14 relative overflow-hidden">
           <div className="absolute inset-0 pattern-dots-cream opacity-25" aria-hidden />
-          <div className="relative">
-            <p className="font-display text-2xl md:text-3xl">
+          <div className="relative max-w-2xl">
+            <p className="font-display text-2xl md:text-4xl leading-tight">
               Today's bake is out — see what we're known for.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-cream-50 text-happy-900 hover:bg-cream-100">
+              <Button asChild size="lg" variant="sky">
                 <Link href="/menu">See the menu</Link>
               </Button>
-              <Button asChild size="lg" variant="ghost" className="text-cream-50 hover:bg-happy-700">
+              <Button
+                asChild
+                size="lg"
+                variant="ghost"
+                className="text-cream hover:bg-cream/10"
+              >
                 <Link href="/order">Order a cake</Link>
               </Button>
             </div>
@@ -89,9 +155,9 @@ export default function AboutPage() {
 
 function Pillar({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-happy-700/15 bg-cream-100 p-5">
-      <h3 className="display-h3">{title}</h3>
-      <p className="mt-2 text-happy-900/80 text-sm leading-relaxed">{children}</p>
+    <div className="bakery-card p-6">
+      <h3 className="display-h3 text-xl">{title}</h3>
+      <p className="mt-2 text-cocoa-900/75 text-sm leading-relaxed">{children}</p>
     </div>
   )
 }
