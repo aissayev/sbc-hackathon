@@ -23,6 +23,8 @@
     "world:run": "bun src/scripts/world-run.ts",
     "marketing:run": "bun src/scripts/marketing-run.ts",
     "close-gaps": "bun src/scripts/close-eval-gaps.ts",
+    "register-webhooks": "bun src/scripts/register-webhooks.ts",
+    "webhooks:status": "bun src/scripts/webhooks-status.ts",
     "world:tick": "bun src/scripts/world-tick.ts",
     "evidence": "bun src/scripts/evidence.ts"
   },
