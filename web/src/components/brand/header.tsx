@@ -10,6 +10,7 @@ import { Wordmark } from './wordmark'
 
 const NAV = [
   { href: '/menu', label: 'Menu' },
+  { href: '/business', label: 'For business' },
   { href: '/about', label: 'Our story' },
   { href: '/policies', label: 'Hours & policies' },
   { href: '/chat', label: 'Chat' },

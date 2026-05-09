@@ -98,6 +98,7 @@ export default async function HomePage() {
 
       <Manifesto />
       <VisitSection />
+      <BusinessBand />
       <ClosingCta />
     </>
   )
@@ -265,6 +266,33 @@ function VisitSection() {
               </a>
             </Button>
           </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function BusinessBand() {
+  return (
+    <section className="container mt-24">
+      <div className="rounded-[28px] border border-sky/20 bg-sky/5 p-8 md:p-12 grid gap-6 md:grid-cols-[1fr_auto] md:items-center max-w-5xl mx-auto">
+        <div>
+          <Eyebrow className="text-sky-700">For business</Eyebrow>
+          <h2 className="display-h2 mt-2 text-3xl md:text-4xl [text-wrap:balance]">
+            Catering, gifting, standing programs.
+          </h2>
+          <p className="mt-3 text-cocoa-900/75 max-w-xl">
+            Office breaks, events, corporate gifting. One point of contact, one invoice. We reply
+            to every B2B inquiry within one business day.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild size="lg" variant="sky">
+            <Link href="/business">See programs</Link>
+          </Button>
+          <Button asChild size="lg" variant="outline-sky">
+            <Link href="/business/inquire">Send inquiry</Link>
+          </Button>
         </div>
       </div>
     </section>
