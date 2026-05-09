@@ -114,7 +114,7 @@ export default function BusinessLanding() {
           <div className="lg:col-span-5">
             <HeroImage
               src={ASSETS.hero[2] ?? ASSETS.hero[0]}
-              alt="A box of pastries from Happy Cake"
+              alt="Curated office dessert box from Happy Cake — assorted slices, rolls, and mini cakes for a Houston-area office break"
               className="aspect-[4/5]"
             />
           </div>

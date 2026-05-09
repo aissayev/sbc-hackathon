@@ -99,7 +99,7 @@ export function ChatBubble({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
-                      alt="attachment"
+                      alt={isUser ? 'Photo you sent to Happy Cake' : 'Photo from Happy Cake'}
                       className={cn(
                         'rounded-lg object-cover',
                         urls.length === 1 ? 'max-h-56 w-auto' : 'h-20 w-20',
