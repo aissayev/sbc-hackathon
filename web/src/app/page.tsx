@@ -118,8 +118,18 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((p) => (
+        {/* First product gets the featured (full-bleed, title-overlaid) variant
+            so the slice section reads like a magazine spread. The remaining
+            kinds fall to the standard card. */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {featured[0] && (
+            <ProductCard
+              product={featured[0]}
+              variant="featured"
+              className="lg:col-span-2 lg:row-span-2"
+            />
+          )}
+          {featured.slice(1).map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
