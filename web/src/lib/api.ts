@@ -1,10 +1,16 @@
 // Server-side data fetcher. Talks to the Hono backend at BACKEND_URL.
-// Falls back to the local seed catalog when the backend is unreachable —
-// this means the website renders the menu even before/without /api/* live,
-// which matters for the hackathon demo and for resilient agent crawls.
+//
+// Catalog policy: the website's source of truth for `listProducts` /
+// `getProduct` is `lib/catalog.ts` — the canonical Happy Cake product list
+// paired with approved photos. The backend's SQLite seed currently has
+// generic placeholder SKUs (sku-classic-1kg, etc.); ignoring it for the
+// menu surface is intentional. We still call the backend for live signals
+// (in_stock toggling, daily counts) once those land — see TODO below.
+//
+// All other endpoints (orders, chat, admin) go through the backend as the
+// system of record.
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { CATALOG, findCatalogProduct } from './catalog'
 
 export interface Product {
   id: string
@@ -49,26 +55,10 @@ export interface DailyReport {
 const BACKEND =
   process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3000'
 
-let seedCache: { products: Product[] } | null = null
-function loadSeed(): { products: Product[] } {
-  if (seedCache) return seedCache
-  try {
-    const path = resolve(process.cwd(), '..', 'data', 'catalog', 'happycake.seed.json')
-    const raw = readFileSync(path, 'utf8')
-    const parsed = JSON.parse(raw) as { products: Product[] }
-    seedCache = parsed
-    return parsed
-  } catch {
-    seedCache = { products: [] }
-    return seedCache
-  }
-}
-
 async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
     const res = await fetch(url, {
       ...init,
-      // Re-fetch products every request in dev; revalidate every 60s in prod.
       next: { revalidate: process.env.NODE_ENV === 'production' ? 60 : 0 },
     })
     if (!res.ok) return null
@@ -78,16 +68,14 @@ async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> 
   }
 }
 
+// TODO once the backend imports the canonical catalog: re-enable a /api/products
+// pass-through here and merge live `in_stock` from the backend onto our list.
 export async function listProducts(): Promise<Product[]> {
-  const data = await safeFetch<{ products: Product[] }>(`${BACKEND}/api/products`)
-  if (data?.products?.length) return data.products
-  return loadSeed().products.filter((p) => p.in_stock)
+  return CATALOG.filter((p) => p.in_stock)
 }
 
 export async function getProduct(id: string): Promise<Product | null> {
-  const direct = await safeFetch<Product>(`${BACKEND}/api/products/${encodeURIComponent(id)}`)
-  if (direct && (direct as Product).id) return direct
-  return loadSeed().products.find((p) => p.id === id) ?? null
+  return findCatalogProduct(id)
 }
 
 export async function getOrder(id: string): Promise<OrderStatus | null> {

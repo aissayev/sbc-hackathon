@@ -5,6 +5,14 @@ const nextConfig = {
   experimental: {
     typedRoutes: false,
   },
+  // Brand assets live on the hackathon public CDN; allow next/image to
+  // optimize from there. See web/src/lib/brand.ts → CDN.
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'www.steppebusinessclub.com', pathname: '/hackathon-assets/**' },
+      { protocol: 'https', hostname: 'steppebusinessclub.com', pathname: '/hackathon-assets/**' },
+    ],
+  },
   async rewrites() {
     const backend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
     return [
