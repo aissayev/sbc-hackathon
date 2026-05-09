@@ -37,10 +37,16 @@ function shouldHide(pathname: string | null): boolean {
   return false
 }
 
-// First-visit auto-pop: show a small "Need a hand?" preview after this many
-// ms if the user hasn't opened or dismissed the widget. Persists dismissal in
-// localStorage so it doesn't nag returning visitors.
-const AUTO_POP_DELAY_MS = 12_000
+// First-visit auto-pop:
+//  - Only fires after the visitor has been on the site for AUTO_POP_DELAY_MS.
+//  - Skips when the page is in the background (visibility API). Reading the
+//    site in another tab → no nag.
+//  - Skips on idle. We listen for any pointer / scroll / keyboard activity;
+//    if none for IDLE_GRACE_MS, the dwell timer pauses. This keeps the toast
+//    from popping in the user's face when they've already wandered off.
+//  - One nag per browser. Dismissal persists.
+const AUTO_POP_DELAY_MS = 18_000
+const IDLE_GRACE_MS = 6_000
 const AUTO_POP_DISMISSED_KEY = 'hc_widget_pop_dismissed'
 const WIDGET_OPEN_KEY = 'hc_widget_open'
 const WIDGET_VIEW_KEY = 'hc_widget_view'
@@ -69,17 +75,50 @@ export function HelpWidget() {
     try { localStorage.setItem(WIDGET_VIEW_KEY, view) } catch {}
   }, [view])
 
-  // Auto-pop teaser: only first-ever visit, only if widget closed, only if
-  // not on /chat or /admin. The page might already be hidden (shouldHide)
-  // but the timer still gates on pathname change too.
+  // Auto-pop teaser: dwell-time + activity gated. Accumulates "active time"
+  // while the tab is visible AND the user has interacted in the last
+  // IDLE_GRACE_MS. Fires once we cross AUTO_POP_DELAY_MS of active time.
   React.useEffect(() => {
     if (open) return
     if (shouldHide(pathname)) return
     let dismissed = false
     try { dismissed = localStorage.getItem(AUTO_POP_DISMISSED_KEY) === 'true' } catch {}
     if (dismissed) return
-    const t = window.setTimeout(() => setPopVisible(true), AUTO_POP_DELAY_MS)
-    return () => window.clearTimeout(t)
+
+    let active = true // assume active on mount (page just loaded → user is here)
+    let lastActivity = Date.now()
+    let accumulated = 0
+    let lastTick = Date.now()
+
+    const events: Array<keyof DocumentEventMap> = ['pointerdown', 'pointermove', 'keydown', 'scroll', 'touchstart']
+    const onActivity = () => { lastActivity = Date.now(); active = true }
+    events.forEach((e) => document.addEventListener(e, onActivity, { passive: true }))
+
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') active = false
+      else { active = true; lastActivity = Date.now(); lastTick = Date.now() }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    const interval = window.setInterval(() => {
+      const now = Date.now()
+      const delta = now - lastTick
+      lastTick = now
+      const idle = now - lastActivity > IDLE_GRACE_MS
+      if (active && !idle && document.visibilityState === 'visible') {
+        accumulated += delta
+        if (accumulated >= AUTO_POP_DELAY_MS) {
+          setPopVisible(true)
+          window.clearInterval(interval)
+        }
+      }
+    }, 1_000)
+
+    return () => {
+      window.clearInterval(interval)
+      events.forEach((e) => document.removeEventListener(e, onActivity))
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [open, pathname])
 
   // Reset to home on route change so the widget's last view doesn't stick

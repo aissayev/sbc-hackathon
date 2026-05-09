@@ -5,7 +5,20 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Minus, Trash2, ShoppingBag, Truck, Store } from 'lucide-react'
+import {
+  Plus,
+  Minus,
+  Trash2,
+  ShoppingBag,
+  Truck,
+  Store,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Cake,
+  Clock,
+  UserRound,
+} from 'lucide-react'
 
 import type { Product } from '@/lib/api'
 import { fmtUsd, leadTimeLabel } from '@/lib/format'
@@ -124,11 +137,41 @@ interface DraftOrderResponse {
   status: string
 }
 
+// Three-step order wizard. Each step validates its own fields before letting
+// the customer advance, so they don't get a wall of errors on send. The
+// basket sidebar is sticky across all steps.
+type StepKey = 'cakes' | 'when' | 'contact'
+
+const STEPS: Array<{ key: StepKey; index: number; label: string; subtitle: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { key: 'cakes', index: 1, label: 'What would you like?', subtitle: 'Pick the cakes and quantities.', icon: Cake },
+  { key: 'when', index: 2, label: 'When + how', subtitle: 'Time, pickup or delivery, address.', icon: Clock },
+  { key: 'contact', index: 3, label: 'Your details', subtitle: 'Where to reach you, plus any kitchen notes.', icon: UserRound },
+]
+
+type StepFields = ReadonlyArray<keyof FormValues | `items.${number}.${'product_id' | 'quantity'}`>
+
+function fieldsForStep(stepKey: StepKey, deliveryMode: boolean, itemsCount: number): StepFields {
+  if (stepKey === 'cakes') {
+    const fields: Array<`items.${number}.${'product_id' | 'quantity'}`> = []
+    for (let i = 0; i < itemsCount; i++) {
+      fields.push(`items.${i}.product_id`, `items.${i}.quantity`)
+    }
+    return fields
+  }
+  if (stepKey === 'when') {
+    return deliveryMode
+      ? (['scheduled_at_iso', 'pickup_or_delivery', 'street', 'city', 'zip'] as const)
+      : (['scheduled_at_iso', 'pickup_or_delivery'] as const)
+  }
+  return ['customer_name', 'customer_phone'] as const
+}
+
 export function OrderForm({ products }: { products: Product[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const seededProduct = searchParams.get('product') ?? products[0]?.id ?? ''
   const threadId = useWebThreadId()
+  const [stepIdx, setStepIdx] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -140,6 +183,7 @@ export function OrderForm({ products }: { products: Product[] }) {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onTouched',
     defaultValues: {
       items: [{ product_id: seededProduct, quantity: 1 }],
       scheduled_at_iso: defaultPickupTime(),
@@ -156,6 +200,7 @@ export function OrderForm({ products }: { products: Product[] }) {
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'items' })
   const watchItems = form.watch('items')
   const mode = form.watch('pickup_or_delivery')
+  const step = STEPS[stepIdx]
 
   const total = React.useMemo(() => {
     return watchItems.reduce((acc, it) => {
@@ -170,6 +215,19 @@ export function OrderForm({ products }: { products: Product[] }) {
       return Math.max(acc, p?.lead_time_hours ?? 0)
     }, 0)
   }, [watchItems, products])
+
+  async function onNext() {
+    const fields = fieldsForStep(step.key, mode === 'delivery', watchItems.length)
+    const ok = await form.trigger(fields as Parameters<typeof form.trigger>[0])
+    if (!ok) return
+    setStepIdx((i) => Math.min(STEPS.length - 1, i + 1))
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  }
+
+  function onBack() {
+    setStepIdx((i) => Math.max(0, i - 1))
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  }
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true)
@@ -204,311 +262,440 @@ export function OrderForm({ products }: { products: Product[] }) {
     router.push(`/order/confirm/${result.data.order_id}`)
   }
 
+  const isLast = stepIdx === STEPS.length - 1
+
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-8">
-        <section>
-          <h2 className="display-h3">1 · What would you like?</h2>
-          <p className="mt-1 text-sm text-cocoa-900/70">
-            Add cakes one at a time. Quantities are whole cakes or slices, depending on the item.
-          </p>
-          <div className="mt-5 space-y-3">
-            {fields.map((field, idx) => {
-              const product = products.find((p) => p.id === watchItems[idx]?.product_id)
-              return (
-                <div key={field.id} className="rounded-md border border-cocoa-700/15 bg-white p-4">
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-                    <div>
-                      <Label htmlFor={`item-${idx}`}>Cake</Label>
-                      <Controller
-                        control={form.control}
-                        name={`items.${idx}.product_id`}
-                        render={({ field }) => (
-                          <select
-                            {...field}
-                            id={`item-${idx}`}
-                            className="mt-1 flex h-11 w-full rounded-md border border-cocoa-700/20 bg-white px-3 text-sm"
-                          >
-                            {products.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} · {fmtUsd(p.price_cents)}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <Label>Qty</Label>
-                      <Controller
-                        control={form.control}
-                        name={`items.${idx}.quantity`}
-                        render={({ field }) => (
-                          <div className="mt-1 inline-flex items-center rounded-md border border-cocoa-700/20 bg-white">
-                            <button
-                              type="button"
-                              className="h-11 w-10 text-cocoa-700 hover:bg-cream-100 disabled:opacity-30"
-                              disabled={Number(field.value) <= 1}
-                              onClick={() => field.onChange(Math.max(1, Number(field.value) - 1))}
-                              aria-label="Decrease"
-                            >
-                              <Minus className="h-4 w-4 mx-auto" />
-                            </button>
-                            <input
-                              type="number"
-                              min={1}
-                              max={50}
-                              value={field.value}
-                              onChange={(e) => field.onChange(e.target.valueAsNumber || 1)}
-                              className="h-11 w-12 text-center bg-transparent border-x border-cocoa-700/15 text-sm"
-                            />
-                            <button
-                              type="button"
-                              className="h-11 w-10 text-cocoa-700 hover:bg-cream-100"
-                              onClick={() => field.onChange(Number(field.value) + 1)}
-                              aria-label="Increase"
-                            >
-                              <Plus className="h-4 w-4 mx-auto" />
-                            </button>
-                          </div>
-                        )}
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => fields.length > 1 && remove(idx)}
-                      disabled={fields.length <= 1}
-                      aria-label="Remove cake"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {product?.description && (
-                    <p className="mt-3 text-sm text-cocoa-900/70">{product.description}</p>
-                  )}
-                  <div className="mt-3 flex items-center gap-2 text-xs text-cocoa-900/60">
-                    <Badge variant="outline" className="text-[11px]">
-                      {leadTimeLabel(product?.lead_time_hours ?? 0)}
-                    </Badge>
-                    {product?.allergens && (
-                      <span>contains {product.allergens.split(',').map((s) => s.trim()).join(', ')}</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => append({ product_id: products[0]?.id ?? '', quantity: 1 })}
-            >
-              <Plus className="h-4 w-4" /> Add another cake
-            </Button>
-          </div>
-        </section>
+      <div>
+        <ProgressRail stepIdx={stepIdx} />
 
-        <section>
-          <h2 className="display-h3">2 · When would you like it?</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="scheduled_at_iso">Pickup / delivery time</Label>
-              <Input
-                id="scheduled_at_iso"
-                type="datetime-local"
-                min={minWhen}
-                {...form.register('scheduled_at_iso')}
-                className="mt-1"
-              />
-              {form.formState.errors.scheduled_at_iso && (
-                <p className="mt-1 text-xs text-berry">
-                  {form.formState.errors.scheduled_at_iso.message}
-                </p>
-              )}
-              {maxLead > 0 && (
-                <p className="mt-1 text-xs text-cocoa-900/60">
-                  Earliest possible: {leadTimeLabel(maxLead).toLowerCase()} from now.
-                </p>
-              )}
-            </div>
-            <div>
-              <Label>How would you like it?</Label>
-              <div className="mt-1 grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { mode: 'pickup', label: 'Pickup', icon: Store },
-                    { mode: 'delivery', label: 'Delivery', icon: Truck },
-                  ] as const
-                ).map(({ mode: m, label, icon: Icon }) => {
-                  const value = form.watch('pickup_or_delivery')
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => form.setValue('pickup_or_delivery', m)}
-                      className={cn(
-                        'h-11 rounded-md border text-sm font-medium transition-colors inline-flex items-center justify-center gap-2',
-                        value === m
-                          ? 'border-cocoa-700 bg-cocoa-700 text-cream-50'
-                          : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="mt-1 text-xs text-cocoa-900/60">
-                {mode === 'delivery'
-                  ? 'Delivery in Sugar Land + Greater Houston only. Fee confirmed at order time.'
-                  : 'Pickup is free at our Promenade Way location.'}
-              </p>
-            </div>
-          </div>
-
-          {mode === 'delivery' && (
-            <div className="mt-5 rounded-lg border border-cocoa-700/15 bg-cream-100 p-5">
-              <p className="text-sm font-medium text-cocoa-900">Delivery address</p>
-              <p className="mt-1 text-xs text-cocoa-900/65">
-                We deliver to {DELIVERY_CITIES.slice(0, 5).join(', ')}, and Greater Houston (ZIPs starting 770–777).
-                Outside that? <a href="/chat" className="text-sky-700 underline">Message us</a> for a custom quote.
-              </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
-                <div>
-                  <Label htmlFor="street">Street address</Label>
-                  <Input
-                    id="street"
-                    placeholder="123 Main St"
-                    autoComplete="address-line1"
-                    {...form.register('street')}
-                    className="mt-1"
-                  />
-                  {form.formState.errors.street && (
-                    <p className="mt-1 text-xs text-berry">{form.formState.errors.street.message}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    list="hc-delivery-cities"
-                    autoComplete="address-level2"
-                    {...form.register('city')}
-                    className="mt-1"
-                  />
-                  <datalist id="hc-delivery-cities">
-                    {DELIVERY_CITIES.map((c) => (
-                      <option key={c} value={c} />
-                    ))}
-                  </datalist>
-                  {form.formState.errors.city && (
-                    <p className="mt-1 text-xs text-berry">{form.formState.errors.city.message}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="zip">ZIP</Label>
-                  <Input
-                    id="zip"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={5}
-                    placeholder="77478"
-                    autoComplete="postal-code"
-                    {...form.register('zip')}
-                    className="mt-1"
-                  />
-                  {form.formState.errors.zip && (
-                    <p className="mt-1 text-xs text-berry">{form.formState.errors.zip.message}</p>
-                  )}
-                </div>
-              </div>
-              <p className="mt-3 text-xs text-cocoa-900/55">
-                State is locked to <span className="font-medium">TX</span> — we don't deliver out of state.
-              </p>
-            </div>
-          )}
-        </section>
-
-        <section>
-          <h2 className="display-h3">3 · How do we reach you?</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="customer_name">Your name</Label>
-              <Input id="customer_name" autoComplete="name" {...form.register('customer_name')} className="mt-1" />
-              {form.formState.errors.customer_name && (
-                <p className="mt-1 text-xs text-berry">{form.formState.errors.customer_name.message}</p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="customer_phone">Phone or WhatsApp</Label>
-              <Input
-                id="customer_phone"
-                type="tel"
-                autoComplete="tel"
-                placeholder="+1 555 555 1234"
-                {...form.register('customer_phone')}
-                className="mt-1"
-              />
-              {form.formState.errors.customer_phone && (
-                <p className="mt-1 text-xs text-berry">{form.formState.errors.customer_phone.message}</p>
-              )}
-            </div>
-          </div>
-          <div className="mt-4">
-            <Label htmlFor="notes">Notes for the kitchen (optional)</Label>
-            <Textarea
-              id="notes"
-              placeholder="Birthday name on top, no walnuts, ring the bell at the side door — anything we should know."
-              {...form.register('notes')}
-              className="mt-1"
-            />
-          </div>
-        </section>
-      </div>
-
-      <aside className="lg:sticky lg:top-28 self-start rounded-lg bg-cream-100 border border-cocoa-700/15 p-6">
-        <p className="eyebrow">Order summary</p>
-        <h2 className="display-h3 mt-1">Your basket</h2>
-        <ul className="mt-4 divide-y divide-cocoa-700/15">
-          {watchItems.map((it, i) => {
-            const p = products.find((x) => x.id === it.product_id)
-            if (!p) return null
-            return (
-              <li key={i} className="py-3 flex items-center justify-between gap-3 text-sm">
-                <span className="text-cocoa-900">
-                  {p.name}
-                  <span className="text-cocoa-900/60"> × {it.quantity}</span>
-                </span>
-                <span className="font-medium text-cocoa-900">
-                  {fmtUsd(p.price_cents * Number(it.quantity || 0))}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-        <div className="mt-4 border-t border-cocoa-700/15 pt-4 flex items-end justify-between">
-          <span className="text-xs uppercase tracking-[0.16em] text-cocoa-900/60">Subtotal</span>
-          <span className="text-2xl font-medium text-cocoa-900">{fmtUsd(total)}</span>
+        <div className="mt-8">
+          <h2 className="display-h2 text-3xl">{step.label}</h2>
+          <p className="mt-1 text-cocoa-900/70">{step.subtitle}</p>
         </div>
-        <p className="mt-2 text-xs text-cocoa-900/60">
-          Tax and {mode === 'delivery' ? 'delivery fee' : 'any extras'} confirmed at checkout. Payment by card via
-          Square at confirmation, cash at pickup, or Zelle.
-        </p>
+
+        {step.key === 'cakes' && (
+          <CakesStep
+            fields={fields}
+            watchItems={watchItems}
+            products={products}
+            form={form}
+            append={append}
+            remove={remove}
+          />
+        )}
+
+        {step.key === 'when' && (
+          <WhenStep form={form} minWhen={minWhen} maxLead={maxLead} mode={mode} />
+        )}
+
+        {step.key === 'contact' && (
+          <ContactStep form={form} />
+        )}
+
+        <div className="mt-10 flex items-center justify-between gap-3">
+          <Button type="button" variant="ghost" onClick={onBack} disabled={stepIdx === 0}>
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+          {!isLast ? (
+            <Button type="button" size="lg" onClick={onNext}>
+              Continue <ArrowRight />
+            </Button>
+          ) : (
+            <Button type="submit" size="lg" disabled={submitting}>
+              <ShoppingBag /> {submitting ? 'Sending to kitchen…' : 'Send order'}
+            </Button>
+          )}
+        </div>
         {error && (
-          <p className="mt-3 text-sm text-berry bg-berry/10 rounded-md p-3" role="alert">
+          <p className="mt-4 text-sm text-berry bg-berry/10 rounded-md p-3" role="alert">
             {error}
           </p>
         )}
-        <Button type="submit" size="lg" disabled={submitting} className="mt-6 w-full">
-          <ShoppingBag /> {submitting ? 'Sending to kitchen…' : 'Send order'}
-        </Button>
-        <p className="mt-3 text-xs text-cocoa-900/60">
-          Askhat reviews and confirms within an hour during open hours.
-        </p>
-      </aside>
+      </div>
+
+      <BasketAside watchItems={watchItems} products={products} mode={mode} total={total} stepIdx={stepIdx} />
     </form>
+  )
+}
+
+function ProgressRail({ stepIdx }: { stepIdx: number }) {
+  return (
+    <ol className="flex items-center gap-3 md:gap-4 text-sm" aria-label="Order steps">
+      {STEPS.map((s, i) => {
+        const status: 'done' | 'current' | 'todo' = i < stepIdx ? 'done' : i === stepIdx ? 'current' : 'todo'
+        return (
+          <li key={s.key} className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className={cn(
+                  'h-8 w-8 rounded-full inline-flex items-center justify-center text-xs font-medium shrink-0 border',
+                  status === 'done' && 'bg-emerald-100 text-emerald-700 border-emerald-300',
+                  status === 'current' && 'bg-cocoa-700 text-cream border-cocoa-700',
+                  status === 'todo' && 'bg-white text-cocoa-900/45 border-cocoa-700/20',
+                )}
+              >
+                {status === 'done' ? <Check className="h-4 w-4" /> : s.index}
+              </span>
+              <span
+                className={cn(
+                  'truncate text-sm font-medium',
+                  status === 'current' ? 'text-cocoa-900' : 'text-cocoa-900/55',
+                )}
+              >
+                {s.label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <span
+                aria-hidden
+                className={cn(
+                  'flex-1 h-px',
+                  i < stepIdx ? 'bg-emerald-300' : 'bg-cocoa-700/15',
+                )}
+              />
+            )}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function CakesStep({
+  fields,
+  watchItems,
+  products,
+  form,
+  append,
+  remove,
+}: {
+  fields: ReturnType<typeof useFieldArray<FormValues, 'items'>>['fields']
+  watchItems: FormValues['items']
+  products: Product[]
+  form: ReturnType<typeof useForm<FormValues>>
+  append: ReturnType<typeof useFieldArray<FormValues, 'items'>>['append']
+  remove: ReturnType<typeof useFieldArray<FormValues, 'items'>>['remove']
+}) {
+  return (
+    <div className="mt-6 space-y-3">
+      {fields.map((field, idx) => {
+        const product = products.find((p) => p.id === watchItems[idx]?.product_id)
+        return (
+          <div key={field.id} className="rounded-md border border-cocoa-700/15 bg-white p-4">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+              <div>
+                <Label htmlFor={`item-${idx}`}>Cake</Label>
+                <Controller
+                  control={form.control}
+                  name={`items.${idx}.product_id`}
+                  render={({ field }) => (
+                    <select
+                      {...field}
+                      id={`item-${idx}`}
+                      className="mt-1 flex h-11 w-full rounded-md border border-cocoa-700/20 bg-white px-3 text-sm"
+                    >
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} · {fmtUsd(p.price_cents)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
+              </div>
+              <div>
+                <Label>Qty</Label>
+                <Controller
+                  control={form.control}
+                  name={`items.${idx}.quantity`}
+                  render={({ field }) => (
+                    <div className="mt-1 inline-flex items-center rounded-md border border-cocoa-700/20 bg-white">
+                      <button
+                        type="button"
+                        className="h-11 w-10 text-cocoa-700 hover:bg-cream-100 disabled:opacity-30"
+                        disabled={Number(field.value) <= 1}
+                        onClick={() => field.onChange(Math.max(1, Number(field.value) - 1))}
+                        aria-label="Decrease"
+                      >
+                        <Minus className="h-4 w-4 mx-auto" />
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber || 1)}
+                        className="h-11 w-12 text-center bg-transparent border-x border-cocoa-700/15 text-sm"
+                      />
+                      <button
+                        type="button"
+                        className="h-11 w-10 text-cocoa-700 hover:bg-cream-100"
+                        onClick={() => field.onChange(Number(field.value) + 1)}
+                        aria-label="Increase"
+                      >
+                        <Plus className="h-4 w-4 mx-auto" />
+                      </button>
+                    </div>
+                  )}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => fields.length > 1 && remove(idx)}
+                disabled={fields.length <= 1}
+                aria-label="Remove cake"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            {product?.description && (
+              <p className="mt-3 text-sm text-cocoa-900/70">{product.description}</p>
+            )}
+            <div className="mt-3 flex items-center gap-2 text-xs text-cocoa-900/60">
+              <Badge variant="outline" className="text-[11px]">
+                {leadTimeLabel(product?.lead_time_hours ?? 0)}
+              </Badge>
+              {product?.allergens && (
+                <span>contains {product.allergens.split(',').map((s) => s.trim()).join(', ')}</span>
+              )}
+            </div>
+          </div>
+        )
+      })}
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() => append({ product_id: products[0]?.id ?? '', quantity: 1 })}
+      >
+        <Plus className="h-4 w-4" /> Add another cake
+      </Button>
+    </div>
+  )
+}
+
+function WhenStep({
+  form,
+  minWhen,
+  maxLead,
+  mode,
+}: {
+  form: ReturnType<typeof useForm<FormValues>>
+  minWhen: string
+  maxLead: number
+  mode: 'pickup' | 'delivery'
+}) {
+  return (
+    <div className="mt-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="scheduled_at_iso">Pickup / delivery time</Label>
+          <Input
+            id="scheduled_at_iso"
+            type="datetime-local"
+            min={minWhen}
+            {...form.register('scheduled_at_iso')}
+            className="mt-1"
+          />
+          {form.formState.errors.scheduled_at_iso && (
+            <p className="mt-1 text-xs text-berry">
+              {form.formState.errors.scheduled_at_iso.message}
+            </p>
+          )}
+          {maxLead > 0 && (
+            <p className="mt-1 text-xs text-cocoa-900/60">
+              Earliest possible: {leadTimeLabel(maxLead).toLowerCase()} from now.
+            </p>
+          )}
+        </div>
+        <div>
+          <Label>How would you like it?</Label>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {(
+              [
+                { mode: 'pickup', label: 'Pickup', icon: Store },
+                { mode: 'delivery', label: 'Delivery', icon: Truck },
+              ] as const
+            ).map(({ mode: m, label, icon: Icon }) => {
+              const value = form.watch('pickup_or_delivery')
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => form.setValue('pickup_or_delivery', m)}
+                  className={cn(
+                    'h-11 rounded-md border text-sm font-medium transition-colors inline-flex items-center justify-center gap-2',
+                    value === m
+                      ? 'border-cocoa-700 bg-cocoa-700 text-cream-50'
+                      : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-xs text-cocoa-900/60">
+            {mode === 'delivery'
+              ? 'Delivery in Sugar Land + Greater Houston only. Fee confirmed at order time.'
+              : 'Pickup is free at our Promenade Way location.'}
+          </p>
+        </div>
+      </div>
+
+      {mode === 'delivery' && (
+        <div className="mt-5 rounded-lg border border-cocoa-700/15 bg-cream-100 p-5">
+          <p className="text-sm font-medium text-cocoa-900">Delivery address</p>
+          <p className="mt-1 text-xs text-cocoa-900/65">
+            We deliver to {DELIVERY_CITIES.slice(0, 5).join(', ')}, and Greater Houston (ZIPs starting 770–777).
+            Outside that? <a href="/chat" className="text-sky-700 underline">Message us</a> for a custom quote.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
+            <div>
+              <Label htmlFor="street">Street address</Label>
+              <Input
+                id="street"
+                placeholder="123 Main St"
+                autoComplete="address-line1"
+                {...form.register('street')}
+                className="mt-1"
+              />
+              {form.formState.errors.street && (
+                <p className="mt-1 text-xs text-berry">{form.formState.errors.street.message}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                list="hc-delivery-cities"
+                autoComplete="address-level2"
+                {...form.register('city')}
+                className="mt-1"
+              />
+              <datalist id="hc-delivery-cities">
+                {DELIVERY_CITIES.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              {form.formState.errors.city && (
+                <p className="mt-1 text-xs text-berry">{form.formState.errors.city.message}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="zip">ZIP</Label>
+              <Input
+                id="zip"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={5}
+                placeholder="77478"
+                autoComplete="postal-code"
+                {...form.register('zip')}
+                className="mt-1"
+              />
+              {form.formState.errors.zip && (
+                <p className="mt-1 text-xs text-berry">{form.formState.errors.zip.message}</p>
+              )}
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-cocoa-900/55">
+            State is locked to <span className="font-medium">TX</span> — we don&apos;t deliver out of state.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ContactStep({ form }: { form: ReturnType<typeof useForm<FormValues>> }) {
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="customer_name">Your name</Label>
+          <Input id="customer_name" autoComplete="name" {...form.register('customer_name')} className="mt-1" />
+          {form.formState.errors.customer_name && (
+            <p className="mt-1 text-xs text-berry">{form.formState.errors.customer_name.message}</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="customer_phone">Phone or WhatsApp</Label>
+          <Input
+            id="customer_phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="+1 555 555 1234"
+            {...form.register('customer_phone')}
+            className="mt-1"
+          />
+          {form.formState.errors.customer_phone && (
+            <p className="mt-1 text-xs text-berry">{form.formState.errors.customer_phone.message}</p>
+          )}
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="notes">Notes for the kitchen (optional)</Label>
+        <Textarea
+          id="notes"
+          placeholder="Birthday name on top, no walnuts, ring the bell at the side door — anything we should know."
+          {...form.register('notes')}
+          className="mt-1"
+        />
+      </div>
+    </div>
+  )
+}
+
+function BasketAside({
+  watchItems,
+  products,
+  mode,
+  total,
+  stepIdx,
+}: {
+  watchItems: FormValues['items']
+  products: Product[]
+  mode: 'pickup' | 'delivery'
+  total: number
+  stepIdx: number
+}) {
+  return (
+    <aside className="lg:sticky lg:top-28 self-start rounded-lg bg-cream-100 border border-cocoa-700/15 p-6">
+      <p className="eyebrow">Order summary</p>
+      <h2 className="display-h3 mt-1">Your basket</h2>
+      <ul className="mt-4 divide-y divide-cocoa-700/15">
+        {watchItems.map((it, i) => {
+          const p = products.find((x) => x.id === it.product_id)
+          if (!p) return null
+          return (
+            <li key={i} className="py-3 flex items-center justify-between gap-3 text-sm">
+              <span className="text-cocoa-900">
+                {p.name}
+                <span className="text-cocoa-900/60"> × {it.quantity}</span>
+              </span>
+              <span className="font-medium text-cocoa-900">
+                {fmtUsd(p.price_cents * Number(it.quantity || 0))}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      <div className="mt-4 border-t border-cocoa-700/15 pt-4 flex items-end justify-between">
+        <span className="text-xs uppercase tracking-[0.16em] text-cocoa-900/60">Subtotal</span>
+        <span className="text-2xl font-medium text-cocoa-900">{fmtUsd(total)}</span>
+      </div>
+      <p className="mt-2 text-xs text-cocoa-900/60">
+        Tax and {mode === 'delivery' ? 'delivery fee' : 'any extras'} confirmed at checkout. Payment by card via
+        Square at confirmation, cash at pickup, or Zelle.
+      </p>
+      <p className="mt-4 text-xs text-cocoa-900/55">
+        Step {stepIdx + 1} of {STEPS.length} — Askhat reviews and confirms within an hour during open hours.
+      </p>
+    </aside>
   )
 }
 

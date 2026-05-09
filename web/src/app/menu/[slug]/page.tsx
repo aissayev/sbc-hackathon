@@ -9,6 +9,7 @@ import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CakePhoto } from '@/components/product/cake-photo'
+import { ProductCard } from '@/components/product/product-card'
 import { ChevronLeft, MessageSquareHeart, ShoppingBag, Clock, Cake, ShieldCheck } from 'lucide-react'
 
 export const revalidate = 60
@@ -175,22 +176,9 @@ export default async function ProductDetailPage(props: { params: Params }) {
         <section className="container mt-16 mb-16">
           <Eyebrow>You might also like</Eyebrow>
           <h2 className="display-h2 mt-3">Pairs well with</h2>
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((p) => (
-              <Link
-                key={p.id}
-                href={`/menu/${p.id}`}
-                className="bakery-card p-5 flex items-center gap-4 hover:bg-cream-100 transition-colors"
-              >
-                <div className="h-16 w-16 shrink-0">
-                  <CakePhoto productId={p.id} name={p.name} src={p.photo_url} className="h-16 w-16" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-display text-lg text-cocoa-900 truncate">{p.name}</div>
-                  <div className="text-xs text-cocoa-900/60">{leadTimeLabel(p.lead_time_hours)}</div>
-                </div>
-                <span className="text-sm font-semibold text-sky-700 shrink-0">{fmtUsd(p.price_cents)}</span>
-              </Link>
+              <ProductCard key={p.id} product={p} variant="compact" />
             ))}
           </div>
         </section>
