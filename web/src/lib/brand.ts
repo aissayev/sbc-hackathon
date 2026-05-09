@@ -49,24 +49,25 @@ export const BRAND = {
 } as const
 
 // Asset-pack paths — see docs/00-source/asset-pack.metadata.json.
-// The user drops the actual binaries at web/public/assets/*. Until they
-// land, the code references these paths and the components fall back
-// gracefully to brand-pattern placeholders if the file 404s.
+// All assets live on the hackathon public CDN; we proxy via next/image so we
+// keep automatic optimization + cache-busting. No binaries in the repo.
+const CDN = 'https://www.steppebusinessclub.com/hackathon-assets/happy-cake'
+
 export const ASSETS = {
   logo: {
-    px256: '/assets/logo/happy-cake-logo-256.png',
-    px512: '/assets/logo/happy-cake-logo-512.png',
-    px1024: '/assets/logo/happy-cake-logo-1024.png',
+    px256: `${CDN}/logo/happy-cake-logo-256.png`,
+    px512: `${CDN}/logo/happy-cake-logo-512.png`,
+    px1024: `${CDN}/logo/happy-cake-logo-1024.png`,
   },
   hero: [
-    '/assets/hero/happy-cake-hero-01.webp',
-    '/assets/hero/happy-cake-hero-02.webp',
-    '/assets/hero/happy-cake-hero-03.webp',
-    '/assets/hero/happy-cake-hero-04.webp',
+    `${CDN}/hero/happy-cake-hero-01.webp`,
+    `${CDN}/hero/happy-cake-hero-02.webp`,
+    `${CDN}/hero/happy-cake-hero-03.webp`,
+    `${CDN}/hero/happy-cake-hero-04.webp`,
   ],
-  products: Array.from({ length: 10 }, (_, i) => `/assets/products/happy-cake-product-${String(i + 1).padStart(2, '0')}.webp`),
-  social: Array.from({ length: 8 }, (_, i) => `/assets/social/happy-cake-social-${String(i + 1).padStart(2, '0')}.webp`),
-  // Owner + family portraits — drop binaries at these paths.
+  products: Array.from({ length: 10 }, (_, i) => `${CDN}/products/happy-cake-product-${String(i + 1).padStart(2, '0')}.webp`),
+  social: Array.from({ length: 8 }, (_, i) => `${CDN}/social/happy-cake-social-${String(i + 1).padStart(2, '0')}.webp`),
+  // Owner + family portraits — local until the CDN bucket adds /team/ paths.
   team: {
     ownerPortrait: '/assets/team/owner-askhat.jpg',
     family: '/assets/team/family-couple.jpg',
