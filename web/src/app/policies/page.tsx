@@ -80,11 +80,19 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
   {
     title: 'Allergens',
     body: (
-      <p>
-        Our kitchen handles eggs, dairy, gluten, and tree nuts in shared spaces. Every cake we
-        make has at least one of these. If you have a severe allergy, message us and we'll talk
-        you through what we can and can't do safely.
-      </p>
+      <>
+        <p>
+          Our kitchen handles eggs, dairy, gluten, and tree nuts in shared spaces. Every cake we
+          make has at least one of these. If you have a severe allergy, message us and we'll talk
+          you through what we can and can't do safely.
+        </p>
+        <p className="mt-3">
+          <Link href="/dietary" className="text-sky-700 underline-offset-4 hover:underline font-medium">
+            See the full dietary guide →
+          </Link>{' '}
+          for gluten-free, nut-free, dairy-free, vegan, and halal-friendly options.
+        </p>
+      </>
     ),
   },
   {
