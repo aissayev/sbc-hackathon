@@ -22,6 +22,10 @@ import {
   sendOwnerReply,
   sendOwnerThinking,
   finalizeOwnerThinking,
+  logInbound,
+  logOutbound,
+  logError,
+  logSystem,
 } from './bots/owner.ts'
 import { clearHistory } from './db/threads.ts'
 import {
@@ -65,6 +69,13 @@ const onMessage: MessageHandler = async (msg) => {
   const t0 = Date.now()
   console.log(`[${msg.channel}] ${msg.threadId} → ${role}: "${msg.text.slice(0, 80)}"`)
 
+  // Mirror customer-channel inbound to the owner's TG log so Askhat (and the
+  // evaluator) sees every message land. Skip when the owner IS the source
+  // (free-text owner-cockpit turns shouldn't echo themselves).
+  if (role !== 'owner') {
+    logInbound(msg.channel, msg.threadId, role, msg.text)
+  }
+
   // Owner free text gets a "thinking…" placeholder we edit with the final
   // reply + tool footer. Feels like Claude Code: live, with trace, in chat.
   const thinkingMsgId = role === 'owner' ? await sendOwnerThinking(msg.threadId) : null
@@ -79,12 +90,16 @@ const onMessage: MessageHandler = async (msg) => {
       if (run.reply && adapter) {
         await adapter.send(msg.threadId, run.reply)
       }
+      // Customer-channel reply landed — log a one-liner to the owner.
+      logOutbound(msg.channel, msg.threadId, run.tool_calls.length, run.duration_ms, run.cost_usd)
     }
     console.log(
       `[${msg.channel}] ${msg.threadId} ← role=${role} ${run.tool_calls.length} tools, ${run.duration_ms}ms, $${run.cost_usd ?? '?'} (exit ${run.exit_code})`,
     )
   } catch (err) {
-    console.error(`[${msg.channel}] ${msg.threadId} agent error:`, (err as Error).message)
+    const errMsg = (err as Error).message
+    console.error(`[${msg.channel}] ${msg.threadId} agent error:`, errMsg)
+    logError(msg.channel, msg.threadId, `agent error: ${errMsg}`)
     if (role === 'owner' && thinkingMsgId !== null) {
       await finalizeOwnerThinking(msg.threadId, thinkingMsgId, {
         reply: "Sorry — something hiccupped. I'm logging it.",
@@ -236,6 +251,10 @@ console.log(`[server] starting on :${config.port} channels=${configuredChannels(
 console.log(`[server] agent=${config.agent.enabled ? config.agent.model : 'disabled'}`)
 console.log(`[server] sandbox_mcp=${config.sandbox.mcpUrl} token=${config.sandbox.teamToken ? 'set' : 'MISSING'}`)
 console.log(`[server] telegram bots: ${configuredBots().map((b) => b.role).join(', ') || '(none)'}`)
+
+// One-shot boot ping so the owner sees the server come up. Verbose-only by
+// default — set TG_OWNER_LOG_LEVEL=verbose to see system events in TG.
+logSystem(`server up · channels: ${configuredChannels().join(',')} · agent: ${config.agent.enabled ? config.agent.model : 'disabled'}`)
 
 // Start one long-poll per configured TG bot. Owner-side messages with
 // callback_query are handled by the inline-keyboard callback (see src/bots/owner.ts).
