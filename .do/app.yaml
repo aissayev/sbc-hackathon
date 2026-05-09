@@ -1,0 +1,82 @@
+# DigitalOcean App Platform spec for the Happy Cake website.
+# Apply with:
+#   doctl apps create   --spec .do/app.yaml      # first time
+#   doctl apps update <APP_ID> --spec .do/app.yaml   # subsequent
+#
+# The website is the only piece on App Platform. The Hono backend runs on a
+# droplet (the brief specifies `claude -p` as the agent runtime, which spawns
+# subprocesses — App Platform's container runtime is fine for Bun + Next.js
+# but unfriendly to a backend that fork/exec's a CLI). See web/DEPLOY.md for
+# the full architecture and the droplet-side deploy notes.
+#
+# Region: nyc — keep close to existing flowleads droplets so the proxy hop
+# from website (App Platform) → backend (droplet) stays inside DO's network.
+#
+# Custom domain (happycake.flowleads.dev) is provisioned in the DO dashboard.
+# This spec covers the build + runtime; DNS/TLS is App-Platform-managed once
+# the domain is added.
+
+name: happycake-web
+region: nyc
+
+services:
+  - name: web
+    # GitHub deploy on push to main. Replace `aissayev/sbc-hackathon` if the
+    # repo moves under another owner. `deploy_on_push: true` triggers a fresh
+    # build whenever main advances.
+    github:
+      repo: aissayev/sbc-hackathon
+      branch: main
+      deploy_on_push: true
+
+    # The website lives under web/ — Next.js standalone build. The package
+    # manager is bun; App Platform autodetects it from `bun.lock`. We keep
+    # the build commands explicit so re-applies of this spec don't drift.
+    source_dir: /web
+    build_command: |
+      bun install --frozen-lockfile
+      bun run build
+      # next/image standalone needs static + public copied in alongside server.js
+      cp -r public .next/standalone/
+      cp -r .next/static .next/standalone/.next/
+    run_command: node .next/standalone/server.js
+
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    http_port: 3001
+
+    health_check:
+      http_path: /
+      initial_delay_seconds: 20
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+
+    routes:
+      - path: /
+
+    envs:
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: production
+      # BACKEND_URL is required for the website's /api/* rewrites to land on
+      # the Hono server. Set the actual value in the App's Settings → Env
+      # (mark it as a SECRET there). Spec keeps the slot but doesn't ship
+      # the URL — that lives in the DO dashboard so it can be rotated
+      # without redeploying.
+      - key: BACKEND_URL
+        scope: RUN_TIME
+        type: SECRET
+        # Placeholder — overwritten in dashboard. Example:
+        #   https://happycake-api.flowleads.dev
+        # or a private DO droplet IP if peered.
+        value: REPLACE_IN_DASHBOARD
+      - key: NEXT_PUBLIC_SITE_URL
+        scope: BUILD_TIME
+        value: https://happycake.flowleads.dev
+
+domains:
+  - domain: happycake.flowleads.dev
+    type: PRIMARY
+    # DO manages TLS certs once the domain is added in the dashboard.
