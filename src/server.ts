@@ -15,7 +15,13 @@ import { invokeAgent, recordRun } from './agent/invoke.ts'
 import { pickRole } from './agent/router.ts'
 import { createWebhookRoutes } from './routes/webhooks.ts'
 import type { IncomingMessage, MessageHandler, ChannelAdapter } from './channels/types.ts'
-import { listProducts, getProduct } from './domain/tools.ts'
+import {
+  listProducts,
+  getProduct,
+  createDraftOrder,
+  createDraftOrderSchema,
+  getOrderStatus,
+} from './domain/tools.ts'
 import { getPolicies } from './domain/policies.ts'
 import { home, menu, productDetail, policies, chat, openApiSpec } from './web/pages.ts'
 
@@ -86,6 +92,43 @@ app.get('/api/products/:id', (c) => {
 })
 app.get('/openapi.json', (c) => c.json(openApiSpec()))
 app.get('/api/policies', (c) => c.json(getPolicies()))
+
+// ─── Orders API (customer-side direct order flow) ────────────────────────
+
+app.post('/api/orders/draft', async (c) => {
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid json' }, 400)
+  }
+  const parsed = createDraftOrderSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'validation failed', issues: parsed.error.issues }, 400)
+  }
+  const result = createDraftOrder(parsed.data)
+  if (!result.ok) {
+    return c.json(result, 400)
+  }
+  // Status is `draft`. The owner approves via Telegram or admin UI; that flow
+  // promotes to sandbox `square_create_order` + `kitchen_create_ticket`.
+  return c.json({
+    order_id: result.order_id,
+    total_cents: result.total_cents,
+    status: result.status,
+    items: result.items,
+    next_step: 'awaiting_owner_approval',
+  })
+})
+
+app.get('/api/orders/:id', (c) => {
+  const id = c.req.param('id')
+  const status = getOrderStatus({ order_id: id }) as Record<string, unknown>
+  if (status && 'ok' in status && status.ok === false) {
+    return c.json(status, 404)
+  }
+  return c.json(status)
+})
 app.get('/llms.txt', (c) =>
   c.text(`# HappyCake — agent-readable surface
 
