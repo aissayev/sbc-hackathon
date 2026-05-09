@@ -92,25 +92,35 @@ export function CustomCakeFunnel() {
     setError(null)
     try {
       const payload = {
-        items: [{ product_id: flavorToSku(values.flavor), quantity: 1 }],
-        scheduled_at_iso: new Date(values.scheduled_at_iso).toISOString(),
-        pickup_or_delivery: values.pickup_or_delivery,
-        customer_name: values.customer_name,
-        customer_phone: values.customer_phone,
-        notes: formatCustomSpec(values),
-        channel: 'web',
+        contact: values.customer_phone || values.customer_email || values.customer_name,
+        meta: {
+          customer_name: values.customer_name,
+          customer_phone: values.customer_phone,
+          customer_email: values.customer_email,
+          flavor: values.flavor,
+          base_sku: flavorToSku(values.flavor),
+          scheduled_at_iso: new Date(values.scheduled_at_iso).toISOString(),
+          pickup_or_delivery: values.pickup_or_delivery,
+          notes: values.notes,
+          formatted: formatCustomSpec(values),
+        },
       }
-      const res = await fetch('/api/orders/draft', {
+      const res = await fetch('/api/leads/custom-cake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const data = (await res.json()) as { ok: boolean; order_id?: string; reason?: string }
-      if (!data.ok || !data.order_id) {
-        setError(data.reason ?? 'Something hiccupped on our side. Try again, or chat with us.')
+      const ct = res.headers.get('content-type') ?? ''
+      if (!ct.toLowerCase().includes('application/json')) {
+        setError('Couldn\'t reach the kitchen system. Try again in a minute, or chat with us.')
         return
       }
-      router.push(`/order/confirm/${data.order_id}`)
+      const data = (await res.json()) as { ok?: boolean; lead_id?: string; reason?: string; error?: string }
+      if (!data.ok || !data.lead_id) {
+        setError(data.reason ?? data.error ?? 'Something hiccupped on our side. Try again, or chat with us.')
+        return
+      }
+      router.push(`/order/confirm/${data.lead_id}`)
     } catch (err) {
       setError((err as Error).message)
     } finally {

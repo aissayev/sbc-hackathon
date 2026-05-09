@@ -34,6 +34,8 @@ import {
   createDraftOrder,
   createDraftOrderSchema,
   getOrderStatus,
+  createLead,
+  createLeadSchema,
 } from './domain/tools.ts'
 import { getPolicies } from './domain/policies.ts'
 import { openApiSpec } from './web/openapi.ts'
@@ -180,6 +182,30 @@ app.get('/api/orders/:id', (c) => {
   }
   return c.json(status)
 })
+
+// ─── Leads (B2B + custom-cake funnels) ───────────────────────────────────
+//
+// Multi-step funnels on the website (web/src/components/business/inquire-form,
+// web/src/components/order/custom-cake-funnel) submit here. We capture the
+// freeform context as `meta_json` so the owner-side TG bot can render it as a
+// review card without us needing a per-source schema.
+
+app.post('/api/leads/:source', async (c) => {
+  const source = c.req.param('source')
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'invalid json' }, 400)
+  }
+  const parsed = createLeadSchema.safeParse({ ...(body as Record<string, unknown>), source })
+  if (!parsed.success) {
+    return c.json({ error: 'validation failed', issues: parsed.error.issues }, 400)
+  }
+  const result = createLead(parsed.data)
+  return c.json({ ...result, next_step: 'awaiting_owner_review' })
+})
+
 app.get('/llms.txt', (c) =>
   c.text(`# HappyCake — agent-readable surface
 
@@ -188,6 +214,9 @@ HappyCake is a real bakery in Sugar Land, TX. AI agents are welcome to use this 
 ## Endpoints
 - GET /api/products             List in-stock products
 - GET /api/products/{id}        Product detail
+- POST /api/orders/draft        Create a draft order (returns order_id; queued for owner approval)
+- GET /api/orders/{id}          Order status (public, by id)
+- POST /api/leads/{source}      Capture a B2B / custom-cake / newsletter / press lead (queued for owner review)
 - POST /api/chat                Talk to the on-site assistant; returns thread_id + replies[]
 - GET /openapi.json             Full API spec
 - GET /menu                     Human-readable catalog (HTML, with Schema.org Product JSON-LD per product)

@@ -100,29 +100,39 @@ export function B2BInquireForm() {
     setSubmitting(true)
     setError(null)
     try {
-      // Until /api/leads/b2b lands, we file the inquiry as a draft order with
-      // a placeholder SKU and a structured note. The owner sees it in the
-      // approval queue and follows up by phone / email.
       const payload = {
-        items: [{ product_id: 'sku-classic-1kg', quantity: 1 }],
-        scheduled_at_iso: new Date(values.first_date).toISOString(),
-        pickup_or_delivery: 'pickup' as const,
-        customer_name: `${values.company} (B2B)`,
-        customer_phone: values.contact_phone || values.contact_email,
-        notes: formatB2BSpec(values),
-        channel: 'web',
+        contact: values.contact_email || values.contact_phone || values.contact_name,
+        meta: {
+          company: values.company,
+          contact_name: values.contact_name,
+          contact_email: values.contact_email,
+          contact_phone: values.contact_phone,
+          first_date: values.first_date,
+          headcount: values.headcount,
+          cadence: values.cadence,
+          budget: values.budget,
+          dietary: values.dietary,
+          inquiry_type: values.type,
+          notes: values.notes,
+          formatted: formatB2BSpec(values),
+        },
       }
-      const res = await fetch('/api/orders/draft', {
+      const res = await fetch('/api/leads/b2b', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const data = (await res.json()) as { ok: boolean; order_id?: string; reason?: string }
-      if (!data.ok || !data.order_id) {
-        setError(data.reason ?? 'Something hiccupped on our side. Try again, or email us.')
+      const ct = res.headers.get('content-type') ?? ''
+      if (!ct.toLowerCase().includes('application/json')) {
+        setError('Couldn\'t reach the kitchen system. Try again in a minute, or email us.')
         return
       }
-      router.push(`/business/inquire/sent?id=${data.order_id}`)
+      const data = (await res.json()) as { ok?: boolean; lead_id?: string; reason?: string; error?: string }
+      if (!data.ok || !data.lead_id) {
+        setError(data.reason ?? data.error ?? 'Something hiccupped on our side. Try again, or email us.')
+        return
+      }
+      router.push(`/business/inquire/sent?id=${data.lead_id}`)
     } catch (err) {
       setError((err as Error).message)
     } finally {

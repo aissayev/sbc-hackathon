@@ -73,6 +73,30 @@ export function openApiSpec(): object {
           responses: { '200': { description: 'order status' }, '404': { description: 'not found' } },
         },
       },
+      '/api/leads/{source}': {
+        post: {
+          summary: 'Capture a lead from the B2B or custom-cake funnel; queued for owner review',
+          parameters: [
+            { name: 'source', in: 'path', required: true, schema: { type: 'string', enum: ['b2b', 'custom-cake', 'newsletter', 'press'] } },
+          ],
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['contact'],
+                  properties: {
+                    contact: { type: 'string', description: 'phone, email, or company name' },
+                    thread_id: { type: 'string' },
+                    meta: { type: 'object', additionalProperties: true, description: 'funnel-specific context (headcount, dietary, dates, etc.)' },
+                  },
+                },
+              },
+            },
+          },
+          responses: { '200': { description: 'lead_id' }, '400': { description: 'validation failed' } },
+        },
+      },
       '/api/chat': {
         post: {
           summary: 'Talk to the Happy Cake assistant; returns reply text + new thread id',
