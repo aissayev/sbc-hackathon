@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { listProducts } from '@/lib/api'
 import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
 import { BLOG_POSTS } from '@/lib/blog'
+import { APPEARANCES } from '@/lib/press'
 import { KIND_LABELS } from '@/lib/catalog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
@@ -20,6 +21,10 @@ import {
   MapPin,
   Phone,
   Instagram,
+  Newspaper,
+  Youtube,
+  Leaf,
+  ExternalLink,
 } from 'lucide-react'
 
 export const revalidate = 60
@@ -120,7 +125,9 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <DietaryAndCustomBand />
       <Manifesto />
+      <InTheMediaBand />
       <StoriesBand />
       <VisitSection />
       <BusinessBand />
@@ -214,6 +221,132 @@ function Pillars() {
           )
         })}
       </div>
+    </section>
+  )
+}
+
+function DietaryAndCustomBand() {
+  return (
+    <section className="container mt-20" aria-labelledby="dietary-and-custom">
+      <h2 id="dietary-and-custom" className="sr-only">
+        Dietary guide and custom cakes
+      </h2>
+      <div className="grid gap-5 md:grid-cols-2">
+        <Link
+          href="/dietary"
+          className="group relative overflow-hidden rounded-2xl bg-sage/15 border border-sage/30 p-6 md:p-8 hover:-translate-y-0.5 transition-transform"
+        >
+          <div className="flex items-start gap-4">
+            <span className="h-11 w-11 rounded-full bg-sage/30 inline-flex items-center justify-center shrink-0">
+              <Leaf className="h-5 w-5 text-emerald-700" />
+            </span>
+            <div className="min-w-0">
+              <Eyebrow>Dietary guide</Eyebrow>
+              <h3 className="display-h3 mt-2 group-hover:text-emerald-700 transition-colors">
+                Gluten, nuts, dairy, vegan, halal — what we can and can&apos;t do
+              </h3>
+              <p className="mt-2 text-sm text-cocoa-900/75 leading-relaxed">
+                Plain-English answers from a small kitchen with shared benches. Read this before
+                ordering for someone with an allergy.
+              </p>
+              <span className="mt-3 inline-flex items-center text-sm text-emerald-700">
+                Read the guide <ArrowRight className="ml-1 h-4 w-4" />
+              </span>
+            </div>
+          </div>
+        </Link>
+        <Link
+          href="/order/custom"
+          className="group relative overflow-hidden rounded-2xl bg-sky/10 border border-sky/30 p-6 md:p-8 hover:-translate-y-0.5 transition-transform"
+        >
+          <div className="flex items-start gap-4">
+            <span className="h-11 w-11 rounded-full bg-sky/25 inline-flex items-center justify-center shrink-0">
+              <Sparkles className="h-5 w-5 text-sky-700" />
+            </span>
+            <div className="min-w-0">
+              <Eyebrow>Custom cake</Eyebrow>
+              <h3 className="display-h3 mt-2 group-hover:text-sky-700 transition-colors">
+                Birthdays, anniversaries — designed with you in five steps
+              </h3>
+              <p className="mt-2 text-sm text-cocoa-900/75 leading-relaxed">
+                Flavors, fillings, message, photo or fondant. 24 hours notice (36 for vegan or
+                gluten-free). Askhat quotes by phone.
+              </p>
+              <span className="mt-3 inline-flex items-center text-sm text-sky-700">
+                Start the design <ArrowRight className="ml-1 h-4 w-4" />
+              </span>
+            </div>
+          </div>
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+function InTheMediaBand() {
+  const featured = APPEARANCES.slice(0, 3)
+  if (featured.length === 0) return null
+  return (
+    <section className="container mt-24">
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
+        <div>
+          <Eyebrow>We&apos;re in the media</Eyebrow>
+          <h2 className="display-h2 mt-3">Press, podcasts, and YouTube</h2>
+          <p className="mt-2 text-cocoa-900/70 max-w-xl">
+            Where Askhat&apos;s told the story of Happy Cake — Sugar Land, family recipes, and a
+            kitchen that opened with one oven.
+          </p>
+        </div>
+        <Button asChild variant="outline-sky" shape="pill">
+          <Link href="/press">
+            All appearances
+            <ArrowRight />
+          </Link>
+        </Button>
+      </div>
+      <ul className="grid gap-5 md:grid-cols-3">
+        {featured.map((a) => {
+          const Icon = a.type === 'youtube' ? Youtube : Newspaper
+          const tone = a.type === 'youtube' ? 'bg-berry/10 text-berry' : 'bg-sky/10 text-sky-700'
+          const href = a.url ?? '/press'
+          const external = Boolean(a.url)
+          return (
+            <li key={a.title}>
+              <a
+                href={href}
+                target={external ? '_blank' : undefined}
+                rel={external ? 'noopener' : undefined}
+                className="group bakery-card flex flex-col h-full p-5 hover:-translate-y-0.5 transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`h-10 w-10 rounded-full inline-flex items-center justify-center shrink-0 ${tone}`}>
+                    <Icon className="h-4.5 w-4.5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-cocoa-900/55 truncate">
+                      {a.outlet}
+                    </div>
+                    <div className="text-xs text-cocoa-900/55">
+                      {new Date(a.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                </div>
+                <h3 className="display-h3 mt-4 text-lg group-hover:text-sky-700 transition-colors [text-wrap:balance]">
+                  {a.title}
+                </h3>
+                <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed line-clamp-3">
+                  {a.description}
+                </p>
+                {external && (
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs text-sky-700">
+                    Open <ExternalLink className="h-3 w-3" />
+                  </span>
+                )}
+              </a>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }
