@@ -32,6 +32,10 @@ export const config = {
     token: envGet('WA_TOKEN'),
     verifyToken: envGet('WA_VERIFY_TOKEN') ?? 'happycake_verify_2026',
     wabaId: envGet('WA_BUSINESS_ACCOUNT_ID'),
+    // 'real' = Meta Cloud API only (human demo).
+    // 'sandbox' = sandbox MCP `whatsapp_send` only (eval scoring).
+    // 'both' = call both backends in parallel (default — best for the hackathon).
+    outboundMode: (envGet('WA_OUTBOUND_MODE') ?? 'both') as 'real' | 'sandbox' | 'both',
   },
 
   instagram: {
@@ -40,6 +44,7 @@ export const config = {
     appId: envGet('IG_APP_ID'),
     appSecret: envGet('IG_APP_SECRET'),
     verifyToken: envGet('IG_VERIFY_TOKEN') ?? 'happycake_verify_2026',
+    outboundMode: (envGet('IG_OUTBOUND_MODE') ?? 'both') as 'real' | 'sandbox' | 'both',
   },
 
   db: {
