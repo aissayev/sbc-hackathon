@@ -17,21 +17,31 @@ export function HoursTable({ className }: { className?: string }) {
   )
 }
 
-export function isOpenNow(): { open: boolean; nextChange?: string } {
-  const now = new Date()
-  // happycake.us hours: Mon closed, Tue–Sat 11–19, Sun 12–18 (local time).
-  const day = now.getDay() // 0 = Sun
-  const hour = now.getHours() + now.getMinutes() / 60
-  let open = false
-  let nextChange: string | undefined
-  if (day === 1) {
-    nextChange = 'Tomorrow at 11:00 AM'
-  } else if (day === 0) {
-    open = hour >= 12 && hour < 18
-    nextChange = open ? 'Closes at 6:00 PM' : hour < 12 ? 'Opens at noon' : 'Opens Tuesday at 11:00 AM'
-  } else {
-    open = hour >= 11 && hour < 19
-    nextChange = open ? 'Closes at 7:00 PM' : hour < 11 ? 'Opens at 11:00 AM' : day === 6 ? 'Opens Sunday at noon' : 'Opens tomorrow at 11:00 AM'
+// Compute open/closed against America/Chicago (Sugar Land) regardless of
+// where the server runs. Without timezone-locking, rendering on a UTC droplet
+// shows Saturday-evening status to a customer browsing at 3 PM CT.
+export function isOpenNow(now: Date = new Date()): { open: boolean; nextChange: string } {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+  })
+  const parts = fmt.formatToParts(now)
+  const weekday = parts.find((p) => p.type === 'weekday')?.value ?? 'Mon'
+  const hour = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10)
+  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday)
+
+  // Mon closed; Tue–Sat 11–19; Sun 12–18 (per BRAND.hours).
+  if (day === 1) return { open: false, nextChange: 'Opens Tuesday at 11 AM' }
+  if (day === 0) {
+    if (hour < 12) return { open: false, nextChange: 'Opens at noon' }
+    if (hour < 18) return { open: true, nextChange: 'Closes at 6 PM' }
+    return { open: false, nextChange: 'Opens Tuesday at 11 AM' }
   }
-  return { open, nextChange }
+  // Tue–Sat
+  if (hour < 11) return { open: false, nextChange: 'Opens at 11 AM' }
+  if (hour < 19) return { open: true, nextChange: 'Closes at 7 PM' }
+  if (day === 6) return { open: false, nextChange: 'Opens Sunday at noon' }
+  return { open: false, nextChange: 'Opens tomorrow at 11 AM' }
 }

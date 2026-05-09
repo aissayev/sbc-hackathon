@@ -65,6 +65,7 @@ export function SiteFooter() {
               <Mail className="h-3.5 w-3.5" /> {BRAND.email}
             </a>
             <span aria-hidden>·</span>
+            <Link href="/admin" className="hover:text-cream/80" title="Owner console">Owner</Link>
             <a href="/llms.txt" className="hover:text-cream/80" title="AI agent surface map">llms.txt</a>
             <a href="/sitemap.xml" className="hover:text-cream/80">sitemap</a>
           </span>
