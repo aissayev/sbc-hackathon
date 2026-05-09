@@ -60,10 +60,12 @@ export async function sendTelegram(
   chatId: string | number,
   text: string,
   keyboard?: InlineKeyboardButton[][],
+  parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2',
 ) {
   await tgRequest<SendMessageResponse>(token, 'sendMessage', {
     chat_id: chatId,
     text,
+    parse_mode: parseMode,
     reply_markup: keyboard
       ? {
           inline_keyboard: keyboard.map((row) =>

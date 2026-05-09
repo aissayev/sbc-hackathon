@@ -35,7 +35,15 @@ bun run smoke:agent "do you have chocolate cake?"
 
 # 6. start the server (Hono on :3000)
 bun run dev
+
+# 7. (canonical sandbox flow) start a tunnel + register your public URL
+#    so the sandbox can POST WA/IG inbound to /webhooks/*
+ngrok http 3000             # in a separate terminal — copy the https URL
+bun run register-webhooks https://<your-ngrok>.ngrok-free.app
+bun run webhooks:status     # confirm registration + see threads
 ```
+
+The webhook registration step is what makes the sandbox push events to us — exactly the flow the brief specifies (*"Customer messages tunnel into the computer through ngrok or Cloudflare Tunnel, hits the agent's bot wrapper, which calls `claude -p`."*). Without it, sandbox-driven scenarios run in pull mode via `bun run world:run` (deterministic, useful for offline testing) but the eval's webhook-push path is dark.
 
 Smoke output should look like:
 
