@@ -172,6 +172,43 @@ export function updateOrderStatus(orderId: string, status: string, note?: string
   return { ok: result.changes > 0 }
 }
 
+// ─── Leads (B2B inquiries, custom-cake design requests) ─────────────────
+//
+// Leads are inbound interest the owner wants triaged: B2B catering / gifting,
+// custom-cake design with photo references, etc. They land in the `leads`
+// table and the owner-side TG bot picks them up off `getRecentLeads`.
+
+export const createLeadSchema = z.object({
+  source: z.enum(['b2b', 'custom-cake', 'newsletter', 'press']),
+  contact: z.string().min(1),
+  thread_id: z.string().optional(),
+  meta: z.record(z.unknown()).optional(),
+})
+
+export function createLead(args: z.infer<typeof createLeadSchema>) {
+  const id = `lead_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  getDb()
+    .prepare(
+      `INSERT INTO leads (id, source, source_ref, campaign_id, thread_id, contact, status, meta_json, created_at)
+       VALUES (?, ?, NULL, NULL, ?, ?, 'new', ?, ?)`,
+    )
+    .run(id, args.source, args.thread_id ?? null, args.contact, args.meta ? JSON.stringify(args.meta) : null, Date.now())
+  return { ok: true, lead_id: id }
+}
+
+export function listLeads(filter?: { source?: string; status?: string; limit?: number }) {
+  const where: string[] = []
+  const params: Array<string | number> = []
+  if (filter?.source) { where.push('source = ?'); params.push(filter.source) }
+  if (filter?.status) { where.push('status = ?'); params.push(filter.status) }
+  const limit = filter?.limit ?? 100
+  const sql = `SELECT id, source, contact, thread_id, status, meta_json, created_at FROM leads
+               ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+               ORDER BY created_at DESC LIMIT ?`
+  params.push(limit)
+  return getDb().prepare(sql).all(...params)
+}
+
 // ─── Escalations ─────────────────────────────────────────────────────────
 
 export const escalateSchema = z.object({

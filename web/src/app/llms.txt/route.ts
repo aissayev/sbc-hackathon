@@ -20,6 +20,7 @@ directly via JSON. ${BRAND.tagline} ${BRAND.slogan}
 - GET  /api/products/{id}        Product detail (JSON)
 - POST /api/orders/draft         Create a draft order (returns order_id; queued for owner approval)
 - GET  /api/orders/{id}          Order status (public, by id)
+- POST /api/leads/{source}       Capture a B2B / custom-cake / newsletter / press lead (queued for owner review)
 - POST /api/chat                 Talk to the on-site assistant; returns thread_id + replies[]
 - GET  /openapi.json             Full API spec (OpenAPI 3.1)
 - GET  /sitemap.xml              All public URLs
@@ -27,9 +28,9 @@ directly via JSON. ${BRAND.tagline} ${BRAND.slogan}
 - GET  /menu/{id}                Product detail (HTML, with Schema.org Product JSON-LD)
 - GET  /menu?allergen_free=nuts,gluten,dairy,eggs   Filtered menu (combine via comma)
 - GET  /dietary                  Dietary guide — gluten-free, no-nuts, dairy-free, vegan, halal-friendly (HTML, with FAQPage JSON-LD)
-- GET  /order/custom             Custom-cake funnel (multi-step). Submits to /api/orders/draft.
+- GET  /order/custom             Custom-cake funnel (multi-step). Submits to /api/leads/custom-cake.
 - GET  /business                 B2B catering / gifting / standing programs (HTML, with Schema.org Service JSON-LD)
-- GET  /business/inquire         B2B inquiry funnel (multi-step). Submits to /api/orders/draft.
+- GET  /business/inquire         B2B inquiry funnel (multi-step). Submits to /api/leads/b2b.
 - GET  /policies                 Visit & FAQ — hours, allergens, lead times, pickup, delivery, payment, cancellation (HTML, with FAQPage JSON-LD)
 - GET  /blog                     Stories & guides — honey-cake history, custom-cake planning, allergen-aware ordering, gifting (HTML, with Article JSON-LD per post)
 - GET  /blog/{slug}              Individual story (HTML, with Article + BreadcrumbList JSON-LD)

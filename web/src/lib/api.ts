@@ -73,25 +73,35 @@ async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> 
   }
 }
 
-// TODO (backend handoff): the canonical catalog should come from the sandbox
-// MCP `square_list_catalog` tool the backend already wires up — see
-// `src/agent/mcp/local-server.ts` and `src/lib/sandbox-mcp.ts`. When the backend
-// imports SKUs into its SQLite seed (or exposes a /api/catalog passthrough that
-// wraps `square_list_catalog`), swap this function to:
-//
-//   const live = await safeFetch<{ products: Product[] }>(`${BACKEND}/api/products`)
-//   if (!live?.products?.length) return CATALOG.filter(p => p.in_stock)
-//   // merge live in_stock + daily_capacity onto our typed catalog rows by id
-//   return CATALOG.map(p => ({ ...p, ...findById(live.products, p.id) }))
-//                 .filter(p => p.in_stock)
-//
-// Until then we serve from lib/catalog.ts so /menu and /order match the photo
-// pack and brand voice.
+// Catalog read path:
+//   1. Try backend `/api/products`. The backend SQLite seed (data/catalog/
+//      happycake.seed.json) is now identical to lib/catalog.ts by id, so the
+//      live response is structurally compatible plus whatever `in_stock` /
+//      `daily_capacity` Square tells the kitchen.
+//   2. If the backend is offline, fall back to the local catalog so the menu
+//      still renders. Either way the typed `kind` axis comes from the local
+//      catalog — backend doesn't carry it (yet).
+async function fetchBackendProducts(): Promise<Product[] | null> {
+  const res = await safeFetch<{ products: Array<Omit<Product, 'kind'>> }>(`${BACKEND}/api/products`)
+  if (!res?.products?.length) return null
+  return res.products.map((p) => {
+    const local = findCatalogProduct(p.id)
+    return { ...p, kind: local?.kind ?? 'slice' } as Product
+  })
+}
+
 export async function listProducts(): Promise<Product[]> {
+  const live = await fetchBackendProducts()
+  if (live) return live.filter((p) => p.in_stock)
   return CATALOG.filter((p) => p.in_stock)
 }
 
 export async function getProduct(id: string): Promise<Product | null> {
+  const live = await safeFetch<Omit<Product, 'kind'>>(`${BACKEND}/api/products/${encodeURIComponent(id)}`)
+  if (live && live.id) {
+    const local = findCatalogProduct(id)
+    return { ...live, kind: local?.kind ?? 'slice' } as Product
+  }
   return findCatalogProduct(id)
 }
 

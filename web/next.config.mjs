@@ -21,6 +21,7 @@ const nextConfig = {
       { source: '/api/products/:id', destination: `${backend}/api/products/:id` },
       { source: '/api/orders/draft', destination: `${backend}/api/orders/draft` },
       { source: '/api/orders/:id', destination: `${backend}/api/orders/:id` },
+      { source: '/api/leads/:source', destination: `${backend}/api/leads/:source` },
       { source: '/api/admin/:path*', destination: `${backend}/api/admin/:path*` },
       { source: '/openapi.json', destination: `${backend}/openapi.json` },
     ]
