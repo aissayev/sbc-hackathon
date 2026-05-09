@@ -1,0 +1,121 @@
+# Owner bot — setup + run
+
+The operator's Telegram bot. Three lanes, one chat:
+
+| Input | Path | Cost | Latency |
+|---|---|---|---|
+| Slash command (`/today`, `/orders`, `/escalations`, `/reset`, `/help`) | `handleOwnerCommand` → SQLite read → reply | $0 | ~50ms |
+| Inline-keyboard tap (`approve:`, `reject:`, `view_esc:`) | `handleOwnerCallback` → `approveDraftAndPromote` → Square + Kitchen | $0 | ~1–2s |
+| Free text ("how's the kitchen tomorrow?") | `claude -p` with owner role + tools, live "🤔 thinking…" placeholder edited with reply + tool footer | Claude Max | ~8–15s |
+
+Free-text turns feel like Claude Code in chat: typing indicator, live placeholder, tool/cost trace beneath the reply.
+
+## 1. Create the bot
+
+1. Open Telegram → message `@BotFather`
+2. `/newbot` → display name `HappyCake Operator` → username ending in `bot` (e.g. `happycake_operator_bot`)
+3. BotFather returns a token like `123456789:ABC...`. Keep it private — never commit, never paste in screenshots.
+4. (Optional, recommended) `/setdescription`, `/setabouttext`, `/setuserpic` so the bot looks real.
+5. (Recommended) `/setcommands` and paste:
+   ```
+   today - today's numbers
+   orders - last 10 orders + approve
+   escalations - open escalations
+   reset - clear conversation context
+   help - show commands
+   ```
+6. Repeat for kitchen / marketing / concierge bots if you want the multi-bot fan-out.
+
+## 2. Get your chat id
+
+Message `@userinfobot` on Telegram. It replies with your numeric id (e.g. `987654321`). That's `TG_OWNER_CHAT_ID`. The bot only listens to this chat — strangers messaging the bot are dropped server-side.
+
+## 3. Paste tokens into `.env.local`
+
+```
+TG_OWNER_BOT_TOKEN=123456789:ABC...
+TG_OWNER_CHAT_ID=987654321
+TG_KITCHEN_BOT_TOKEN=...        # optional
+TG_MARKETING_BOT_TOKEN=...      # optional
+TG_CONCIERGE_BOT_TOKEN=...      # optional, log-only
+```
+
+## 4. Start the server
+
+```bash
+bun run dev
+```
+
+That's it. The Hono server boots, starts a long-poll per configured TG bot, and routes:
+
+- slash commands → `handleOwnerCommand` → instant DB-backed reply
+- inline-keyboard taps → `handleOwnerCallback` → deterministic orchestration
+- everything else → owner agent via `claude -p`
+
+⚠ Don't run `bun run dev` AND `bun src/scripts/owner-bot.ts` (the legacy standalone) at the same time — Telegram allows one consumer per token, they'll fight for updates. The server-integrated path is the canonical one now; the standalone exists for iteration only.
+
+## 5. Smoke
+
+In Telegram, message your owner bot:
+
+| You type | Bot replies |
+|---|---|
+| `/help` | command menu |
+| `/today` | today's orders, revenue, pending approvals, escalations + `[📋 Orders] [⚠ Escalations]` buttons |
+| `/orders` | last 10 orders + one-tap approve for the most recent draft |
+| `/escalations` | open escalations as inline-keyboard cards |
+| `/reset` | clears conversation history (next free-text turn starts fresh) |
+| (tap "✓ Approve") | draft promoted to sandbox Square + Kitchen, confirm message |
+| (tap "✗ Reject") | order marked rejected |
+| `how's the kitchen tomorrow?` | "🤔 thinking…" placeholder, then full agent reply with `— used: kitchen_summary, list_orders · 12.3s · $0.18` footer |
+
+Then trigger an auto-card by creating a draft from the customer side:
+
+```bash
+bun run agent:concierge "I want a whole honey cake for tomorrow at 4pm pickup, my name is Maria"
+```
+
+The TG owner chat should immediately receive:
+
+```
+New draft order ord_abc123…
+Total: $52.00
+Customer: Maria
+Pickup: 2026-05-10T16:00
+[✓ Approve]  [✗ Reject]
+```
+
+Tap Approve → confirmation with `Square: sq_…` + `Kitchen: tkt_…`.
+
+## 6. Failure modes
+
+- **`TG_OWNER_BOT_TOKEN not set`** — paste it into `.env.local`, restart `bun run dev`.
+- **`getUpdates failed: Conflict: terminated by other getUpdates request`** — two pollers are running on the same token. Stop one (`bun run dev` or the standalone `bun src/scripts/owner-bot.ts`).
+- **Approve fails at `square_create`** — `SBC_TEAM_TOKEN` missing or sandbox rate-limit. Check `.mcp.json`. Re-tap is idempotent.
+- **`/today` shows zero data** — your local SQLite is fresh; run `bun run smoke:agent "test order"` or any flow that creates a draft.
+- **Free-text reply never lands, "thinking…" stays forever** — check `bun run dev` logs for an `agent error`. The next message will work; the dead placeholder can be ignored.
+
+## 7. What this costs
+
+Slash commands and callback taps cost **$0** — pure DB reads + sandbox HTTP (covered by team token, not Max).
+
+Free text falls through to `claude -p` (~$0.05–0.40 per turn) and burns Claude Max budget. Use `/reset` to drop accumulated context if conversation history is making turns expensive.
+
+## 8. Architecture notes
+
+```
+src/
+├── channels/telegram.ts            transport: send/edit/typing + parse
+├── channels/telegram-poller.ts     long-poll loop, one per bot token
+├── bots/owner/
+│   ├── commands.ts                 /today /orders /escalations /reset /help
+│   ├── callbacks.ts                approve: reject: view_esc:
+│   ├── cards.ts                    postDraftOrderCard, postEscalationCard
+│   ├── live.ts                     sendOwnerThinking, finalizeOwnerThinking
+│   └── format.ts                   shared fmtMoney/shortId/hhmm
+├── server.ts                       three-lane router (slash / callback / agent)
+├── agent/invoke.ts                 claude -p subprocess (this IS the agent)
+└── agent/prompts/owner.md          owner system prompt
+```
+
+The owner role's tool allowlist is in `src/agent/invoke.ts` (`ROLE_TOOL_ALLOWLIST.owner`). Add a tool there to make it available to free-text owner turns.

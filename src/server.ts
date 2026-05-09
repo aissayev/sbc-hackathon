@@ -16,6 +16,15 @@ import { pickRole } from './agent/router.ts'
 import { createWebhookRoutes } from './routes/webhooks.ts'
 import type { IncomingMessage, MessageHandler, ChannelAdapter } from './channels/types.ts'
 import {
+  isOwnerSlashCommand,
+  handleOwnerCommand,
+  handleOwnerCallback,
+  sendOwnerReply,
+  sendOwnerThinking,
+  finalizeOwnerThinking,
+} from './bots/owner.ts'
+import { clearHistory } from './db/threads.ts'
+import {
   listProducts,
   getProduct,
   createDraftOrder,
@@ -37,24 +46,58 @@ const adapters: Record<string, ChannelAdapter> = {
 const MCP_CONFIG = resolve('.mcp.json')
 
 const onMessage: MessageHandler = async (msg) => {
+  // Owner slash commands are DB-backed: instant, free, no `claude -p` spend.
+  // Free text from the operator falls through to the agent below.
+  if (isOwnerSlashCommand(msg)) {
+    if (msg.text.trim().toLowerCase().startsWith('/reset')) {
+      clearHistory(msg.threadId)
+      await sendOwnerReply(msg.threadId, { text: '✓ conversation cleared. fresh context.' })
+      return
+    }
+    const reply = handleOwnerCommand(msg)
+    if (reply) {
+      await sendOwnerReply(msg.threadId, reply)
+      return
+    }
+  }
+
   const role = pickRole(msg)
   const t0 = Date.now()
   console.log(`[${msg.channel}] ${msg.threadId} → ${role}: "${msg.text.slice(0, 80)}"`)
+
+  // Owner free text gets a "thinking…" placeholder we edit with the final
+  // reply + tool footer. Feels like Claude Code: live, with trace, in chat.
+  const thinkingMsgId = role === 'owner' ? await sendOwnerThinking(msg.threadId) : null
+
   try {
     const run = await invokeAgent({ role, msg, mcpConfigPath: MCP_CONFIG })
     recordRun(msg.threadId, run)
-    const adapter = adapters[msg.channel]
-    if (run.reply && adapter) {
-      await adapter.send(msg.threadId, run.reply)
+    if (role === 'owner' && thinkingMsgId !== null) {
+      await finalizeOwnerThinking(msg.threadId, thinkingMsgId, run)
+    } else {
+      const adapter = adapters[msg.channel]
+      if (run.reply && adapter) {
+        await adapter.send(msg.threadId, run.reply)
+      }
     }
     console.log(
       `[${msg.channel}] ${msg.threadId} ← role=${role} ${run.tool_calls.length} tools, ${run.duration_ms}ms, $${run.cost_usd ?? '?'} (exit ${run.exit_code})`,
     )
   } catch (err) {
     console.error(`[${msg.channel}] ${msg.threadId} agent error:`, (err as Error).message)
-    const adapter = adapters[msg.channel]
-    if (adapter) {
-      await adapter.send(msg.threadId, "Sorry — something hiccupped on our side. I'm escalating to a person.")
+    if (role === 'owner' && thinkingMsgId !== null) {
+      await finalizeOwnerThinking(msg.threadId, thinkingMsgId, {
+        reply: "Sorry — something hiccupped. I'm logging it.",
+        tool_calls: [],
+        duration_ms: 0,
+        cost_usd: null,
+        exit_code: -1,
+      })
+    } else {
+      const adapter = adapters[msg.channel]
+      if (adapter) {
+        await adapter.send(msg.threadId, "Sorry — something hiccupped on our side. I'm escalating to a person.")
+      }
     }
   }
   console.log(`[${msg.channel}] ${msg.threadId} total ${Date.now() - t0}ms`)
@@ -210,19 +253,28 @@ startTelegramPollers({
         body: JSON.stringify({ callback_query_id: cq.id }),
       })
     } catch {}
-    if (cq.data && cq.message) {
-      // Forward the action to the agent as if the operator typed it.
-      await onMessage({
-        channel: 'telegram',
-        threadId: String(cq.message.chat.id),
-        senderId: String(cq.from.id),
-        senderName: cq.from.username ?? cq.from.first_name,
-        text: cq.data,
-        timestamp: Date.now(),
-        raw: update,
-        roleHint: bot.role,
-      })
+    if (!cq.data || !cq.message) return
+    // Owner-bot taps run deterministic orchestration (approve/reject/view_esc),
+    // bypassing `claude -p`. "Press a button → cake is ordered" is not LLM-gated.
+    if (bot.role === 'owner') {
+      const handled = await handleOwnerCallback(
+        bot.token,
+        String(cq.message.chat.id),
+        cq.data,
+      )
+      if (handled) return
     }
+    // Anything we don't recognize falls through to the agent.
+    await onMessage({
+      channel: 'telegram',
+      threadId: String(cq.message.chat.id),
+      senderId: String(cq.from.id),
+      senderName: cq.from.username ?? cq.from.first_name,
+      text: cq.data,
+      timestamp: Date.now(),
+      raw: update,
+      roleHint: bot.role,
+    })
   },
 })
 

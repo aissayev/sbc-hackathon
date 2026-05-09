@@ -30,6 +30,7 @@ import {
   listEscalations,
   dailyReport,
 } from '../../domain/tools.ts'
+import { postDraftOrderCard, postEscalationCard } from '../../bots/owner.ts'
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] }
@@ -61,7 +62,17 @@ server.registerTool(
     description: 'Create a draft order pending owner approval. Returns order_id and total_cents.',
     inputSchema: createDraftOrderSchema.shape,
   },
-  async (args) => ok(createDraftOrder(args as z.infer<typeof createDraftOrderSchema>)),
+  async (args) => {
+    const result = createDraftOrder(args as z.infer<typeof createDraftOrderSchema>)
+    if (result.ok && result.order_id) {
+      // Fire-and-forget: notify the owner in TG with an "Approve / Reject" card.
+      // No-op when owner bot isn't configured. Never throws.
+      postDraftOrderCard(result.order_id).catch((err) =>
+        console.error('[local-mcp] postDraftOrderCard failed:', (err as Error).message),
+      )
+    }
+    return ok(result)
+  },
 )
 
 server.registerTool(
@@ -80,7 +91,17 @@ server.registerTool(
       'Hand a thread to Askhat (the owner). Use for complaints, refunds, custom-cake design, allergen-critical requests, or anything the agent should not decide alone.',
     inputSchema: escalateSchema.shape,
   },
-  async (args) => ok(escalate(args as z.infer<typeof escalateSchema>)),
+  async (args) => {
+    const parsed = args as z.infer<typeof escalateSchema>
+    const result = escalate(parsed)
+    if (result.ok && result.escalation_id) {
+      // Surface the escalation as a TG card so the owner doesn't have to poll.
+      postEscalationCard(result.escalation_id, parsed.reason, parsed.severity).catch((err) =>
+        console.error('[local-mcp] postEscalationCard failed:', (err as Error).message),
+      )
+    }
+    return ok(result)
+  },
 )
 
 server.registerTool(

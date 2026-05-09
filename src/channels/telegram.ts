@@ -61,8 +61,8 @@ export async function sendTelegram(
   text: string,
   keyboard?: InlineKeyboardButton[][],
   parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2',
-) {
-  await tgRequest<SendMessageResponse>(token, 'sendMessage', {
+): Promise<number | null> {
+  const res = await tgRequest<SendMessageResponse>(token, 'sendMessage', {
     chat_id: chatId,
     text,
     parse_mode: parseMode,
@@ -74,6 +74,48 @@ export async function sendTelegram(
         }
       : undefined,
   })
+  return res.result?.message_id ?? null
+}
+
+/**
+ * Edit a previously-sent message. Used to turn a "🤔 thinking..." placeholder
+ * into the final reply once `claude -p` returns. No-throw on edit failure
+ * (e.g. message too old) — caller falls back to sendMessage.
+ */
+export async function editTelegramMessage(
+  token: string,
+  chatId: string | number,
+  messageId: number,
+  text: string,
+  parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2',
+): Promise<boolean> {
+  try {
+    await tgRequest<SendMessageResponse>(token, 'editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: parseMode,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Show "typing..." in the operator's chat. Indicator auto-clears after ~5s
+ * or when the next message arrives, so we re-emit it during long agent runs.
+ */
+export async function sendChatAction(
+  token: string,
+  chatId: string | number,
+  action: 'typing' | 'upload_photo' = 'typing',
+): Promise<void> {
+  try {
+    await tgRequest<{ ok: boolean }>(token, 'sendChatAction', { chat_id: chatId, action })
+  } catch {
+    // chat actions are best-effort
+  }
 }
 
 interface TgUser {

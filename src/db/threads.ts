@@ -46,3 +46,7 @@ export function trimHistory(history: HistoryEntry[], maxTurns = 12): HistoryEntr
   if (history.length <= maxTurns * 2) return history
   return history.slice(-maxTurns * 2)
 }
+
+export function clearHistory(threadId: string): void {
+  getDb().prepare('DELETE FROM threads WHERE thread_id = ?').run(threadId)
+}
