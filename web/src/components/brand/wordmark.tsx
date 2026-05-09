@@ -46,7 +46,7 @@ export function Wordmark({
   // horizontal — the default header / footer rendering
   return (
     <span className={cn('inline-flex items-center', className)} aria-label="Happy Cake">
-      <LogoImage size={48} className="h-10 md:h-12 w-auto shrink-0" priority />
+      <LogoImage size={64} className="h-12 md:h-16 w-auto shrink-0" priority />
     </span>
   )
 }

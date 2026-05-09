@@ -13,17 +13,23 @@ import {
   Sparkles,
   Building2,
   Search as SearchIcon,
+  Send,
+  Phone,
+  ArrowUpRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Wordmark } from '@/components/brand/wordmark'
 import { TrackOrder } from './track-order'
+import { ChatBubble } from '@/components/chat/chat-bubble'
+import { useChat } from '@/lib/use-chat'
 import { WIDGET_FAQ } from '@/lib/widget'
+import { BRAND } from '@/lib/brand'
 
-type View = 'home' | 'track' | 'faq'
+type View = 'home' | 'chat' | 'track' | 'faq'
 
-// Routes where the floating widget shouldn't appear: the full chat page is
-// already the chat surface, the admin console is for the owner not customers,
-// and any nested admin routes inherit the same skip.
+// Pages where the floating launcher is suppressed: the admin console (owner
+// surface) and the standalone /chat page (whose layout owns the conversation
+// already). All other routes show the launcher.
 function shouldHide(pathname: string | null): boolean {
   if (!pathname) return false
   if (pathname.startsWith('/admin')) return true
@@ -31,35 +37,75 @@ function shouldHide(pathname: string | null): boolean {
   return false
 }
 
+// First-visit auto-pop: show a small "Need a hand?" preview after this many
+// ms if the user hasn't opened or dismissed the widget. Persists dismissal in
+// localStorage so it doesn't nag returning visitors.
+const AUTO_POP_DELAY_MS = 12_000
+const AUTO_POP_DISMISSED_KEY = 'hc_widget_pop_dismissed'
+const WIDGET_OPEN_KEY = 'hc_widget_open'
+const WIDGET_VIEW_KEY = 'hc_widget_view'
+
 export function HelpWidget() {
   const pathname = usePathname()
   const [open, setOpen] = React.useState(false)
   const [view, setView] = React.useState<View>('home')
+  const [popVisible, setPopVisible] = React.useState(false)
 
   React.useEffect(() => {
-    // Persist open/closed across reloads so a customer reading FAQ before
-    // ordering doesn't have to click the launcher again on every page.
     try {
-      const saved = localStorage.getItem('hc_widget_open')
-      if (saved === 'true') setOpen(true)
+      const savedOpen = localStorage.getItem(WIDGET_OPEN_KEY)
+      if (savedOpen === 'true') setOpen(true)
+      const savedView = localStorage.getItem(WIDGET_VIEW_KEY) as View | null
+      if (savedView === 'home' || savedView === 'chat' || savedView === 'track' || savedView === 'faq') {
+        setView(savedView)
+      }
     } catch {}
   }, [])
 
   React.useEffect(() => {
-    try { localStorage.setItem('hc_widget_open', String(open)) } catch {}
+    try { localStorage.setItem(WIDGET_OPEN_KEY, String(open)) } catch {}
   }, [open])
+  React.useEffect(() => {
+    try { localStorage.setItem(WIDGET_VIEW_KEY, view) } catch {}
+  }, [view])
 
-  // Close + go home on route change so deep-links don't land on a stale view.
+  // Auto-pop teaser: only first-ever visit, only if widget closed, only if
+  // not on /chat or /admin. The page might already be hidden (shouldHide)
+  // but the timer still gates on pathname change too.
+  React.useEffect(() => {
+    if (open) return
+    if (shouldHide(pathname)) return
+    let dismissed = false
+    try { dismissed = localStorage.getItem(AUTO_POP_DISMISSED_KEY) === 'true' } catch {}
+    if (dismissed) return
+    const t = window.setTimeout(() => setPopVisible(true), AUTO_POP_DELAY_MS)
+    return () => window.clearTimeout(t)
+  }, [open, pathname])
+
+  // Reset to home on route change so the widget's last view doesn't stick
+  // around with stale order/track data.
   React.useEffect(() => { setView('home') }, [pathname])
+
+  function dismissPop(remember = true) {
+    setPopVisible(false)
+    if (remember) {
+      try { localStorage.setItem(AUTO_POP_DISMISSED_KEY, 'true') } catch {}
+    }
+  }
+
+  function openWidget(targetView: View = 'home') {
+    setView(targetView)
+    setOpen(true)
+    dismissPop(true)
+  }
 
   if (shouldHide(pathname)) return null
 
   return (
     <>
-      <Launcher open={open} onClick={() => setOpen((v) => !v)} />
-      {open && (
-        <Card view={view} setView={setView} onClose={() => setOpen(false)} />
-      )}
+      <Launcher open={open} onClick={() => (open ? setOpen(false) : openWidget())} />
+      {!open && popVisible && <AutoPop onOpen={() => openWidget('chat')} onDismiss={() => dismissPop(true)} />}
+      {open && <Card view={view} setView={setView} onClose={() => setOpen(false)} />}
     </>
   )
 }
@@ -83,6 +129,43 @@ function Launcher({ open, onClick }: { open: boolean; onClick: () => void }) {
   )
 }
 
+function AutoPop({ onOpen, onDismiss }: { onOpen: () => void; onDismiss: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-label="Friendly hello"
+      className={cn(
+        'fixed z-40 bottom-24 right-5 md:right-6 max-w-[280px]',
+        'rounded-2xl bg-bakery shadow-lift border border-cocoa-700/10',
+        'animate-fade-in',
+      )}
+    >
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="absolute top-2 right-2 h-7 w-7 rounded-full text-cocoa-900/55 hover:bg-cream-100 inline-flex items-center justify-center"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full text-left px-4 py-4 pr-10"
+      >
+        <div className="text-xs uppercase tracking-[0.16em] text-sky-700 font-medium">Hi from Happy Cake</div>
+        <p className="mt-1.5 text-sm text-cocoa-900 leading-relaxed">
+          Need a hand finding a cake or planning a custom order? <span className="text-sky-700 underline">Tap to chat.</span>
+        </p>
+      </button>
+      <span
+        aria-hidden
+        className="absolute -bottom-2 right-8 h-4 w-4 rotate-45 bg-bakery border-r border-b border-cocoa-700/10"
+      />
+    </div>
+  )
+}
+
 function Card({
   view,
   setView,
@@ -98,24 +181,27 @@ function Card({
       aria-label="Help and shortcuts"
       className={cn(
         'fixed z-40 bg-bakery shadow-lift overflow-hidden flex flex-col',
-        // Mobile: nearly full-screen bottom sheet
-        'inset-x-3 bottom-24 top-[10vh] rounded-3xl',
-        // Desktop: floating card
-        'md:inset-auto md:bottom-24 md:right-6 md:top-auto md:w-[380px] md:h-[560px] md:rounded-2xl',
+        // Mobile: bottom sheet that respects the launcher and dynamic toolbar.
+        'inset-x-3 bottom-24 top-[max(8vh,env(safe-area-inset-top,0px))] rounded-3xl',
+        // Desktop: floating card with a max-height tied to the viewport so it
+        // never overflows on shorter / split-screen windows.
+        'md:inset-auto md:bottom-24 md:right-6 md:top-auto md:w-[380px]',
+        'md:h-[min(620px,calc(100vh-7rem))] md:max-h-[calc(100vh-7rem)] md:rounded-2xl',
         'animate-fade-in',
       )}
     >
       <CardHeader view={view} setView={setView} onClose={onClose} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {view === 'home' && <HomeView setView={setView} />}
+        {view === 'chat' && <ChatView />}
         {view === 'track' && (
           <div className="p-5">
             <TrackOrder />
           </div>
         )}
-        {view === 'faq' && <FaqView />}
+        {view === 'faq' && <FaqView setView={setView} />}
       </div>
-      <CardFooter />
+      {view !== 'chat' && <CardFooter />}
     </div>
   )
 }
@@ -131,8 +217,15 @@ function CardHeader({
 }) {
   const titles: Record<View, string> = {
     home: 'Hi — how can we help?',
+    chat: 'Chat with Happy Cake',
     track: 'Track your order',
     faq: 'Common questions',
+  }
+  const subtitles: Record<View, string | null> = {
+    home: null,
+    chat: 'Real cake people · usually under a minute',
+    track: 'Paste your order id to see live status',
+    faq: 'Lead times, allergens, delivery, payment',
   }
   return (
     <div className="px-5 py-4 border-b border-cocoa-700/10 bg-cream-50">
@@ -158,6 +251,9 @@ function CardHeader({
         </button>
       </div>
       <p className="mt-2 font-display text-xl text-cocoa-900">{titles[view]}</p>
+      {subtitles[view] && (
+        <p className="text-xs text-cocoa-900/55 mt-0.5">{subtitles[view]}</p>
+      )}
     </div>
   )
 }
@@ -170,11 +266,10 @@ function HomeView({ setView }: { setView: (v: View) => void }) {
         <ActionRow
           icon={MessageSquareHeart}
           tone="bg-sky-100 text-sky-700"
-          title="Browse with guidance"
-          subtitle="Chat with us — we'll suggest a cake based on what you're celebrating."
-          asLink
-          href="/chat"
-          external
+          title="Chat with us"
+          subtitle="Ask anything — what's in the case, allergens, custom cakes."
+          onClick={() => setView('chat')}
+          highlight
         />
         <ActionRow
           icon={Package}
@@ -220,6 +315,7 @@ function ActionRow({
   href,
   asLink,
   external,
+  highlight,
 }: {
   icon: React.ComponentType<{ className?: string }>
   tone: string
@@ -229,9 +325,15 @@ function ActionRow({
   href?: string
   asLink?: boolean
   external?: boolean
+  highlight?: boolean
 }) {
   const inner = (
-    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-cream-100 transition-colors w-full text-left">
+    <div
+      className={cn(
+        'flex items-center gap-3 p-3 rounded-xl transition-colors w-full text-left',
+        highlight ? 'bg-cream-100 hover:bg-cream-200' : 'hover:bg-cream-100',
+      )}
+    >
       <div className={cn('h-10 w-10 rounded-full inline-flex items-center justify-center shrink-0', tone)}>
         <Icon className="h-4.5 w-4.5" />
       </div>
@@ -262,7 +364,101 @@ function ActionRow({
   )
 }
 
-function FaqView() {
+const QUICK_PROMPTS = [
+  "What's in the case today?",
+  'Cake for ten people on Saturday?',
+  'Anything without nuts?',
+  'How far ahead for a custom cake?',
+]
+
+function ChatView() {
+  const { messages, sending, send, reset } = useChat({
+    greeting:
+      "Hi! I'm here to help — ask about today's bake, allergens, or custom cakes. I can also check kitchen capacity and draft an order for the owner.",
+  })
+  const [input, setInput] = React.useState('')
+  const logRef = React.useRef<HTMLDivElement>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages])
+
+  React.useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }, [])
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div ref={logRef} className="flex-1 overflow-y-auto p-4 space-y-3" aria-live="polite">
+        {messages.map((m) => (
+          <ChatBubble key={m.id} message={m} size="compact" />
+        ))}
+      </div>
+      {messages.length <= 1 && (
+        <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+          {QUICK_PROMPTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => send(p)}
+              disabled={sending}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-cream-100 hover:bg-sky-100 text-cocoa-900 hover:text-sky-700 border border-cocoa-700/10 disabled:opacity-60"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!input.trim() || sending) return
+          send(input)
+          setInput('')
+        }}
+        className="border-t border-cocoa-700/10 p-2 flex items-center gap-2 bg-cream-50"
+      >
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message…"
+          disabled={sending}
+          autoComplete="off"
+          className="flex-1 h-10 rounded-full bg-bakery border border-cocoa-700/15 px-4 text-sm placeholder:text-cocoa-900/40 focus:outline-none focus:ring-2 focus:ring-sky/40"
+        />
+        <button
+          type="submit"
+          disabled={sending || !input.trim()}
+          aria-label="Send"
+          className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-sky text-white disabled:opacity-50 hover:bg-sky-700"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </form>
+      <div className="px-4 pb-3 pt-1 flex items-center justify-between gap-3 text-[11px] text-cocoa-900/55 border-t border-cocoa-700/8 bg-cream-50">
+        <button
+          type="button"
+          onClick={reset}
+          className="text-sky-700 hover:text-sky underline-offset-2 hover:underline"
+        >
+          Start over
+        </button>
+        <span className="inline-flex items-center gap-3">
+          <a href={BRAND.phone.hrefTel} className="inline-flex items-center gap-1 hover:text-cocoa-900">
+            <Phone className="h-3 w-3" /> Call
+          </a>
+          <Link href="/chat" className="inline-flex items-center gap-1 hover:text-cocoa-900">
+            Open full chat <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function FaqView({ setView }: { setView: (v: View) => void }) {
   return (
     <div className="p-5">
       <ul className="divide-y divide-cocoa-700/10">
@@ -280,9 +476,13 @@ function FaqView() {
       </ul>
       <div className="mt-5 text-xs text-cocoa-900/55">
         Still need help?{' '}
-        <Link href="/chat" className="text-sky-700 hover:text-sky underline-offset-2 hover:underline">
+        <button
+          type="button"
+          onClick={() => setView('chat')}
+          className="text-sky-700 hover:text-sky underline-offset-2 hover:underline"
+        >
           Chat with us →
-        </Link>
+        </button>
       </div>
     </div>
   )
