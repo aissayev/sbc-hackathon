@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Suspense } from 'react'
 import { listProducts } from '@/lib/api'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { OrderForm } from '@/components/order/order-form'
+import { Sparkles } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Order a cake',
@@ -27,7 +29,24 @@ export default async function OrderPage() {
           instead.
         </p>
       </div>
-      <div className="mt-10">
+
+      <Link
+        href="/order/custom"
+        className="mt-8 flex items-center gap-4 rounded-2xl border border-sky/40 bg-sky/5 hover:bg-sky/10 transition-colors p-5 max-w-2xl"
+      >
+        <div className="h-11 w-11 rounded-full bg-sky text-white inline-flex items-center justify-center shrink-0">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <div className="flex-1">
+          <div className="font-medium text-cocoa-900">Need something custom?</div>
+          <div className="text-sm text-cocoa-900/70">
+            Build a custom cake — flavors, decoration, inscription, dietary needs. Askhat quotes by phone.
+          </div>
+        </div>
+        <span className="text-sky text-xl shrink-0" aria-hidden>→</span>
+      </Link>
+
+      <div className="mt-8">
         <Suspense fallback={<div className="h-64 rounded-lg bg-cream-100 animate-pulse" />}>
           <OrderForm products={products} />
         </Suspense>
