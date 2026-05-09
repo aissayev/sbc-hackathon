@@ -74,6 +74,12 @@ export default async function MenuPage(props: { searchParams?: SearchParams }) {
           <AllergenChip current={params.allergen_free} value="nuts" label="No nuts" />
           <AllergenChip current={params.allergen_free} value="gluten" label="Gluten-free" />
           <AllergenChip current={params.allergen_free} value="dairy" label="No dairy" />
+          <Link
+            href="/dietary"
+            className="ml-1 text-xs text-sky-700 hover:text-sky underline-offset-4 hover:underline"
+          >
+            See full dietary guide →
+          </Link>
         </div>
       </section>
 
