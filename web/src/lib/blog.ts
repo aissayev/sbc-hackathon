@@ -174,6 +174,140 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: 'cake-gifting-houston',
+    title: 'Cake as a gift, done right — what works and what doesn\'t',
+    description:
+      'A small-bakery guide to gifting cakes in Houston — when to send a whole cake vs an assortment box, what travels well, how far ahead to order, and the most-loved gift pairings we ship from Sugar Land.',
+    hero_url: ASSETS.products[9],
+    published_at: '2026-05-08',
+    read_minutes: 4,
+    tags: ['gifting', 'corporate', 'houston', 'planning'],
+    body: [
+      {
+        type: 'p',
+        text: 'Sending a cake as a gift looks simple — pick something pretty, add a card, get it across town. The execution is where it gets interesting. Cakes are not flowers: they have a temperature window, a texture window, and a "looks like the photo" window. Here\'s how we think about it after six years of doing this for Sugar Land and Houston.',
+      },
+      { type: 'h2', text: 'When a whole cake wins' },
+      {
+        type: 'p',
+        text: 'A whole cake is the right gift when there\'s a moment to cut into it — birthdays, retirements, a closing dinner. It\'s a centerpiece. People photograph it. It pulls the table together.',
+      },
+      {
+        type: 'p',
+        text: 'For a household: the honey cake or the cloud cake holds for two days in the fridge after you cut it; that\'s the realistic shelf life of a gift cake.',
+      },
+      { type: 'h2', text: 'When the assortment box wins' },
+      {
+        type: 'p',
+        text: 'For an office: don\'t send one cake. Send the dessert box. Twelve people don\'t want to share one slice each — they want a small piece of three different things while they read the card. The Office Dessert Box is built for exactly this. Slices, rolls, mini cakes, three hours notice.',
+      },
+      {
+        type: 'callout',
+        title: 'Office gift rule of thumb',
+        text: 'Headcount of 6 or under → whole cake. Headcount of 8+ → assortment box. The middle is where your read of the room matters.',
+      },
+      { type: 'h2', text: 'What travels well — and what doesn\'t' },
+      {
+        type: 'ul',
+        items: [
+          'Honey cake — the rolls Royce of travel. Layers tighten in the cold; it actually improves over an hour in the box.',
+          'Pistachio roll — short window. Eat day-of, ideally within 4 hours of pickup.',
+          'Custom decorated cakes with delicate fondant work — pick up only or short-distance delivery; long car rides melt the design in summer.',
+          'Truffle bites and chak-chak — bulletproof. Send these to anyone, anywhere in Houston.',
+        ],
+      },
+      { type: 'h2', text: 'Lead times for gifting' },
+      {
+        type: 'ul',
+        items: [
+          'Same-day office boxes — 3 hours notice when we have stock. Call us, don\'t use the form, if it\'s tight.',
+          'Whole cake gift with a name on it — book the day before. Same-day works, but the kitchen is happier with notice.',
+          'Custom design (photo print, fondant, multi-tier) — 24h minimum, 48h for a wedding-style cake.',
+          'Holidays (Mother\'s Day, Eid, week of Christmas) — book 4–7 days ahead. The kitchen sells out.',
+        ],
+      },
+      { type: 'h3', text: 'Card and message' },
+      {
+        type: 'p',
+        text: 'We hand-write a card if you give us the message in the order notes. Up to about 80 characters fits the standard card cleanly; longer messages we still do, just on a bigger card. Names go on the cake itself in chocolate writing — give us the spelling exactly as you want it (we\'ve learned the hard way about "Catharine" vs "Katherine").',
+      },
+      { type: 'h2', text: 'How to actually send one' },
+      {
+        type: 'p',
+        text: 'Order via the site, choose delivery, paste the recipient\'s address. We deliver across Sugar Land + Greater Houston. The recipient gets a text from our number when we\'re close. If you want it to be a surprise, write "do not call ahead" in the notes — we\'ll knock instead.',
+      },
+      {
+        type: 'quote',
+        text: 'The best gift cake is the one that arrives at the right temperature with the right card. Everything else is decoration.',
+        cite: 'Askhat',
+      },
+    ],
+  },
+  {
+    slug: 'sugar-land-bakery-neighborhood-guide',
+    title: 'A Sugar Land afternoon — Promenade Way, parking, and what to pair with a slice',
+    description:
+      'Where to find Happy Cake in Sugar Land, where to park, what\'s nearby, and how to plan a walking afternoon around a slice of honey cake on Promenade Way.',
+    hero_url: ASSETS.hero[0],
+    published_at: '2026-05-09',
+    read_minutes: 3,
+    tags: ['sugar-land', 'neighborhood', 'visit'],
+    body: [
+      {
+        type: 'p',
+        text: 'We get asked weekly: "Where exactly are you?" The answer is more useful than just an address. Here\'s the orientation card we wish we could hand every first-time visitor.',
+      },
+      { type: 'h2', text: 'Finding us' },
+      {
+        type: 'p',
+        text: '350 Promenade Way, Suite 500 — the Promenade shopping area in Sugar Land. From US-59, take the University Boulevard exit and head east; you\'ll see the Promenade signs before you reach Sweetwater. We\'re inside the open-air retail block, ground floor, with a small patio.',
+      },
+      {
+        type: 'callout',
+        title: 'Map link in your pocket',
+        text: 'Tap the address on our home page → it opens straight in your map app with directions. No screenshots needed.',
+      },
+      { type: 'h2', text: 'Parking' },
+      {
+        type: 'p',
+        text: 'Plenty of free parking in front of the shop and across the lot. Weekday afternoons it\'s wide open; Saturday afternoons get busy — try the spaces by the fountain or the back lot. No meters, no validation needed.',
+      },
+      { type: 'h2', text: 'A walkable afternoon' },
+      {
+        type: 'p',
+        text: 'Promenade Way is built for the slow walk. Pick up a slice at our counter, grab the espresso to go, and make the loop:',
+      },
+      {
+        type: 'ul',
+        items: [
+          'The fountain plaza — five minutes east, benches, shade, a good place to actually eat the slice.',
+          'Sugar Land Town Square — ten minutes drive, more shops and restaurants if the afternoon stretches.',
+          'Oyster Creek trail — for the after-cake walk; flat, paved, takes you along the water.',
+          'Library on University Boulevard — for the people who want to read with their cake (we approve).',
+        ],
+      },
+      { type: 'h2', text: 'Best slice pairings with our espresso' },
+      {
+        type: 'ul',
+        items: [
+          'Honey cake + double espresso — the classic. Sweetness of the cake levels the bitterness of the shot.',
+          'Tiramisu + cortado — espresso meets espresso. A small mountain of caffeine; plan accordingly.',
+          'Cloud cake + cappuccino — light on light. Best for an afternoon you\'re dragging a little.',
+          'Pistachio roll + Americano — the combination Askhat\'s wife orders at the end of every shift.',
+        ],
+      },
+      { type: 'h3', text: 'When to come' },
+      {
+        type: 'p',
+        text: 'Weekday mornings are our quietest stretch — Tuesday or Wednesday around 11am if you want a quiet table. Saturdays are hectic but festive; Sunday afternoons are a sweet spot if you want the case still full and the seats not all taken. Mondays we\'re closed so the kitchen rests.',
+      },
+      {
+        type: 'p',
+        text: `${BRAND.closing}`,
+      },
+    ],
+  },
 ]
 
 export function findBlogPost(slug: string): BlogPost | null {

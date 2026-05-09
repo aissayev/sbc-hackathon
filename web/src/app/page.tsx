@@ -194,7 +194,7 @@ function Hero({ status }: { status: { open: boolean; nextChange?: string } }) {
         <div className="lg:col-span-6 relative">
           <HeroImage
             src={ASSETS.hero[0]}
-            alt="A cake from Happy Cake"
+            alt="Hand-decorated honey cake from Happy Cake's Sugar Land kitchen — six layers of golden biscuit and soft custard"
             className="aspect-[4/5] sm:aspect-[5/4] lg:aspect-[4/5]"
           />
           <div className="absolute -bottom-6 -left-6 sm:-left-10 hidden md:flex items-center gap-3 bakery-card px-5 py-4">
