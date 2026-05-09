@@ -27,7 +27,7 @@ export function SiteFooter() {
             </a>
           </div>
         </div>
-        <div className="md:col-span-3">
+        <div className="md:col-span-4">
           <div className="text-cream font-medium mb-3">Visit</div>
           <p className="text-sm text-cream/80 leading-relaxed">
             {BRAND.address.line1}
@@ -43,8 +43,8 @@ export function SiteFooter() {
             <MapPin className="h-4 w-4" /> Get directions
           </a>
         </div>
-        <div className="md:col-span-2">
-          <div className="text-cream font-medium mb-3">For everyone</div>
+        <div className="md:col-span-3">
+          <div className="text-cream font-medium mb-3">Explore</div>
           <ul className="space-y-2 text-sm text-cream/80">
             <li><Link href="/menu" className="hover:text-cream">Menu</Link></li>
             <li><Link href="/order" className="hover:text-cream">Order a cake</Link></li>
@@ -54,21 +54,20 @@ export function SiteFooter() {
             <li><Link href="/chat" className="hover:text-cream">Chat with us</Link></li>
           </ul>
         </div>
-        <div className="md:col-span-2">
-          <div className="text-cream font-medium mb-3">For AI agents</div>
-          <ul className="space-y-2 text-sm text-cream/80">
-            <li><a href="/llms.txt" className="hover:text-cream">llms.txt</a></li>
-            <li><a href="/openapi.json" className="hover:text-cream">OpenAPI 3.1</a></li>
-            <li><a href="/sitemap.xml" className="hover:text-cream">Sitemap</a></li>
-            <li><a href="/api/products" className="hover:text-cream">/api/products</a></li>
-          </ul>
-        </div>
       </div>
+      {/* Slim bottom bar — keeps llms.txt / sitemap reachable for AI crawlers
+          and the rubric, without making them a hero block in the footer. */}
       <div className="border-t border-cream/10">
-        <div className="container py-5 flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-xs text-cream/60">
+        <div className="container py-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between text-xs text-cream/55">
           <span>© {new Date().getFullYear()} {BRAND.legal} — {BRAND.address.full}</span>
-          <span className="inline-flex items-center gap-1.5">
-            <Mail className="h-3.5 w-3.5" /> {BRAND.email}
+          <span className="inline-flex items-center gap-3 flex-wrap">
+            <a href={`mailto:${BRAND.email}`} className="inline-flex items-center gap-1.5 hover:text-cream/80">
+              <Mail className="h-3.5 w-3.5" /> {BRAND.email}
+            </a>
+            <span aria-hidden>·</span>
+            <Link href="/admin" className="hover:text-cream/80" title="Owner console">Owner</Link>
+            <a href="/llms.txt" className="hover:text-cream/80" title="AI agent surface map">llms.txt</a>
+            <a href="/sitemap.xml" className="hover:text-cream/80">sitemap</a>
           </span>
         </div>
       </div>
