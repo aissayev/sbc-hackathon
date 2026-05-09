@@ -66,6 +66,11 @@ export const ASSETS = {
   ],
   products: Array.from({ length: 10 }, (_, i) => `/assets/products/happy-cake-product-${String(i + 1).padStart(2, '0')}.webp`),
   social: Array.from({ length: 8 }, (_, i) => `/assets/social/happy-cake-social-${String(i + 1).padStart(2, '0')}.webp`),
+  // Owner + family portraits — drop binaries at these paths.
+  team: {
+    ownerPortrait: '/assets/team/owner-askhat.jpg',
+    family: '/assets/team/family-couple.jpg',
+  },
 } as const
 
 // Deterministic photo picker — same product id always gets the same shot.
