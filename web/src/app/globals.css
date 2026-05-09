@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Background = cream-50, foreground = ink. shadcn semantic tokens
+       wired to the HappyCake palette so primitives don't fight the brand. */
+    --background: 41 67% 95%;        /* cream-50 #FBF6E8 */
+    --foreground: 24 8% 9%;          /* ink #1A1816 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 24 8% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 8% 9%;
+
+    --primary: 207 58% 25%;          /* happy-700 */
+    --primary-foreground: 41 67% 95%;
+
+    --secondary: 41 51% 89%;         /* cream-100 */
+    --secondary-foreground: 207 62% 14%;
+
+    --muted: 41 51% 89%;
+    --muted-foreground: 207 30% 30%;
+
+    --accent: 207 47% 83%;           /* happy-200 */
+    --accent-foreground: 207 62% 14%;
+
+    --destructive: 9 67% 64%;        /* coral */
+    --destructive-foreground: 41 67% 95%;
+
+    --border: 207 58% 25% / 0.18;
+    --input: 207 58% 25% / 0.18;
+    --ring: 207 47% 45%;             /* happy-500 */
+
+    --radius: 0.6rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    @apply bg-cream-50 text-ink font-body;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+  ::selection { @apply bg-happy-200 text-happy-900; }
+}
+
+@layer components {
+  /* The cream awning-dot pattern from brand book §4 */
+  .pattern-dots-cream {
+    background-image: radial-gradient(circle, rgba(233, 219, 180, 0.55) 1px, transparent 1.2px);
+    background-size: 14px 14px;
+  }
+  .pattern-dots-blue {
+    background-image: radial-gradient(circle, rgba(27, 72, 104, 0.18) 1px, transparent 1.2px);
+    background-size: 14px 14px;
+  }
+  .eyebrow {
+    @apply text-xs tracking-[0.18em] uppercase text-happy-700;
+  }
+  .display-h1 {
+    @apply font-display text-h1 text-happy-900 leading-[1.05];
+  }
+  .display-h2 {
+    @apply font-display text-h2 text-happy-900;
+  }
+  .display-h3 {
+    @apply font-display text-h3 text-happy-900;
+  }
+}
