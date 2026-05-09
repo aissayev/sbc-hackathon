@@ -13,6 +13,7 @@ export {
   postEscalationCard,
   sendOwnerThinking,
   finalizeOwnerThinking,
+  makeOwnerStreamSink,
   logToOwner,
   logInbound,
   logOutbound,
