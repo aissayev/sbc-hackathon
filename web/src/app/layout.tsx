@@ -47,13 +47,11 @@ export const metadata: Metadata = {
     description: BRAND.slogan,
     images: [ASSETS.hero[0]],
   },
-  icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-      { url: ASSETS.logo.px256, type: 'image/png', sizes: '256x256' },
-    ],
-    apple: ASSETS.logo.px512,
-  },
+  // Icons resolve via the App Router file convention:
+  //   app/favicon.ico   → /favicon.ico (auto-linked as <link rel="icon">)
+  //   app/icon.svg      → /icon.svg
+  //   app/apple-icon.png → /apple-icon.png (drop a file to enable)
+  // No `icons` block needed; Next picks them up automatically.
   robots: { index: true, follow: true },
 }
 
