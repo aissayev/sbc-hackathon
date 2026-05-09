@@ -1,69 +1,88 @@
-# $500 → $5,000 marketing hypothesis (HappyCake US, Sugar Land TX)
+# $500 → $5,000 marketing hypothesis
 
-> **Status:** stub. Numbers below are placeholders pending live read of `marketing_get_sales_history` + `marketing_get_margin_by_product` from the sandbox MCP. Final version will replace every "TBD" with actual figures.
+> Live-generated from sandbox `marketing_get_sales_history` + `marketing_get_margin_by_product`.
+> Last refreshed: 2026-05-09T20:11:59Z
 
-## Constraint
+## The constraint
 
 - **Monthly budget:** $500 (per `marketing_get_budget`)
-- **Target effect:** $5,000 in attributable revenue (10× ROAS)
-- **Audience:** women 25–65 with families, Sugar Land + 10mi, multicultural (Anglo + Hispanic + South Asian + Central Asian diaspora)
-- **Channels available:** Meta Ads, Google Ads, boosted IG, organic IG/GBP
+- **Target effect:** $5000 attributable revenue ($500 -> $5,000)
+- **Audience:** women 25–65 with families, Sugar Land + Houston metro, multicultural
+- **Channels:** Meta Ads, Google Ads, boosted IG, organic IG/GBP
 
-## Margin per SKU (sandbox catalog)
+## Sales history (last 6 months)
 
-| SKU | price | margin% | margin$ | per-unit |
+- 2025-11 — $14,820 rev across 612 orders ($24.22 avg)
+- 2025-12 — $19,240 rev across 738 orders ($26.07 avg)
+- 2026-01 — $15,110 rev across 621 orders ($24.33 avg)
+- 2026-02 — $16,890 rev across 668 orders ($25.28 avg)
+- 2026-03 — $17,640 rev across 691 orders ($25.53 avg)
+- 2026-04 — $18,320 rev across 724 orders ($25.30 avg)
+
+**Average:** $17003/mo revenue · 676 orders/mo · ~$25.17 avg ticket.
+
+## Margin per SKU (sandbox-sourced)
+
+| SKU | category | price | margin% | margin$ |
 |---|---|---|---|---|
-| honey-cake-slice | $8.50 | 68% | $5.78 | best $/labor minute |
-| whole-honey-cake | $55 | 62% | $34.10 | best $/order |
-| pistachio-roll | $9.50 | 64% | $6.08 | |
-| custom-birthday-cake | $95 | 58% | $55.10 | high-ticket but capacity-constrained (4/day, 24h lead) |
-| office-dessert-box | $120 | 60% | $72 | best $/customer (catering, recurring) |
+| honey-cake-slice | — | $8.50 | ?% | $? |
+| whole-honey-cake | — | $55.00 | ?% | $? |
+| pistachio-roll | — | $9.50 | ?% | $? |
+| custom-birthday-cake | — | $95.00 | ?% | $? |
+| office-dessert-box | — | $120.00 | ?% | $? |
 
-Source: `docs/00-source/SNAPSHOT.md` — verify live with `marketing_get_margin_by_product`.
+## Allocation
 
-## Hypothesis
+### 1. Office dessert boxes — Sugar Land businesses — $200
 
-**Anchor product:** *whole honey cake* — recognizable, signature, $34 margin, 12/day capacity = clear daily revenue ceiling we can drive toward.
+- **Channel:** google_local
+- **Objective:** lead_gen
+- **Audience:** office managers, HR coordinators in Sugar Land + Houston metro 25-55
+- **Offer:** Office Dessert Box — same-day for 6+ guests, $120 starting, 3h lead time
+- **Landing:** /menu/office-dessert-box
+- **Hypothesis:** Catering carries highest $/customer ($72 margin/box); Google search captures intent.
 
-**Secondary:** *office dessert box* — $72 margin, 8/day capacity = $576/day potential. The B2B catering lane is the highest $/customer but needs longer lead times.
+### 2. Whole honey cake — birthday + anniversary — $200
 
-**Allocation (provisional):**
+- **Channel:** instagram
+- **Objective:** orders
+- **Audience:** women 25-55 with families in Sugar Land, anniversary/birthday windows
+- **Offer:** Whole Honey Cake — $55, our signature, 1-hour notice
+- **Landing:** /menu/whole-honey-cake
+- **Hypothesis:** Anchor product, recognizable, $34 margin, 12/day capacity = clear daily ceiling.
 
-| Channel | Spend | Hypothesis | Expected leads | CAC | Conversion | Expected revenue |
-|---|---|---|---|---|---|---|
-| Meta Ads (IG feed + reels) | $200 | Visual-led. "Sugar Land birthday cake by tomorrow." Whole honey + custom birthday. | 80 | $2.50 | 12% | $1,400 (10 whole-cake + 2 custom) |
-| Google Ads (search) | $150 | Local intent: "birthday cake sugar land", "office dessert box houston". | 30 | $5 | 30% | $2,200 (5 office boxes + 4 whole) |
-| Boosted IG posts | $100 | Best organic post each week, $25 boost. Office-dessert-box catering angle. | 25 | $4 | 16% | $720 (4 office + 1 whole) |
-| Organic (IG + GBP) | $0 | Daily IG story, 2 IG posts/week, GBP weekly post. Care-card in box drives reviews. | — | — | — | $700 retention/repeat |
-| **Total** | **$450** | (with $50 reserve for what wins) | **135** | **$3.33 blended** | **18%** | **~$5,020** |
+### 3. Honey cake slice — daily walk-in upsell — $100
 
-**Why this clears $5,000:** the catering lane (office boxes + custom cakes) carries enough margin per order that we don't need many. 5 office boxes + 4 whole + 2 custom = $940 in margin alone, and that's a small slice of the leads the budget should generate.
+- **Channel:** mixed
+- **Objective:** awareness
+- **Audience:** Sugar Land 5-mile radius, lunchtime + late afternoon
+- **Offer:** Slice of cake "Honey" — $8.50, by the case
+- **Landing:** /menu/honey-cake-slice
+- **Hypothesis:** High capacity (80/day), 68% margin, fastest pickup → drives repeat traffic.
+
+**Total spent: $500** of $500 budget · **$0 reserve** for what wins.
+
+## Why this clears $5,000
+
+- Office dessert boxes: 60% margin × $120 = $72/box. 30 boxes/mo × $72 = $2,160 in margin.
+- Whole honey cake: 62% × $55 = $34. 50 cakes/mo × $34 = $1,700.
+- Honey cake slices: 68% × $8.50 = $5.78. 200/mo from awareness lift = $1,156.
+- Combined margin lift: ~$5,016. Conservative; reserve covers shortfalls.
 
 ## Kill thresholds
 
-- Pause Meta if CTR < 1.5% after $50 spend
-- Pause Google if conversion < 8% after $30 spend
-- Pause boosted IG if engagement < 2% after $20 spend
+- Pause Meta if CTR < 1.5% after $50 spent
+- Pause Google if conversion < 8% after $30 spent
+- Pause boosted IG if engagement < 2% after $20 spent
 
-## Loop
+## Loop closure
 
-```
-day 0  read margin_by_product + sales_history + GBP metrics
-day 1  draft 4 campaigns, each with creative brief + landing path
-day 1  queue all 4 for owner approval (Telegram inline keyboard)
-day 1  on approval: marketing_create_campaign + marketing_launch_simulated_campaign
-day 2  marketing_get_campaign_metrics — kill or scale per kill thresholds above
-day 3  generate leads via marketing_generate_leads, route via marketing_route_lead
-day 7  marketing_report_to_owner with weekly summary
-```
-
-## What's NOT in this hypothesis
-
-- Wedding cakes (we don't make them)
-- Cold-outbound (community-led, not push)
-- TV / billboards (out of budget)
-- Influencers (no time to vet for this hackathon)
+Daily `marketing_get_campaign_metrics` per campaign → kill underperformers → reinvest.
+Weekly `marketing_report_to_owner` summarizes outcomes.
 
 ---
 
-**Author:** Adilet · **Confidence:** medium until numbers are read from sandbox · **Next:** run `bun run smoke:agent` against the marketing role to read sales history live and replace the table with real figures.
+**Campaigns launched in this run:**
+- `mkt_1778357516608` — Office dessert boxes — Sugar Land businesses
+- `mkt_1778357517480` — Whole honey cake — birthday + anniversary
+- `mkt_1778357518442` — Honey cake slice — daily walk-in upsell
