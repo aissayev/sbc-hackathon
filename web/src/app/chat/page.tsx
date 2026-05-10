@@ -29,8 +29,8 @@ export default async function ChatPage(props: { searchParams?: SearchParams }) {
         </h1>
         <p className="mt-4 text-cocoa-900/80 leading-relaxed">
           Ask anything — what&apos;s in the case today, allergens, custom cakes, status of an order.
-          Real cake people, real-time. The assistant can check kitchen capacity and draft an order
-          for the owner to approve.
+          Real cake people, real-time. We can check kitchen capacity, hold a slice, or start an
+          order for you.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2 text-sm">
           <a
@@ -55,8 +55,8 @@ export default async function ChatPage(props: { searchParams?: SearchParams }) {
       </div>
 
       <p className="mt-6 max-w-2xl mx-auto text-center text-xs text-cocoa-900/55 leading-relaxed">
-        Drafts are queued for the owner to approve in Telegram before the kitchen starts. Replies
-        appear in this thread as soon as we have them.{' '}
+        Custom and catering orders go to the team for a quick review before the kitchen starts.
+        We&apos;ll reply right here as soon as we have an answer.{' '}
         <Link href="/policies#cancellation" className="underline">
           Cancellation policy
         </Link>{' '}

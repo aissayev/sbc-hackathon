@@ -84,54 +84,48 @@ export default async function HomePage() {
 }
 
 function Hero({ products }: { products: Product[] }) {
-  // Image-led hero. Three layers, back-to-front:
-  //   1. Cream base    — sits behind everything so any transparent edges
-  //                      of the photo blend with the rest of the page.
-  //   2. Real food photo — full-bleed on every breakpoint (was hidden on
-  //                      mobile; the user's brief specifically wants the
-  //                      bakery image to read as a poster on phones too).
-  //                      Crisp, no blur — see globals.css
-  //                      .hero-photo-atmospheric.
-  //   3. Cream veil    — gradient that protects headline contrast on the
-  //                      LEFT half on desktop, fades toward the right so
-  //                      the photo stays visible behind the order card.
-  //                      Mobile gets a top-to-bottom version.
+  // Bold + simple. No photo, no atmospheric overlay, no decorative
+  // gradient. Just cream + typography + the order card. The brand book
+  // says "Generous whitespace. Cakes have weight; the layout breathes
+  // around them." — leaning all the way into that.
   //
-  // Vertical rhythm: tighter than before (pt-10 / pb-12 → about 18%
-  // less empty space on desktop) and a min-h that keeps the hero a real
-  // viewport-anchored band without dominating it. The next section's
-  // edge peeks ~64px on desktop (so the user sees there's more below).
+  // The single decorative element is a thin sky-blue awning-stripe band
+  // at the very top — the brand book's "polka-dot awning" pattern in
+  // its barest form. Reads as a bakery shopfront awning without the
+  // page committing to a bakery photo it can't fully own yet.
+  //
+  // Headline scales up on desktop (text-[clamp(...)]), no
+  // text-wrap:balance — the line break is exactly where the eye
+  // already wants to land.
   return (
-    <section className="relative overflow-hidden isolate">
-      <div className="absolute inset-0 bg-cream pointer-events-none" aria-hidden />
+    <section className="relative overflow-hidden bg-cream">
+      {/* Awning stripe — a thin sky band with cream polka dots, mirroring
+          the brand book's awning motif. 6px tall on desktop; a single
+          pixel of brand colour at the very top tells you what kind of
+          shop this is before you read a word. */}
+      <div
+        aria-hidden
+        className="h-1.5 bg-sky pattern-dots-cream"
+        style={{ backgroundSize: '14px 14px' }}
+      />
 
-      <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <Image
-          src={ASSETS.hero[0]}
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover hero-photo-atmospheric"
-        />
-      </div>
-
-      <div className="absolute inset-0 hero-overlay-veil pointer-events-none" aria-hidden />
-
-      <div className="container relative pt-10 pb-12 md:pt-14 md:pb-16 grid gap-8 lg:grid-cols-12 lg:gap-12 items-center min-h-[min(78vh,720px)]">
+      <div className="container relative pt-12 pb-14 md:pt-20 md:pb-24 grid gap-12 lg:grid-cols-12 lg:gap-16 items-center">
         <div className="lg:col-span-7">
           <Eyebrow>Family-owned cake shop &amp; coffee bar</Eyebrow>
           <h1
             id="hero-tagline"
-            className="display-h1 mt-5 [text-wrap:balance]"
+            className="mt-5 font-display font-semibold tracking-tight text-cocoa-900 leading-[0.96]"
+            style={{ fontSize: 'clamp(2.75rem, 7.5vw, 5.5rem)' }}
           >
-            Cakes worth <span className="text-sky">driving for</span>.
+            Cakes worth
+            <br />
+            <span className="text-sky">driving for</span>.
           </h1>
-          <p className="mt-5 text-lg text-cocoa-900/80 max-w-xl leading-relaxed">
+          <p className="mt-7 text-lg md:text-xl text-cocoa-900/80 max-w-xl leading-relaxed">
             Small-batch cakes and pastries, baked from scratch every morning.
           </p>
 
-          <div className="mt-7 flex flex-wrap items-center gap-4 text-sm">
+          <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
             <a
               href={BRAND.mapsUrl}
               target="_blank"
