@@ -53,6 +53,7 @@ import { startContentScheduler } from './domain/content-studio/scheduler.ts'
 import { startSnapshotScheduler } from './domain/analytics/index.ts'
 import { clearHistory } from './db/threads.ts'
 import { startCatalogSync } from './domain/catalog-sync.ts'
+import { recordOutbound } from './domain/inbox-outbound.ts'
 
 const app = new Hono()
 
@@ -158,9 +159,23 @@ const onMessage: MessageHandler = async (msg) => {
       const adapter = adapters[msg.channel]
       if (run.reply && adapter) {
         await adapter.send(msg.threadId, run.reply)
+        // Mirror the reply into the local inbox-outbound table so the admin
+        // /admin/inbox view (and the unified inbox API) shows it without
+        // depending on the sandbox to echo it back. Only WA / IG / web are
+        // customer channels; owner TG replies are handled above.
+        if (msg.channel === 'whatsapp' || msg.channel === 'instagram' || msg.channel === 'web') {
+          recordOutbound({
+            channel: msg.channel,
+            handle: msg.threadId,
+            text: run.reply,
+            source: 'agent',
+          })
+        }
       }
-      // Customer-channel reply landed — log a one-liner to the owner.
-      logOutbound(msg.channel, msg.threadId, run.tool_calls.length, run.duration_ms, run.cost_usd)
+      // Customer-channel reply landed — log to the owner. Pass the reply
+      // text so it's mirrored to the owner TG chat (Askhat sees WHAT the
+      // agent said, not just metadata).
+      logOutbound(msg.channel, msg.threadId, run.tool_calls.length, run.duration_ms, run.cost_usd, run.reply)
     }
     console.log(
       `[${msg.channel}] ${msg.threadId} ← role=${role} ${run.tool_calls.length} tools, ${run.duration_ms}ms, $${run.cost_usd ?? '?'} (exit ${run.exit_code})`,

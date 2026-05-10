@@ -124,6 +124,10 @@ async function forwardPhotos(channel: string, threadId: string, text: string): P
 
 /**
  * `✓ [wa] +12815559001 ← 2 tools · 12.3s · $0.18`
+ *
+ * If `replyText` is provided, also emit a second line with the truncated reply
+ * body so Askhat can see WHAT the agent said without opening the admin inbox.
+ *   `🤖 [wa] +12815559001: "Yes — cake \"Honey\", $42 the whole, $8.50 a slice…"`
  */
 export function logOutbound(
   channel: string,
@@ -131,10 +135,14 @@ export function logOutbound(
   toolCount: number,
   durationMs: number,
   costUsd: number | null,
+  replyText?: string,
 ): void {
   const cost = costUsd != null ? `$${costUsd.toFixed(2)}` : '—'
   const seconds = (durationMs / 1000).toFixed(1)
   void logToOwner('outbound', `✓ [${shortChannel(channel)}] ${shortThread(threadId)} ← ${toolCount} tools · ${seconds}s · ${cost}`)
+  if (replyText && replyText.trim().length > 0) {
+    void logToOwner('outbound', `🤖 [${shortChannel(channel)}] ${shortThread(threadId)}: "${truncate(replyText, 220)}"`)
+  }
 }
 
 /**
