@@ -7,8 +7,13 @@ import { KIND_LABELS, TRADITION_LABELS, type ProductKind } from '@/lib/catalog'
 import { CakePhoto } from './cake-photo'
 import { cn } from '@/lib/utils'
 
-// Four card variants:
-//   default    — square photo on top, full info card. Used in /menu grids.
+// Five card variants:
+//   default    — square photo on top, full info card. Used on the home
+//                "One of each" row when the visitor hasn't seen the catalog.
+//   dense      — same skeleton as default but trimmer: 4:3 photo, no
+//                description block, no kind pill, smaller padding. Used on
+//                /menu where four cards per row beats two; the visitor is
+//                in scan-mode, not read-mode.
 //   featured   — taller photo with the title overlaid. Use sparingly: home
 //                hero specialty, "today's pick", first item in a kind row.
 //   compact    — horizontal row (photo left, name + price right). Used in
@@ -24,7 +29,7 @@ import { cn } from '@/lib/utils'
 // each labelled "Slice" — pure noise). Defaults to true so home + /chat
 // pickers, where cards mix kinds, keep the affordance.
 
-type Variant = 'default' | 'featured' | 'compact' | 'showcase'
+type Variant = 'default' | 'dense' | 'featured' | 'compact' | 'showcase'
 
 export function ProductCard({
   product,
@@ -40,6 +45,7 @@ export function ProductCard({
   if (variant === 'compact') return <CompactCard product={product} className={className} />
   if (variant === 'featured') return <FeaturedCard product={product} className={className} />
   if (variant === 'showcase') return <ShowcaseCard product={product} className={className} />
+  if (variant === 'dense') return <DenseCard product={product} className={className} />
   return <DefaultCard product={product} showKindPill={showKindPill} className={className} />
 }
 
@@ -419,6 +425,67 @@ function ShowcaseCard({ product, className }: { product: Product; className?: st
             See details
             <ArrowUpRight className="h-3.5 w-3.5" />
           </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+// Dense: the /menu workhorse. Stripped of the description and kind pill
+// (the filter strip above already names the kind), trimmed padding, 4:3
+// photo. Goal is four-up on desktop, two-up on mobile, with the bare
+// essentials a scanner needs: photo, name, price, allergens, status.
+function DenseCard({ product, className }: { product: Product; className?: string }) {
+  const allergens = product.allergens?.split(',').map((a) => a.trim()).filter(Boolean) ?? []
+  const kindLabel = kindLabelOf(product)
+  const status = statusFor(product)
+  const tradition = product.tradition
+  const traditionTheme = tradition ? TRADITION_THEME[tradition] : undefined
+  const traditionLabel = tradition ? TRADITION_LABELS[tradition].short : ''
+  return (
+    <Link
+      href={`/menu/${product.id}`}
+      className={cn(
+        'group flex flex-col overflow-hidden bakery-card transition-all duration-200',
+        'hover:-translate-y-0.5 active:scale-[0.99]',
+        className,
+      )}
+    >
+      <div className="relative">
+        <CakePhoto
+          productId={product.id}
+          name={`${product.name} — ${kindLabel} from Happy Cake`}
+          src={product.photo_url}
+          aspect="4/3"
+          className="!rounded-none"
+        />
+        {tradition && traditionTheme && (
+          <span
+            className={cn(
+              'absolute top-2 left-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 shadow-sm',
+              traditionTheme.chip,
+            )}
+          >
+            {traditionLabel}
+          </span>
+        )}
+      </div>
+      <div className="p-3 sm:p-4 flex flex-col gap-1.5 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="font-display text-base sm:text-lg leading-tight text-cocoa-900 group-hover:text-sky-700 transition-colors line-clamp-1">
+            {product.name}
+          </h3>
+          <span className="text-sm font-medium text-cocoa-900/80 tabular-nums shrink-0">
+            {fmtUsd(product.price_cents)}
+          </span>
+        </div>
+        {allergens.length > 0 && (
+          <p className="text-[11px] text-cocoa-900/55 leading-snug line-clamp-1">
+            contains {allergens.join(' · ')}
+          </p>
+        )}
+        <div className="mt-auto pt-2">
+          <StatusPill status={status} />
         </div>
       </div>
     </Link>

@@ -153,6 +153,64 @@ export const getOrderStatusSchema = z.object({
   order_id: z.string(),
 })
 
+// Categories that REQUIRE explicit owner approval before going to the
+// kitchen. Standard SKUs (slices, whole cakes, pastries) auto-approve so
+// the customer sees "in the kitchen" immediately on the tracker. Custom
+// designs and catering volume need Askhat to eyeball date / quantity /
+// allergen requests first.
+const APPROVAL_REQUIRED_CATEGORIES = new Set(['custom', 'catering'])
+
+interface OrderRowFull {
+  id: string
+  status: string
+  total_cents: number
+  scheduled_at: string | null
+  customer_name: string | null
+  pickup_or_delivery: string
+  kitchen_ticket_id: string | null
+  items_json: string | null
+}
+
+interface StoredItem {
+  sku: string
+  qty: number
+  unit_cents: number
+  line_total_cents: number
+  name: string
+}
+
+/**
+ * True when ANY of the order's items is in a category that needs the owner
+ * to approve before the kitchen starts (custom designs, catering volume).
+ * Standard slices / whole cakes / pastries return false → auto-approve.
+ */
+export function orderRequiresApproval(items: StoredItem[]): boolean {
+  for (const it of items) {
+    const product = getProduct(it.sku)
+    if (product && APPROVAL_REQUIRED_CATEGORIES.has(product.category)) return true
+  }
+  return false
+}
+
+function shapeOrderStatus(row: OrderRowFull) {
+  const items: StoredItem[] = row.items_json ? (JSON.parse(row.items_json) as StoredItem[]) : []
+  return {
+    id: row.id,
+    status: row.status,
+    total_cents: row.total_cents,
+    scheduled_at: row.scheduled_at,
+    customer_name: row.customer_name,
+    pickup_or_delivery: row.pickup_or_delivery,
+    kitchen_ticket_id: row.kitchen_ticket_id,
+    items,
+    // Derived flag the customer-facing tracker uses to decide whether to
+    // render the 4-step timeline (with "Approved") or the 3-step one
+    // (Order received → In the kitchen → Ready). Stable across status
+    // transitions — depends only on the items, not the current status.
+    requires_approval: orderRequiresApproval(items),
+  }
+}
+
 // Customer-facing surfaces show only the trailing chunk of the order id
 // (e.g. "#4_UG4G4J" — the last 8 chars of "ord_<ms>_UG4G4J"). When that's
 // the value the customer pastes back into chat or the /track form, the
@@ -163,19 +221,19 @@ export const getOrderStatusSchema = z.object({
 export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
   const db = getDb()
   const select =
-    'SELECT id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id FROM orders'
+    'SELECT id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id, items_json FROM orders'
 
   // Customers often paste the displayed code with a leading `#` and
   // surrounding whitespace; strip both before matching.
   const cleaned = args.order_id.trim().replace(/^#+/, '')
-  const exact = db.prepare(`${select} WHERE id = ?`).get(cleaned)
-  if (exact) return exact
+  const exact = db.prepare(`${select} WHERE id = ?`).get(cleaned) as OrderRowFull | undefined
+  if (exact) return shapeOrderStatus(exact)
 
   if (cleaned.length >= 6 && !cleaned.startsWith('ord_')) {
     const candidates = db
       .prepare(`${select} WHERE id LIKE ? ORDER BY created_at DESC LIMIT 2`)
-      .all(`%${cleaned}`) as Array<{ id: string }>
-    if (candidates.length === 1) return candidates[0]
+      .all(`%${cleaned}`) as OrderRowFull[]
+    if (candidates.length === 1) return shapeOrderStatus(candidates[0])
     // Ambiguous: the same suffix matches multiple orders. Force the
     // customer (or agent) to use the full id rather than guess.
     if (candidates.length > 1) {

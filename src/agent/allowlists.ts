@@ -18,10 +18,15 @@ import type { AgentRole } from '../channels/types.ts'
 
 export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
   concierge: [
-    // Sandbox: catalog + customer messaging + POS
+    // Sandbox: catalog + customer messaging (read-only POS)
     'mcp__happycake__square_list_catalog',
     'mcp__happycake__square_get_inventory',
-    'mcp__happycake__square_create_order',
+    // NOTE: square_create_order intentionally NOT allowlisted. The concierge
+    // creates a LOCAL draft via create_draft_order; the owner approves via
+    // Telegram; only then does the deterministic orchestration in
+    // src/domain/order-orchestration.ts call square_create_order over HTTP.
+    // "Press a button → cake is ordered" is owner-gated, not LLM-gated
+    // (see ARCHITECTURE.md and DATA-MODEL.md flow §99).
     'mcp__happycake__whatsapp_send',
     'mcp__happycake__instagram_send_dm',
     'mcp__happycake__kitchen_get_menu_constraints',

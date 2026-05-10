@@ -14,12 +14,31 @@ import { cn } from '@/lib/utils'
 // Fetch order status — TanStack Query polls every 8s while we have an id and
 // the order isn't terminal (not completed/rejected/cancelled). Stops on
 // terminal states so we don't keep hitting the backend forever.
+//
+// Defensive: guard against the proxy returning HTML on a 200 (e.g. when
+// `BACKEND_URL` is misconfigured at deploy time and Next.js falls through
+// to the SPA shell). Without the content-type check the user saw
+// `Unexpected token '<', "<!DOCTYPE..."` — opaque and scary. Now they get
+// a real explanation.
 async function fetchOrder(id: string): Promise<OrderStatus | null> {
   if (!id) return null
-  const res = await fetch(`/api/orders/${encodeURIComponent(id.trim())}`, { cache: 'no-store' })
+  const res = await fetch(`/api/orders/${encodeURIComponent(id.trim())}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  })
   if (res.status === 404) return null
-  if (!res.ok) throw new Error(`Couldn't fetch order — ${res.status}`)
-  return res.json()
+  if (!res.ok) throw new Error(`Couldn't fetch order — server returned ${res.status}.`)
+  const ct = res.headers.get('content-type') ?? ''
+  if (!ct.includes('application/json')) {
+    // Proxy / rewrite returned HTML (or text). Surface a useful error
+    // instead of the JSON.parse blowup.
+    throw new Error("We can't reach the order service right now. Try again in a moment.")
+  }
+  try {
+    return (await res.json()) as OrderStatus
+  } catch {
+    throw new Error('Order service returned an unexpected response. Try again in a moment.')
+  }
 }
 
 const TERMINAL = ['completed', 'picked_up', 'rejected', 'cancelled']

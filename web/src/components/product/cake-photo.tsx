@@ -29,11 +29,17 @@ export function CakePhoto({
   name: string
   src?: string | null
   className?: string
-  aspect?: 'square' | 'portrait' | 'wide'
+  aspect?: 'square' | 'portrait' | 'wide' | '4/3'
   priority?: boolean
 }) {
   const aspectClass =
-    aspect === 'portrait' ? 'aspect-[4/5]' : aspect === 'wide' ? 'aspect-[16/10]' : 'aspect-square'
+    aspect === 'portrait'
+      ? 'aspect-[4/5]'
+      : aspect === 'wide'
+        ? 'aspect-[16/10]'
+        : aspect === '4/3'
+          ? 'aspect-[4/3]'
+          : 'aspect-square'
   const finalSrc = src && src.trim().length > 0 ? src : pickProductPhoto(productId)
   const [failed, setFailed] = React.useState(false)
   return (

@@ -127,7 +127,7 @@ while (processed < maxEvents) {
     console.log(`         → gb_simulate_reply queued`)
   } else if (evt.channel === 'kitchen' && evt.type === 'ticket_ready') {
     const p = evt.payload as { ticketId: string; orderId?: string }
-    console.log(`         kitchen marked ticket ${p.ticketId} ready (TODO: notify customer in PR #8)`)
+    console.log(`         kitchen marked ticket ${p.ticketId} ready`)
   } else {
     console.log(`         (no handler for ${evt.channel}/${evt.type} yet)`)
   }

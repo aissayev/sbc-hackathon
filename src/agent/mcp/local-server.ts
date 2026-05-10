@@ -33,8 +33,9 @@ import {
 } from '../../domain/tools.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { getPolicies } from '../../domain/policies.ts'
-import { postDraftOrderCard, postEscalationCard } from '../../bots/owner.ts'
+import { postDraftOrderCard, postEscalationCard } from '../../bots/owner/index.ts'
 import { brandLookup, brandLookupSchema } from './brand-rag.ts'
+import { createApproval } from '../../domain/approvals.ts'
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] }
@@ -169,17 +170,23 @@ server.registerTool(
   'queue_owner_approval',
   {
     description:
-      'Marketing-only. Queue a campaign brief for the owner to approve before launching. Returns a queue id.',
+      'Marketing/concierge. Queue an item for the owner to approve before it goes out (campaign launch, IG/GBP post draft, budget change, sensitive customer reply). Persists to the cockpit\'s /admin/posts queue.',
     inputSchema: {
-      kind: z.enum(['campaign', 'creative', 'budget_change']),
+      kind: z.enum(['campaign', 'creative', 'budget_change', 'reply']),
       summary: z.string(),
       detail: z.string(),
+      channel: z.enum(['instagram', 'whatsapp', 'gbp', 'web', 'telegram']).optional(),
     },
   },
   async (args) => {
-    const { kind, summary, detail } = args as { kind: string; summary: string; detail: string }
-    const id = `aprv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    return ok({ ok: true, approval_id: id, kind, summary, detail })
+    const { kind, summary, detail, channel } = args as {
+      kind: 'campaign' | 'creative' | 'budget_change' | 'reply'
+      summary: string
+      detail: string
+      channel?: 'instagram' | 'whatsapp' | 'gbp' | 'web' | 'telegram'
+    }
+    const approval = createApproval({ kind, summary, detail, channel: channel ?? null })
+    return ok({ ok: true, approval_id: approval.id, kind, summary, detail, channel: approval.channel })
   },
 )
 

@@ -100,6 +100,17 @@ export const config = {
     // server-side admin reads ride open mode (see admin-auth middleware).
     backendSecret: envGet('WEB_BACKEND_SECRET'),
   },
+
+  openai: {
+    // Used for Telegram voice-message transcription via Whisper. When unset,
+    // voice messages get a "voice transcription not configured" reply
+    // instead of being silently dropped.
+    apiKey: envGet('OPENAI_API_KEY'),
+    // whisper-1 (default) supports verbose_json so we get detected language
+    // back for logging — useful for confirming RU/EN/KZ routing. Override
+    // with 'gpt-4o-mini-transcribe' for ~50% lower cost (text-only output).
+    sttModel: envGet('OPENAI_STT_MODEL') ?? 'whisper-1',
+  },
 } as const
 
 export function configuredChannels(): string[] {

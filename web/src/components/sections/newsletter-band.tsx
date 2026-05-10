@@ -55,19 +55,15 @@ export function NewsletterBand() {
   }
 
   return (
-    <section className="container mt-24" aria-labelledby="newsletter-heading">
+    <section className="container mt-28 md:mt-32" aria-labelledby="newsletter-heading">
       <div className="rounded-[28px] bg-sky/8 border border-sky/20 p-8 md:p-12 grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
         <div>
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium text-sky-700">
-            <Mail className="h-3.5 w-3.5" /> Stay in the loop
+            <Mail className="h-3.5 w-3.5" /> One email a month
           </div>
-          <h2 id="newsletter-heading" className="display-h2 mt-3 text-3xl md:text-4xl">
-            New cakes, seasonal bakes, owner notes.
+          <h2 id="newsletter-heading" className="display-h2 mt-3 text-3xl md:text-4xl [text-wrap:balance]">
+            New cakes. Holiday pre-orders. Notes from Askhat.
           </h2>
-          <p className="mt-3 text-cocoa-900/75 max-w-xl leading-relaxed">
-            One short email a month. New flavors, holiday pre-order windows, the occasional
-            recipe note from Askhat. Easy unsubscribe.
-          </p>
         </div>
         <form
           onSubmit={handleSubmit}
@@ -103,10 +99,11 @@ export function NewsletterBand() {
                 role="alert"
                 className={cn(
                   'sm:col-span-2 text-xs leading-relaxed',
-                  error ? 'text-berry' : 'text-cocoa-900/55',
+                  error ? 'text-berry' : 'text-cocoa-900/0',
                 )}
+                aria-hidden={!error}
               >
-                {error ?? 'We email less than once a month. No third parties.'}
+                {error ?? ' '}
               </p>
             </>
           )}

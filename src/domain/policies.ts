@@ -6,6 +6,9 @@
 //   fulfillment.delivery   — BRANDBOOK §3 ('within ten miles or work nearby')
 //   fulfillment.shipping   — BRANDBOOK §1 (neighbourhood place, not catalog) — 'we don't ship'
 //   allergens              — BRANDBOOK §7 hard rule + brief (shared kitchen warning)
+//   halal_friendly         — web/src/app/policies/page.tsx + web/src/lib/{dietary,widget}.ts
+//                            (live-site source of truth; SKU list authored at site
+//                            scaffolding time, not formally certified)
 //   contact                — BRANDBOOK §3 visual identity (IG handle, Sugar Land)
 //   hours                  — PLACEHOLDER — confirm with owner before launch
 //   cancellation           — PLACEHOLDER — confirm with owner before launch
@@ -34,6 +37,12 @@ export interface Policies {
     shared_kitchen_warning: string
     critical_allergy_protocol: string
     listed_per_product: boolean
+  }
+  halal_friendly: {
+    statement: string
+    always_halal_friendly_skus: string[]
+    formally_certified: boolean
+    confirm_at_order: string
   }
   cancellation: {
     free_until_hours_before: number
@@ -82,6 +91,14 @@ export function getPolicies(): Policies {
       critical_allergy_protocol:
         'For severe allergies, escalate \u2014 Askhat reviews each request personally before we accept the order.',
       listed_per_product: true,
+    },
+    halal_friendly: {
+      statement:
+        'Most of our cakes use no alcohol and no pork-derived ingredients.',
+      always_halal_friendly_skus: ['honey', 'milk-maiden', 'pistachio-roll'],
+      formally_certified: false,
+      confirm_at_order:
+        "Tell us when you order and we'll confirm what's safe. We're halal-friendly, not formally halal-certified.",
     },
     cancellation: {
       free_until_hours_before: 24,

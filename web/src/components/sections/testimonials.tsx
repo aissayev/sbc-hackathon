@@ -22,63 +22,42 @@ interface Testimonial {
   rating: number
 }
 
+// Trimmed from 6 to 3 most-distinctive quotes — covers birthday regular,
+// office orders, and first-timer. The breadth still reads, the section
+// stops feeling like a wall.
 const TESTIMONIALS: Testimonial[] = [
   {
     quote:
-      "We've been ordering my daughter's birthday cake here for three years. Each time it's a little different, each time it's perfect. Askhat actually remembers her name.",
+      "Three years of birthday cakes. Each one perfect. Askhat remembers my daughter's name.",
     name: 'Maria L.',
-    context: 'Sugar Land · birthday cake regular',
+    context: 'Sugar Land · birthday regular',
     rating: 5,
   },
   {
     quote:
-      "The honey cake is the only reason I haven't bought an espresso machine for the office. We pick up two whole ones every Friday for the team.",
+      "The honey cake is the only reason I haven't bought an espresso machine for the office.",
     name: 'Daniel K.',
     context: 'Office orders · weekly',
     rating: 5,
   },
   {
     quote:
-      'I came in for one slice. I stayed two hours. The chairs are good for laptops and nobody minded that I took up a whole table.',
-    name: 'Jess V.',
-    context: 'Worked from the café',
-    rating: 5,
-  },
-  {
-    quote:
-      'They really listened to the brief — gluten-free, real flavor, no compromises. The wedding cake landed exactly the way I described it.',
-    name: 'Hannah R.',
-    context: 'Wedding · 80 guests',
-    rating: 5,
-  },
-  {
-    quote:
-      "First time in. Best cardamom-pistachio thing I've had in Houston. The owner came out to ask how it was. Already coming back this week.",
+      "Best cardamom-pistachio thing I've had in Houston. The owner came out to ask how it was.",
     name: 'Omar S.',
-    context: 'First visit · April',
-    rating: 5,
-  },
-  {
-    quote:
-      "My mom can't have nuts and they walked me through every cake in the case. Got the cloud one, no allergy issues, no surprises.",
-    name: 'Aiken P.',
-    context: 'Allergy-aware order',
+    context: 'First visit',
     rating: 5,
   },
 ]
 
 export function Testimonials() {
   return (
-    <section className="container mt-24" aria-labelledby="testimonials-heading">
+    <section className="container mt-28 md:mt-32" aria-labelledby="testimonials-heading">
       <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
         <div>
           <Eyebrow>What guests say</Eyebrow>
-          <h2 id="testimonials-heading" className="display-h2 mt-3">
-            500+ regulars and counting
+          <h2 id="testimonials-heading" className="display-h2 mt-3 [text-wrap:balance]">
+            500+ regulars and counting.
           </h2>
-          <p className="mt-2 text-cocoa-900/70 max-w-xl leading-relaxed">
-            Hand-picked from neighbours, parents, planners, and the table by the window.
-          </p>
         </div>
         <Link
           href="https://maps.app.goo.gl/5y1XZuBPYtY9oCJ58"
@@ -86,19 +65,19 @@ export function Testimonials() {
           rel="noopener"
           className="inline-flex items-center gap-1 text-sm font-medium text-sky-700 hover:text-sky-900"
         >
-          Read all reviews on Google
+          All Google reviews
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
-      <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-6 md:grid-cols-3">
         {TESTIMONIALS.map((t) => (
-          <li key={t.name} className="bakery-card p-6 flex flex-col">
-            <Quote className="h-5 w-5 text-sky-700/70 shrink-0" aria-hidden />
-            <blockquote className="mt-3 text-cocoa-900 leading-relaxed text-[15px]">
+          <li key={t.name} className="bakery-card p-7 md:p-8 flex flex-col">
+            <Quote className="h-6 w-6 text-sky-700/60 shrink-0" aria-hidden />
+            <blockquote className="mt-4 text-cocoa-900 leading-snug text-lg md:text-xl font-display">
               &ldquo;{t.quote}&rdquo;
             </blockquote>
-            <div className="mt-5 pt-4 border-t border-cocoa-700/10 flex items-center justify-between gap-3">
+            <div className="mt-6 pt-4 border-t border-cocoa-700/10 flex items-center justify-between gap-3">
               <div>
                 <div className="font-medium text-cocoa-900 text-sm">{t.name}</div>
                 <div className="text-xs text-cocoa-900/55 mt-0.5">{t.context}</div>

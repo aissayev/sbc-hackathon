@@ -1,39 +1,22 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { listProducts, type Product } from '@/lib/api'
-import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
+import { BRAND, ASSETS } from '@/lib/brand'
 import { BLOG_POSTS } from '@/lib/blog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
-import { HoursTable } from '@/components/brand/hours'
 import { QuickOrderForm } from '@/components/order/quick-order-form'
-import { HeroDecor } from '@/components/sections/hero-decor'
+import { EditorialTriptych } from '@/components/sections/editorial-triptych'
 import { PlaceToGather } from '@/components/sections/place-to-gather'
 import { Testimonials } from '@/components/sections/testimonials'
 import { NewsletterBand } from '@/components/sections/newsletter-band'
 import { VisitBand } from '@/components/sections/visit-band'
 import { ThreeWaysBand } from '@/components/sections/three-ways-band'
 import { ShowcaseRow } from '@/components/sections/showcase-row'
-import { DeliveryZones } from '@/components/sections/delivery-zones'
-import {
-  ArrowRight,
-  Sparkles,
-  Coffee,
-  Gift,
-  Heart,
-  MapPin,
-  Phone,
-  Instagram,
-  Leaf,
-  ExternalLink,
-  Star,
-  Clock,
-} from 'lucide-react'
+import { ArrowRight, MapPin } from 'lucide-react'
 
 export const revalidate = 60
-
-const PILLAR_ICONS = { sparkles: Sparkles, coffee: Coffee, gift: Gift, heart: Heart } as const
 
 export default async function HomePage() {
   // includeOutOfStock so the showcase can surface the "Out today" state via
@@ -85,18 +68,15 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
       <Hero products={inStockProducts} />
-      <Pillars />
+      <EditorialTriptych />
 
       <ShowcaseRow products={products} />
 
       <ThreeWaysBand />
       <PlaceToGather />
       <Testimonials />
-      <Manifesto />
       <StoriesBand />
       <VisitBand />
-      <DeliveryZones />
-      <BusinessBand />
       <NewsletterBand />
       <ClosingCta />
     </>
@@ -106,21 +86,36 @@ export default async function HomePage() {
 function Hero({ products }: { products: Product[] }) {
   return (
     <section className="relative overflow-hidden">
-      {/* Layered backdrop: warm cream wash + sky / berry corner glows + a faint
-          grid lattice masked to the centre. Pattern mirrors the websites
-          monorepo hero recipe (25_karada-u, 24_skymax). */}
+      {/* Quiet editorial backdrop:
+          1. home-hero-bg  — warm cream + butter/sky/blush radial glows
+          2. home-hero-grain — subtle paper grain
+          3. hero-photo    — honey-cake photo bleeding from the left, masked
+          4. soft-blur orbs — atmospheric bloom in the corners
+          Decoration (bunting, sparkles, sprinkle field, cake silhouette,
+          frosting swoosh) and trust strip removed at owner request — the
+          photo + form carry the hero alone. */}
       <div className="absolute inset-0 home-hero-bg pointer-events-none" aria-hidden />
-      <div className="absolute inset-0 home-hero-grid pointer-events-none opacity-70" aria-hidden />
-      <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky/15 blur-3xl pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-40 -left-32 h-[28rem] w-[28rem] rounded-full bg-berry/10 blur-3xl pointer-events-none" aria-hidden />
-      {/* Friendly cake-themed line-art that floats behind the copy. Subtle on
-          purpose — sits at low opacity so it reads as wallpaper rather than
-          decoration. Hidden on small viewports. */}
-      <HeroDecor />
+      <div className="absolute inset-0 home-hero-grain pointer-events-none" aria-hidden />
+
+      <div className="absolute -left-[18%] top-0 bottom-0 w-[68%] hidden md:block pointer-events-none" aria-hidden>
+        <div className="relative h-full w-full hero-photo-mask">
+          <Image
+            src={ASSETS.hero[0]}
+            alt=""
+            fill
+            priority
+            sizes="68vw"
+            className="object-cover hero-photo-tint"
+          />
+        </div>
+      </div>
+
+      <div className="absolute -top-40 -right-32 h-[26rem] w-[26rem] rounded-full bg-amber-300/25 blur-3xl pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-44 -left-32 h-[30rem] w-[30rem] rounded-full bg-berry/15 blur-3xl pointer-events-none" aria-hidden />
 
       <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
         <div className="lg:col-span-7">
-          <Eyebrow>Family-owned cake shop & coffee bar</Eyebrow>
+          <Eyebrow>Family-owned cake shop &amp; coffee bar</Eyebrow>
           <h1
             id="hero-tagline"
             className="display-h1 mt-5 [text-wrap:balance]"
@@ -128,28 +123,9 @@ function Hero({ products }: { products: Product[] }) {
             Cakes worth <span className="text-sky">driving for</span>.
           </h1>
           <p className="mt-5 text-lg text-cocoa-900/75 max-w-xl leading-relaxed">
-            Small-batch cakes and pastries, baked from scratch every morning. Real ingredients,
-            generous slices, and the kind of welcome that turns first-time guests into Saturday
-            regulars.
+            Small-batch cakes and pastries, baked from scratch every morning.
           </p>
 
-          {/* Trust strip — replaces the noisy CTA stack with three quiet
-              proof points the eye can scan in a glance. */}
-          <ul className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-cocoa-900/75">
-            <li className="inline-flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-sky-700" /> Baked fresh daily
-            </li>
-            <li className="inline-flex items-center gap-2">
-              <Star className="h-4 w-4 text-sky-700" /> 500+ regulars and counting
-            </li>
-            <li className="inline-flex items-center gap-2">
-              <Clock className="h-4 w-4 text-sky-700" /> Pickup or local delivery
-            </li>
-          </ul>
-
-          {/* Hours + phone live in the header now (HeaderStatus + tel link).
-              Hero meta row keeps just the address — the one piece the
-              header doesn't surface. */}
           <div className="mt-7 flex flex-wrap items-center gap-4 text-sm">
             <a
               href={BRAND.mapsUrl}
@@ -170,68 +146,16 @@ function Hero({ products }: { products: Product[] }) {
   )
 }
 
-function Pillars() {
-  return (
-    <section className="container mt-16 md:mt-24">
-      <div className="grid gap-10 lg:grid-cols-12 lg:gap-14 items-start">
-        {/* Editorial left rail — anchors the section instead of yet another
-            centered title block. The h2 doubles as the section anchor; the
-            paragraph sets up the four pillars on the right. */}
-        <div className="lg:col-span-4 lg:sticky lg:top-24">
-          <Eyebrow>Why guests come back</Eyebrow>
-          <h2 className="display-h2 mt-3 [text-wrap:balance]">
-            Small bakery. <span className="text-sky">Big care</span> in every slice.
-          </h2>
-          <p className="mt-4 text-cocoa-900/70 leading-relaxed">
-            Four things we promise and four things we deliver, every day. The same recipes that
-            opened the shop, the same hands that decorate the boxes, the same welcome at the
-            counter.
-          </p>
-        </div>
-
-        {/* Numbered pillar list. Each row reads as a row not a card — less
-            grid-of-cards corporate, more "things we believe" editorial. */}
-        <ol className="lg:col-span-8 grid gap-px bg-cocoa-700/8 rounded-3xl overflow-hidden border border-cocoa-700/8">
-          {PILLARS.map((p, i) => {
-            const Icon = PILLAR_ICONS[p.icon as keyof typeof PILLAR_ICONS] ?? Sparkles
-            return (
-              <li
-                key={p.title}
-                className="group relative flex items-start gap-5 bg-bakery p-6 md:p-7 transition-colors hover:bg-cream-50"
-              >
-                <div className="shrink-0 flex flex-col items-center gap-2">
-                  <span className="text-[11px] tracking-[0.18em] uppercase text-cocoa-900/45 font-medium tabular-nums">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <span className="h-12 w-12 rounded-2xl bg-sky-100 text-sky inline-flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="display-h3 text-lg">{p.title}</h3>
-                  <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed">{p.body}</p>
-                </div>
-              </li>
-            )
-          })}
-        </ol>
-      </div>
-    </section>
-  )
-}
-
 function StoriesBand() {
   const featured = BLOG_POSTS.slice(0, 3)
   return (
-    <section className="container mt-24">
+    <section className="container mt-28 md:mt-32">
       <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
         <div>
-          <Eyebrow>Stories & guides</Eyebrow>
-          <h2 className="display-h2 mt-3">Notes from the bench</h2>
-          <p className="mt-2 text-cocoa-900/70 max-w-xl">
-            Honest, useful pieces — honey-cake history, planning a custom cake, allergens. Same
-            voice as the counter conversation.
-          </p>
+          <Eyebrow>Stories &amp; guides</Eyebrow>
+          <h2 className="display-h2 mt-3 [text-wrap:balance]">
+            Notes from the bench.
+          </h2>
         </div>
         <Button asChild variant="outline-sky" shape="pill">
           <Link href="/blog">
@@ -276,83 +200,20 @@ function StoriesBand() {
   )
 }
 
-function Manifesto() {
-  return (
-    <section className="container mt-24">
-      <div className="grid gap-10 md:grid-cols-12 items-start">
-        <div className="md:col-span-5">
-          <Eyebrow>About us</Eyebrow>
-          <h2 className="display-h2 mt-3">A family-run cake shop, hands behind every slice.</h2>
-        </div>
-        <div className="md:col-span-7 text-cocoa-900/85 space-y-4 leading-relaxed">
-          <p>
-            HappyCake is owned and run by Askhat and his wife. Every cake is hand-decorated and
-            hand-packed; recipes were tested at the dinner table and refined until they earned
-            their names.
-          </p>
-          <p>
-            We&apos;re not a chain. We&apos;re one family making cakes the way we would for our
-            own table — and serving them to yours, on Promenade Way in Sugar Land.
-          </p>
-          <p>
-            <Link href="/about" className="text-sky-700 underline-offset-4 hover:underline font-medium">
-              Read our story →
-            </Link>
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function BusinessBand() {
-  return (
-    <section className="container mt-24">
-      <div className="rounded-[28px] border border-sky/20 bg-sky/5 p-8 md:p-12 grid gap-6 md:grid-cols-[1fr_auto] md:items-center max-w-5xl mx-auto">
-        <div>
-          <Eyebrow className="text-sky-700">For business</Eyebrow>
-          <h2 className="display-h2 mt-2 text-3xl md:text-4xl [text-wrap:balance]">
-            Catering, gifting, standing programs.
-          </h2>
-          <p className="mt-3 text-cocoa-900/75 max-w-xl">
-            Office breaks, events, corporate gifting. One point of contact, one invoice. We reply
-            to every B2B inquiry within one business day.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button asChild size="lg" variant="sky">
-            <Link href="/business">See programs</Link>
-          </Button>
-          <Button asChild size="lg" variant="outline-sky">
-            <Link href="/business/inquire">Send inquiry</Link>
-          </Button>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 function ClosingCta() {
+  // Single sky CTA; the secondary "see the menu" link is redundant with
+  // the global header nav. Bigger headline, more breathing room.
   return (
     <section className="container mt-24 mb-4">
-      <div className="rounded-[32px] bg-cocoa-900 text-cream p-10 md:p-16 relative overflow-hidden">
+      <div className="rounded-[32px] bg-cocoa-900 text-cream p-12 md:p-20 relative overflow-hidden">
         <div className="absolute inset-0 pattern-dots-cream opacity-25" aria-hidden />
-        <div className="relative max-w-2xl">
-          <Eyebrow className="text-sky-200">Today's bake is out</Eyebrow>
-          <p className="font-display text-3xl md:text-5xl mt-3 leading-[1.05] [text-wrap:balance]">
-            Come in for a slice — or order a whole cake by Saturday.
+        <div className="relative max-w-3xl">
+          <p className="font-display text-4xl md:text-6xl leading-[1.02] [text-wrap:balance]">
+            Come in for a slice. <span className="text-sky-200">Or order a whole cake.</span>
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-8">
             <Button asChild size="lg" variant="sky">
               <Link href="/order">Start an order</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="ghost"
-              className="text-cream hover:bg-cream/10"
-            >
-              <Link href="/menu">See what's in the case</Link>
             </Button>
           </div>
         </div>
