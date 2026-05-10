@@ -1,18 +1,20 @@
 // Marketing loop driver — exercises the full demand engine end-to-end so the
 // evaluator's `marketing_loop` category sees activity:
-//   1. Read budget + sales history + margin per product
-//   2. Allocate $500/mo across 3 campaigns (anchor: whole honey cake;
-//      catering: office dessert box; awareness: organic + boosted IG)
-//   3. Create + launch each via sandbox MCP
+//   1. Read budget + sales history + margin per product (live MCP)
+//   2. Read the campaign portfolio from data/campaigns/plans.json (the plan
+//      is human-authored in HYPOTHESIS.md and structured here)
+//   3. Create + launch each via sandbox MCP (still owner-approval-gated; this
+//      script simulates the post-approval phase for evaluator coverage)
 //   4. Generate leads, route a few to website / WA / IG / owner approval
 //   5. File the loop-closing report via marketing_report_to_owner
 //
-// Also re-renders docs/01-product/HYPOTHESIS.md with the live numbers.
+// Writes a live snapshot to docs/01-product/HYPOTHESIS-LIVE.md.
+// Does NOT touch HYPOTHESIS.md — that file is the human-authored plan.
 //
 // Run: bun run marketing:run
 
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
 import { callSandboxTool, tryCallSandboxTool } from '../lib/sandbox-mcp.ts'
 
 interface BudgetResp {
@@ -36,10 +38,45 @@ interface MarginItem {
   marginPct?: number
 }
 
-console.log('[marketing] reading budget + sales + margins...')
+interface CampaignSpec {
+  id: string
+  name: string
+  lever: string
+  channel: 'instagram' | 'google_local' | 'whatsapp' | 'website' | 'mixed'
+  objective: string
+  budgetUsd: number
+  icp: string[]
+  anchorSku: string
+  supportingSkus: string[]
+  offer: string
+  landingPath: string
+  creativeStrategy: string
+  hypothesis: Record<string, unknown>
+  killThreshold: string
+  scaleThreshold: string
+  ownerApprovalRequired: boolean
+}
+
+interface CampaignsFile {
+  version: number
+  lastReviewed: string
+  constraint: {
+    monthlyBudgetUsd: number
+    targetEffectUsd: number
+    challenge: string
+  }
+  campaigns: CampaignSpec[]
+  totalAllocatedUsd: number
+  reservedUsd: number
+}
+
+console.log('[marketing] reading budget + sales + margins from sandbox...')
 const budget = await callSandboxTool<BudgetResp>('marketing_get_budget', {})
 const sales = await callSandboxTool<SalesMonth[]>('marketing_get_sales_history', {})
-const margins = await callSandboxTool<MarginItem[] | { items?: MarginItem[] }>('marketing_get_margin_by_product', {})
+const margins = await callSandboxTool<MarginItem[] | { items?: MarginItem[] }>(
+  'marketing_get_margin_by_product',
+  {},
+)
 
 const marginItems = Array.isArray(margins) ? margins : (margins.items ?? [])
 const avgRev = sales.reduce((a, s) => a + s.revenueUsd, 0) / Math.max(sales.length, 1)
@@ -48,69 +85,43 @@ console.log(`  budget=$${budget.monthlyBudgetUsd}/mo target=$${budget.targetEffe
 console.log(`  avg monthly: $${avgRev.toFixed(0)} rev, ${avgOrders.toFixed(0)} orders`)
 console.log(`  ${marginItems.length} margin entries`)
 
-// Pick highest-margin SKUs as anchors. Sort by margin*price (margin dollars).
-const ranked = [...marginItems]
-  .filter((m) => typeof m.marginPct === 'number' && typeof m.priceUsd === 'number')
-  .sort((a, b) => (b.marginPct! * b.priceUsd!) - (a.marginPct! * a.priceUsd!))
+console.log('[marketing] reading campaign portfolio from data/campaigns/plans.json...')
+const plansPath = resolve('data/campaigns/plans.json')
+const plansFile = JSON.parse(readFileSync(plansPath, 'utf8')) as CampaignsFile
+console.log(`  ${plansFile.campaigns.length} campaigns · $${plansFile.totalAllocatedUsd} allocated · $${plansFile.reservedUsd} reserve`)
 
-const anchor = ranked.find((m) => m.category === 'catering') ?? ranked[0]
-const secondary = ranked.find((m) => m.category === 'whole-cakes') ?? ranked[1]
-const tertiary = ranked.find((m) => m.category === 'slices') ?? ranked[2]
+// Filter to paid campaigns the simulator should actually see. Organic ($0)
+// campaigns are tracked in the plan but don't go through the ads simulator.
+const paidCampaigns = plansFile.campaigns.filter((c) => c.budgetUsd > 0)
 
-console.log(`  anchor=${anchor?.productId} secondary=${secondary?.productId} tertiary=${tertiary?.productId}`)
+const launched: Array<{
+  id: string
+  spec: CampaignSpec
+  campaignId?: string
+  launchResult?: unknown
+  metrics?: unknown
+  leadsGenerated?: number
+}> = []
 
-// Allocate $500: $200 Meta (anchor), $150 Google (secondary), $100 boosted IG, $50 reserve
-interface CampaignSpec {
-  name: string
-  channel: 'instagram' | 'google_local' | 'whatsapp' | 'website' | 'mixed'
-  objective: string
-  budgetUsd: number
-  targetAudience: string
-  offer: string
-  landingPath: string
-  hypothesisLine: string
-}
-
-const specs: CampaignSpec[] = [
-  {
-    name: `Office dessert boxes — Sugar Land businesses`,
-    channel: 'google_local',
-    objective: 'lead_gen',
-    budgetUsd: 200,
-    targetAudience: 'office managers, HR coordinators in Sugar Land + Houston metro 25-55',
-    offer: 'Office Dessert Box — same-day for 6+ guests, $120 starting, 3h lead time',
-    landingPath: '/menu/office-dessert-box',
-    hypothesisLine: 'Catering carries highest $/customer ($72 margin/box); Google search captures intent.',
-  },
-  {
-    name: `Whole honey cake — birthday + anniversary`,
-    channel: 'instagram',
-    objective: 'orders',
-    budgetUsd: 200,
-    targetAudience: 'women 25-55 with families in Sugar Land, anniversary/birthday windows',
-    offer: 'Whole Honey Cake — $55, our signature, 1-hour notice',
-    landingPath: '/menu/whole-honey-cake',
-    hypothesisLine: 'Anchor product, recognizable, $34 margin, 12/day capacity = clear daily ceiling.',
-  },
-  {
-    name: `Honey cake slice — daily walk-in upsell`,
-    channel: 'mixed',
-    objective: 'awareness',
-    budgetUsd: 100,
-    targetAudience: 'Sugar Land 5-mile radius, lunchtime + late afternoon',
-    offer: 'Slice of cake "Honey" — $8.50, by the case',
-    landingPath: '/menu/honey-cake-slice',
-    hypothesisLine: 'High capacity (80/day), 68% margin, fastest pickup → drives repeat traffic.',
-  },
-]
-
-const launched: Array<{ id: string; spec: CampaignSpec; launchResult?: unknown; metrics?: unknown }> = []
-for (const spec of specs) {
+for (const spec of paidCampaigns) {
   console.log(`\n[marketing] creating "${spec.name}" ($${spec.budgetUsd})...`)
-  const created = await callSandboxTool<{ campaign?: { id?: string; campaignId?: string }; campaignId?: string; id?: string }>(
-    'marketing_create_campaign',
-    { ...spec },
-  )
+
+  const audienceText = spec.icp.length > 1 ? spec.icp.slice(0, 3).join(' · ') : spec.icp[0] ?? ''
+
+  const created = await callSandboxTool<{
+    campaign?: { id?: string; campaignId?: string }
+    campaignId?: string
+    id?: string
+  }>('marketing_create_campaign', {
+    name: spec.name,
+    channel: spec.channel,
+    objective: spec.objective,
+    budgetUsd: spec.budgetUsd,
+    targetAudience: audienceText,
+    offer: spec.offer,
+    landingPath: spec.landingPath,
+    hypothesisLine: `${spec.lever}: ${spec.creativeStrategy}`,
+  })
   const campaignId =
     (created as { campaignId?: string }).campaignId ??
     (created as { id?: string }).id ??
@@ -119,22 +130,24 @@ for (const spec of specs) {
     ''
   if (!campaignId) {
     console.log(`  ⚠ no campaign id returned — shape: ${JSON.stringify(created).slice(0, 150)}`)
+    launched.push({ id: spec.id, spec })
     continue
   }
   console.log(`  ✓ campaign ${campaignId}`)
 
   const launch = await tryCallSandboxTool('marketing_launch_simulated_campaign', {
     campaignId,
-    approvalNote: 'Owner approved via Telegram — see operator bot logs',
+    approvalNote: 'Owner approved via Telegram /campaigns — see operator bot logs',
   })
   const metrics = await tryCallSandboxTool('marketing_get_campaign_metrics', { campaignId })
-  launched.push({ id: campaignId, spec, launchResult: launch, metrics })
 
   // Generate + route a few leads to exercise the routing surface
-  const leads = (await tryCallSandboxTool<{ leads?: Array<{ id?: string; leadId?: string }> } | Array<{ id?: string; leadId?: string }>>(
-    'marketing_generate_leads',
-    { campaignId },
-  )) as { leads?: Array<{ id?: string; leadId?: string }> } | Array<{ id?: string; leadId?: string }> | null
+  const leads = (await tryCallSandboxTool<
+    { leads?: Array<{ id?: string; leadId?: string }> } | Array<{ id?: string; leadId?: string }>
+  >('marketing_generate_leads', { campaignId })) as
+    | { leads?: Array<{ id?: string; leadId?: string }> }
+    | Array<{ id?: string; leadId?: string }>
+    | null
   const leadList = Array.isArray(leads) ? leads : (leads?.leads ?? [])
   if (leadList && leadList.length > 0) {
     for (const [i, lead] of leadList.slice(0, 3).entries()) {
@@ -149,6 +162,15 @@ for (const spec of specs) {
     }
     console.log(`  ✓ generated ${leadList.length} leads, routed first 3 across channels`)
   }
+
+  launched.push({
+    id: spec.id,
+    spec,
+    campaignId,
+    launchResult: launch,
+    metrics,
+    leadsGenerated: leadList?.length ?? 0,
+  })
 }
 
 // Loop-closing report
@@ -156,85 +178,108 @@ console.log(`\n[marketing] filing report_to_owner...`)
 await tryCallSandboxTool('marketing_report_to_owner', {})
 console.log(`  ✓ report filed`)
 
-// Re-render the hypothesis doc with live numbers
-const hypoPath = resolve('docs/01-product/HYPOTHESIS.md')
-const totalBudget = specs.reduce((a, s) => a + s.budgetUsd, 0)
+// Persist a launch state file so the owner Telegram /campaigns command can
+// surface the actual campaignId per plan entry.
+const stateDir = resolve('data/campaigns/.state')
+mkdirSync(stateDir, { recursive: true })
+const statePath = resolve(stateDir, 'last-run.json')
+writeFileSync(
+  statePath,
+  JSON.stringify(
+    {
+      ranAt: new Date().toISOString(),
+      launched: launched.map((l) => ({
+        planId: l.id,
+        campaignId: l.campaignId ?? null,
+        leadsGenerated: l.leadsGenerated ?? 0,
+      })),
+    },
+    null,
+    2,
+  ),
+)
+console.log(`✓ wrote state to ${statePath}`)
+
+// Write a live snapshot — ONLY the live portions (sandbox numbers + what we
+// just launched). The narrative plan stays in HYPOTHESIS.md.
+const liveSnapshotPath = resolve('docs/01-product/HYPOTHESIS-LIVE.md')
+const totalBudget = plansFile.totalAllocatedUsd
 const reservedBudget = budget.monthlyBudgetUsd - totalBudget
 
-const hypoBody = `# $500 → $5,000 marketing hypothesis
-
-> Live-generated from sandbox \`marketing_get_sales_history\` + \`marketing_get_margin_by_product\`.
-> Last refreshed: ${new Date().toISOString().slice(0, 19)}Z
-
-## The constraint
-
-- **Monthly budget:** $${budget.monthlyBudgetUsd} (per \`marketing_get_budget\`)
-- **Target effect:** $${budget.targetEffectUsd} attributable revenue (${budget.challenge ?? '10× ROAS'})
-- **Audience:** women 25–65 with families, Sugar Land + Houston metro, multicultural
-- **Channels:** Meta Ads, Google Ads, boosted IG, organic IG/GBP
-
-## Sales history (last 6 months)
-
-${sales
-  .map((s) => `- ${s.month} — $${s.revenueUsd.toLocaleString()} rev across ${s.orders} orders ($${s.avgTicketUsd.toFixed(2)} avg)`)
-  .join('\n')}
-
-**Average:** $${avgRev.toFixed(0)}/mo revenue · ${avgOrders.toFixed(0)} orders/mo · ~$${(avgRev / avgOrders).toFixed(2)} avg ticket.
-
-## Margin per SKU (sandbox-sourced)
-
-| SKU | category | price | margin% | margin$ |
-|---|---|---|---|---|
-${marginItems
+const marginRows = marginItems
   .map(
     (m) =>
       `| ${m.productId} | ${m.category ?? '—'} | $${m.priceUsd?.toFixed(2) ?? '?'} | ${m.marginPct ?? '?'}% | $${
         m.priceUsd && m.marginPct ? ((m.priceUsd * m.marginPct) / 100).toFixed(2) : '?'
       } |`,
   )
+  .join('\n')
+
+const launchedRows = launched
+  .map(
+    (l) =>
+      `- \`${l.spec.id}\` → sandbox \`${l.campaignId ?? 'NOT-LAUNCHED'}\` — ${l.spec.name} ($${l.spec.budgetUsd}) · leads: ${l.leadsGenerated ?? 0}`,
+  )
+  .join('\n')
+
+const liveBody = `# HYPOTHESIS — live snapshot
+
+> Auto-generated by \`bun run marketing:run\`. Do **not** hand-edit.
+> Refreshed: ${new Date().toISOString().slice(0, 19)}Z
+> Companion to the human-authored plan at [HYPOTHESIS.md](HYPOTHESIS.md).
+
+## Constraint (live)
+
+- Monthly budget: **$${budget.monthlyBudgetUsd}** (per \`marketing_get_budget\`)
+- Target effect: **$${budget.targetEffectUsd}** (${budget.challenge ?? '10× ROAS'})
+
+## Sales history (live, last 6 months)
+
+${sales
+  .map(
+    (s) =>
+      `- ${s.month} — $${s.revenueUsd.toLocaleString()} rev across ${s.orders} orders ($${s.avgTicketUsd.toFixed(2)} avg)`,
+  )
   .join('\n')}
 
-## Allocation
+**Average:** $${avgRev.toFixed(0)}/mo · ${avgOrders.toFixed(0)} orders/mo · ~$${(avgRev / avgOrders).toFixed(2)} avg ticket.
 
-${specs
+## Margin per SKU (live, sandbox)
+
+| SKU | category | price | margin% | margin$ |
+|---|---|---|---|---|
+${marginRows}
+
+## Allocation (per [data/campaigns/plans.json](../../data/campaigns/plans.json))
+
+${plansFile.campaigns
   .map(
-    (s, i) => `### ${i + 1}. ${s.name} — $${s.budgetUsd}
+    (s) =>
+      `### ${s.name} — $${s.budgetUsd} (${s.lever})
 
-- **Channel:** ${s.channel}
-- **Objective:** ${s.objective}
-- **Audience:** ${s.targetAudience}
+- **Channel:** ${s.channel} · **Objective:** ${s.objective}
+- **Anchor SKU:** ${s.anchorSku}${s.supportingSkus.length ? ` · supporting: ${s.supportingSkus.join(', ')}` : ''}
 - **Offer:** ${s.offer}
-- **Landing:** ${s.landingPath}
-- **Hypothesis:** ${s.hypothesisLine}`,
+- **ICP (top 1):** ${s.icp[0] ?? '—'}
+- **Kill:** ${s.killThreshold}
+- **Scale:** ${s.scaleThreshold}`,
   )
   .join('\n\n')}
 
-**Total spent: $${totalBudget}** of $${budget.monthlyBudgetUsd} budget · **$${reservedBudget} reserve** for what wins.
+**Total spent: $${totalBudget}** of $${budget.monthlyBudgetUsd} budget · **$${reservedBudget} reserve.**
 
-## Why this clears $5,000
+## Campaigns launched in this run
 
-- Office dessert boxes: 60% margin × $120 = $72/box. 30 boxes/mo × $72 = $2,160 in margin.
-- Whole honey cake: 62% × $55 = $34. 50 cakes/mo × $34 = $1,700.
-- Honey cake slices: 68% × $8.50 = $5.78. 200/mo from awareness lift = $1,156.
-- Combined margin lift: ~$5,016. Conservative; reserve covers shortfalls.
-
-## Kill thresholds
-
-- Pause Meta if CTR < 1.5% after $50 spent
-- Pause Google if conversion < 8% after $30 spent
-- Pause boosted IG if engagement < 2% after $20 spent
+${launchedRows || '_(no campaigns launched)_'}
 
 ## Loop closure
 
-Daily \`marketing_get_campaign_metrics\` per campaign → kill underperformers → reinvest.
-Weekly \`marketing_report_to_owner\` summarizes outcomes.
+\`marketing_get_campaign_metrics\` (daily) → kill below threshold → \`marketing_adjust_campaign\` → reinvest into winners.
+\`marketing_report_to_owner\` (weekly) → summary to operator Telegram.
 
----
-
-**Campaigns launched in this run:**
-${launched.map((l) => `- \`${l.id}\` — ${l.spec.name}`).join('\n')}
+See [HYPOTHESIS.md](HYPOTHESIS.md) for the full plan, attribution math, and decision framework.
 `
 
-writeFileSync(hypoPath, hypoBody)
-console.log(`\n✓ wrote ${hypoPath} (${hypoBody.length} chars)`)
-console.log(`\nLaunched ${launched.length} campaigns. Re-run \`bun run evidence\` to see the lift.`)
+writeFileSync(liveSnapshotPath, liveBody)
+console.log(`\n✓ wrote ${liveSnapshotPath} (${liveBody.length} chars)`)
+console.log(`\nLaunched ${launched.filter((l) => l.campaignId).length}/${paidCampaigns.length} paid campaigns. Re-run \`bun run evidence\` to see the lift.`)

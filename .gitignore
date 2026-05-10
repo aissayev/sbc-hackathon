@@ -40,3 +40,9 @@ docs/00-source/*.csv
 
 # Internal team work board — not for the public submission repo
 docs/03-build/STATUS.md
+
+# Runtime marketing state — sandbox campaign IDs, lead counts, baseline pulls.
+# Auto-generated docs that quote live sandbox data also stay confidential.
+data/campaigns/.state/
+docs/01-product/MARKETING-BRIEF.md
+docs/01-product/HYPOTHESIS-LIVE.md

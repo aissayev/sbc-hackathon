@@ -1,0 +1,200 @@
+{
+  "_note": "Source of truth for the marketing portfolio. Read by both src/scripts/marketing-run.ts (creates + launches in sandbox) and src/bots/owner/commands.ts (/campaigns command in Telegram). The doc at docs/01-product/HYPOTHESIS.md is the human-readable narrative that quotes these specs. Margins below are live values pulled via marketing_get_margin_by_product on 2026-05-09; refresh by running `bun run marketing:brief`.",
+  "version": 3,
+  "lastReviewed": "2026-05-09",
+  "liveMarginsPulledAt": "2026-05-09T23:59Z",
+  "liveMargins": {
+    "honey-cake-slice": 68,
+    "whole-honey-cake": 62,
+    "pistachio-roll": 64,
+    "custom-birthday-cake": 58,
+    "office-dessert-box": 60
+  },
+  "constraint": {
+    "monthlyBudgetUsd": 500,
+    "targetEffectUsd": 5000,
+    "challenge": "10× ROAS attributable to the $500 spend",
+    "trustedFor": "Numbers below are hypotheses anchored on industry benchmarks (Meta food/bev CTR, food/bev CPL, retargeting uplift). Live sandbox data overrides them after the first launch."
+  },
+  "audienceLevers": {
+    "primary": "b2b_catering",
+    "secondary": "b2c_anchor",
+    "amplifier": "retargeting",
+    "earned": "organic_local_seo"
+  },
+  "campaigns": [
+    {
+      "id": "b2b-catering-meta-leadgen",
+      "name": "B2B catering — Meta Lead Gen (Sugar Land + W Houston)",
+      "lever": "primary",
+      "channel": "instagram",
+      "objective": "lead_gen",
+      "budgetUsd": 250,
+      "icp": [
+        "Office managers / EAs at 30–300 person Sugar Land + Energy Corridor offices",
+        "Boutique hotels & extended-stay (welcome amenity, in-room gifting)",
+        "Independent coffee shops (wholesale slice supply)",
+        "Event planners & realtors (housewarming, milestone closings)",
+        "Medical offices (patient appreciation, referral gifts)"
+      ],
+      "anchorSku": "office-dessert-box",
+      "supportingSkus": ["morning-pastry-mix", "whole-honey-cake"],
+      "offer": "Office Dessert Box — same-day for 6+ guests, $120 starting, 3h lead time. Free first delivery within 5 mi for first booking.",
+      "landingPath": "/menu/office-dessert-box",
+      "creativeStrategy": "Broad-net A/B/C learn-then-scale. 6 ad sets × 4 creatives each = 24 ads in week 1. Themes: (1) Monday-morning team treat, (2) client meeting, (3) staff appreciation, (4) holiday office party, (5) realtor closing gift, (6) hotel welcome.",
+      "audienceSizing": "~85k matched profiles (Houston-Sugar Land DMA, job titles: HR, Office Mgr, EA, Office Coordinator; interests: corporate gifting, event planning).",
+      "hypothesis": {
+        "expectedCpmUsd": 12,
+        "expectedCtrPct": 1.4,
+        "expectedLeadCvrPct": 8.5,
+        "expectedSqlRatePct": 28,
+        "expectedAvgFirstOrderUsd": 240,
+        "expectedRepeatOrdersYear1": 5,
+        "expectedYr1RevPerClientUsd": 1440,
+        "yr1MarginPctLive": 60
+      },
+      "killThreshold": "Pause an ad set if CTR < 1.0% after $25 spent OR CPL > $35 after $50 spent.",
+      "scaleThreshold": "Double daily budget on any ad set with CPL < $20 AND SQL rate > 25% over 50 leads.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "id": "b2c-anchor-cake-honey",
+      "name": "B2C anchor — cake \"Honey\" birthday + anniversary",
+      "lever": "secondary",
+      "channel": "instagram",
+      "objective": "orders",
+      "budgetUsd": 100,
+      "icp": [
+        "Women 28–55, Sugar Land + W Houston, family-celebration moments",
+        "Multicultural households (CAS / South-Asian / Latin community signals)"
+      ],
+      "anchorSku": "whole-honey-cake",
+      "supportingSkus": ["pistachio-roll", "cloud-cake-slice"],
+      "offer": "Cake \"Honey\" — $55, our signature, 1-hour notice. Perfect centerpiece for birthdays and anniversaries.",
+      "landingPath": "/menu/whole-honey-cake",
+      "creativeStrategy": "Advantage+ Shopping with 4 creatives: hero product still, cutting-the-cake reel, six-layer slow-mo, customer story.",
+      "audienceSizing": "Advantage+ broad — let Meta optimise within Houston DMA + 25 mi radius. ~250k+ profiles in match set.",
+      "hypothesis": {
+        "expectedCpmUsd": 9,
+        "expectedCtrPct": 1.6,
+        "expectedClickToOrderCvrPct": 3.2,
+        "expectedAvgOrderUsd": 62,
+        "expectedRepeatOrdersYear1": 2.2,
+        "expectedYr1RevPerClientUsd": 136,
+        "yr1MarginPctLive": 62
+      },
+      "killThreshold": "Pause if CTR < 1.0% after $20 spent OR CAC > $35 after $30 spent.",
+      "scaleThreshold": "Increase budget 50% if ROAS > 3.0× over a rolling 7-day window.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "id": "retargeting-warm-pool",
+      "name": "Retargeting — site visitors + IG engagers (last 30d)",
+      "lever": "amplifier",
+      "channel": "instagram",
+      "objective": "orders",
+      "budgetUsd": 100,
+      "icp": [
+        "Visited /menu/* in last 30 days (didn't check out)",
+        "Engaged with HappyCake IG (saved/commented/DMed) in last 30 days",
+        "Lookback on lead-form starters who didn't submit"
+      ],
+      "anchorSku": "whole-honey-cake",
+      "supportingSkus": ["office-dessert-box", "custom-birthday-cake"],
+      "offer": "Dynamic — show the SKU the user looked at, paired with a soft nudge: 'still thinking? we'll bake it tomorrow if you order tonight.'",
+      "landingPath": "/menu",
+      "creativeStrategy": "Dynamic Product Ads on the catalog feed (we expose /api/products, hook DPA to it). Two static carousels for IG-engaged audiences.",
+      "audienceSizing": "Estimated 1,500–4,000 warm profiles in month 1; grows with prospecting spend.",
+      "hypothesis": {
+        "expectedCpmUsd": 14,
+        "expectedCtrPct": 4.5,
+        "expectedClickToOrderCvrPct": 9.0,
+        "expectedAvgOrderUsd": 78,
+        "industryRoasMultiplier": "5–8× (vs 2–4× cold)",
+        "yr1MarginPctLive": 60
+      },
+      "killThreshold": "Only kill if frequency > 3.5/week AND CTR < 2% — that's audience burn, rotate creative.",
+      "scaleThreshold": "Default state. Budget rises automatically as the warm pool grows from prospecting.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "id": "google-local-catering-intent",
+      "name": "Google Local — high-intent catering search",
+      "lever": "primary_support",
+      "channel": "google_local",
+      "objective": "lead_gen",
+      "budgetUsd": 50,
+      "icp": [
+        "Anyone searching 'catering near me', 'office dessert delivery Sugar Land', 'corporate cake delivery Houston' from a 10-mi radius"
+      ],
+      "anchorSku": "office-dessert-box",
+      "supportingSkus": ["morning-pastry-mix"],
+      "offer": "Same as B2B Meta — Office Dessert Box, free first delivery.",
+      "landingPath": "/menu/office-dessert-box",
+      "creativeStrategy": "Tightly themed exact-match keywords (no broad). Three ad groups: catering intent, dessert delivery, corporate gifting.",
+      "audienceSizing": "Search volume in Sugar Land + Energy Corridor: ~300–500 monthly impressions for relevant queries.",
+      "hypothesis": {
+        "expectedCpcUsd": 2.4,
+        "expectedClickToLeadCvrPct": 12,
+        "expectedSqlRatePct": 35,
+        "expectedAvgFirstOrderUsd": 240,
+        "expectedYr1RevPerClientUsd": 1440
+      },
+      "killThreshold": "Pause keyword if conversion < 8% after $30 spent.",
+      "scaleThreshold": "Add long-tail variants on any keyword with SQL rate > 30% and CPL < $30.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "id": "organic-local-seo-content",
+      "name": "Organic — local SEO + content + newsletter (earned, $0 ads)",
+      "lever": "earned",
+      "channel": "website",
+      "objective": "awareness",
+      "budgetUsd": 0,
+      "icp": [
+        "Long-tail: 'best birthday cake Sugar Land', 'honey cake near me', 'office catering Energy Corridor'",
+        "Newsletter readers — captured at site + at counter via QR"
+      ],
+      "anchorSku": "all",
+      "supportingSkus": [],
+      "offer": "Newsletter: 'first slice free on your birthday'. Content: monthly bake calendar, how-to-choose guides, behind-the-counter stories.",
+      "landingPath": "/blog, /menu, /catering",
+      "creativeStrategy": "Eight evergreen pages in month 1: catering FAQ, Sugar Land delivery zones, allergen guide, birthday-cake size guide, hotel amenity menu, six-layer honey origin story, gluten-aware options, custom-cake pricing reality. Add LocalBusiness, Bakery, Menu schema (already in rubric, see /llms.txt).",
+      "audienceSizing": "Earned traffic ramps to ~1,200/mo organic by month 6 in a competitive metro; subscriber list ramps to ~600 by month 6 with QR-at-counter.",
+      "hypothesis": {
+        "expectedNewslettersFromSiteVisitsPct": 3.5,
+        "expectedNewsletterToCustomerCvrYr1Pct": 18,
+        "expectedAvgOrderFromNewsletterUsd": 48,
+        "expectedYr1RevPerSubscriberUsd": 22
+      },
+      "killThreshold": "Not applicable — content is an asset, not a campaign. Review monthly: pages that drive zero traffic 90 days post-publish get rewritten.",
+      "scaleThreshold": "If a page hits page 1 of Google for its target query, build 3 internal links + 1 outbound from a guest post.",
+      "ownerApprovalRequired": false
+    }
+  ],
+  "totalAllocatedUsd": 500,
+  "reservedUsd": 0,
+  "budgetSummary": {
+    "primary_b2b": 250,
+    "secondary_b2c": 100,
+    "retargeting": 100,
+    "google_local": 50,
+    "organic": 0
+  },
+  "industryBenchmarks": {
+    "_source": "Compiled May 2026 from WordStream, Triple Whale, AdAmigo, OwlClaw, Lebesgue, PeopleLinx (catering LTV), Toast POS (restaurant LTV).",
+    "metaFoodBevMedianCtrPct": 0.96,
+    "metaFoodBevTopQuartileCtrPct": 1.85,
+    "metaFoodBevMedianCpmUsd": 8.17,
+    "metaFoodBevMedianCpcUsd": 0.78,
+    "metaFoodBevMedianCvrPct": 2.02,
+    "metaLeadGenMedianCplUsd": 21.98,
+    "metaLeadGenMedianCvrPct": 8.78,
+    "metaB2bAvgCplUsd": 84,
+    "retargetingCvrLiftMultiple": "3–5×",
+    "retargetingCplReductionPct": "50–70%",
+    "retargetingRecommendedBudgetSharePct": "20–30%",
+    "cateringCorporateRepeatRateTargetPct": 25,
+    "cartAbandonRetargetingCvrPct": "8–15"
+  }
+}
