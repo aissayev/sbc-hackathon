@@ -394,7 +394,18 @@ function VisitSection() {
         <Eyebrow>When + where</Eyebrow>
         <h2 className="display-h2 mt-3">Come see us</h2>
       </div>
-      <div className="mt-10 grid gap-6 md:grid-cols-2">
+      {/* Real interior shot anchors the section so "come see us" reads as an
+          invitation to a real room, not a postcode. */}
+      <div className="mt-8 relative overflow-hidden rounded-[28px] aspect-[21/9] bg-cream-100">
+        <Image
+          src={ASSETS.store.signOverTable}
+          alt="Inside Happy Cake on Promenade Way — the long blue-chair table under our neon sign"
+          fill
+          sizes="(min-width: 1024px) 1024px, 100vw"
+          className="object-cover"
+        />
+      </div>
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
         <div className="bakery-card p-7">
           <Eyebrow decorator={false}>Hours</Eyebrow>
           <h3 className="display-h3 mt-2 text-xl">When to visit</h3>

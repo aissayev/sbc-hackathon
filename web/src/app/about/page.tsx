@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
@@ -261,6 +262,8 @@ export default function AboutPage() {
         </div>
       </section>
 
+      <InsideBakery />
+
       <PressBand />
 
       <section className="container mt-20 mb-20 max-w-5xl">
@@ -288,6 +291,65 @@ export default function AboutPage() {
         </div>
       </section>
     </>
+  )
+}
+
+function InsideBakery() {
+  // Real interior shots from Promenade Way, arranged as an editorial mosaic.
+  // The neon-sign-with-flowers carries the eye in (largest tile), then the
+  // dining room + wall art + coffee+cake fill out the visit feel without
+  // turning into a photo dump.
+  const tiles = [
+    {
+      src: ASSETS.store.signWithFlowers,
+      alt: 'Happy Cake neon sign over the counter, with a fresh flower bouquet and a branded coffee cup',
+      span: 'md:col-span-2 md:row-span-2',
+      aspect: 'aspect-[3/4]',
+    },
+    {
+      src: ASSETS.store.signOverTable,
+      alt: 'Communal table with blue chairs under the Happy Cake neon sign and a Cloud Cake poster',
+      span: 'md:col-span-2',
+      aspect: 'aspect-[16/10]',
+    },
+    {
+      src: ASSETS.store.coffeeAndCake,
+      alt: 'Black-Forest cake slice and a Happy Cake-branded iced coffee on the dining table',
+      span: '',
+      aspect: 'aspect-square',
+    },
+    {
+      src: ASSETS.store.wallArt,
+      alt: 'Cupcakes and cake-slice posters framed on the dining-room wall',
+      span: '',
+      aspect: 'aspect-square',
+    },
+  ] as const
+  return (
+    <section className="container mt-20 max-w-5xl" aria-labelledby="inside-bakery">
+      <Eyebrow>Inside the bakery</Eyebrow>
+      <h2 id="inside-bakery" className="display-h2 mt-3">Where you&apos;ll sit</h2>
+      <p className="mt-3 text-cocoa-900/70 max-w-xl">
+        Bright neon, blue chairs, oversized windows. We built the room we&apos;d want to bring our
+        own family to.
+      </p>
+      <div className="mt-8 grid gap-3 md:grid-cols-4 md:auto-rows-[160px]">
+        {tiles.map((t, i) => (
+          <div
+            key={i}
+            className={`relative overflow-hidden rounded-2xl bg-cream-100 ${t.span} ${t.aspect} md:aspect-auto`}
+          >
+            <Image
+              src={t.src}
+              alt={t.alt}
+              fill
+              sizes="(min-width: 1024px) 480px, (min-width: 640px) 50vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
