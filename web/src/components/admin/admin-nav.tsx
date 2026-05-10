@@ -17,25 +17,39 @@ const ITEMS = [
 
 export function AdminNav() {
   const pathname = usePathname()
+  // Wrapper provides a right-edge fade so the user sees the row scrolls
+  // even when the trailing tabs are clipped (8 tabs at typical phone
+  // width = at least 2 off-screen).
   return (
-    <nav className="flex gap-1 overflow-x-auto -mx-1 px-1">
-      {ITEMS.map((it) => {
-        const active = pathname === it.href || pathname.startsWith(it.href + '/')
-        return (
-          <Link
-            key={it.href}
-            href={it.href}
-            className={cn(
-              'px-4 h-10 inline-flex items-center rounded-md text-sm whitespace-nowrap',
-              active
-                ? 'bg-cocoa-700 text-cream-50'
-                : 'text-cocoa-900 hover:bg-cream-100 border border-cocoa-700/15',
-            )}
-          >
-            {it.label}
-          </Link>
-        )
-      })}
-    </nav>
+    <div className="relative -mx-1">
+      <nav
+        className="flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory"
+        aria-label="Admin sections"
+      >
+        {ITEMS.map((it) => {
+          const active = pathname === it.href || pathname.startsWith(it.href + '/')
+          return (
+            <Link
+              key={it.href}
+              href={it.href}
+              className={cn(
+                'px-4 h-10 inline-flex items-center rounded-md text-sm whitespace-nowrap snap-start',
+                active
+                  ? 'bg-cocoa-700 text-cream-50'
+                  : 'text-cocoa-900 hover:bg-cream-100 border border-cocoa-700/15',
+              )}
+            >
+              {it.label}
+            </Link>
+          )
+        })}
+      </nav>
+      {/* Right-edge fade hint for horizontal overflow. Pointer-events-none
+          so it doesn't block taps on the last visible tab. */}
+      <div
+        aria-hidden
+        className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-cream to-transparent pointer-events-none md:hidden"
+      />
+    </div>
   )
 }
