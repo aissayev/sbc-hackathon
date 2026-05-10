@@ -12,6 +12,8 @@ Customer drafts land in the owner's Telegram with **Approve** / **Reject** butto
 
 The owner runs the business from Telegram: `/today` for the daily snapshot, `/orders` for recent activity, `/escalations` for hand-offs, `/campaigns` for marketing, plus free text for anything else. Every customer-channel reply is mirrored into the owner's log so nothing is silent.
 
+The same Telegram bot doubles as a content + engagement cockpit: free text like "make a post about Friday's pistachio batch" drafts a brand-checked caption ready to schedule or publish via sandbox MCP; `/comments` and `/reviews` pull DM threads + GBP reviews and pre-draft replies; `/stats` renders a one-screen digital-presence dashboard. When new high-severity alerts appear, the bot pings the owner unprompted.
+
 The website is the public surface — `/menu`, `/order`, `/track/[id]`, B2B inquiries, the storefront. AI crawlers are welcome: `/llms.txt`, JSON-LD per product, OpenAPI at `/openapi.json`, dynamic sitemap.
 
 ## Run it
@@ -66,6 +68,52 @@ duration: ~9s · cost: ~$0.40
 
 If you see `(empty)` and `Invalid MCP configuration`, re-run `bun run setup:mcp`.
 
+## Telegram bots
+
+One bot per role; each has its own token + system prompt. All bots share the same outbound API but route inbound to the right agent role.
+
+| Bot | Role | What it does |
+|---|---|---|
+| `TG_OWNER_BOT_TOKEN` | owner | Operator cockpit. Slash commands (instant, free, no `claude -p` spend), inline-keyboard callbacks for approve/reject/publish, free text → owner agent for ad-hoc questions. |
+| `TG_CONCIERGE_BOT_TOKEN` | concierge | Optional "log mirror" bot — mirrors customer-channel inbound/outbound for visibility. Customers don't talk to it directly. |
+| `TG_KITCHEN_BOT_TOKEN` | kitchen | Kitchen role — accept/reject tickets, mark ready. Reads from sandbox `kitchen_*` tools. |
+| `TG_MARKETING_BOT_TOKEN` | marketing | Marketing role — campaign drafts that need review before launch. |
+
+### Owner-bot command map
+
+```
+Operations:
+  /today /orders /escalations
+
+Marketing & social:
+  /content      📅 weekly content plan + cadence
+  /drafts       📋 in-flight drafts (approve / schedule / publish)
+  /post|/reel   draft hint
+  /comments     📥 DM inbox + sentiment + drafted replies
+  /reviews      ⭐ GBP reviews + drafted replies
+  /reviews-flat legacy review list (fallback)
+  /campaigns    pick ONE strategy ($500/mo)
+  /brief        live MCP brief (sales + margins + GBP demand)
+  /spend        budget MTD + referral attribution
+  /gb           GBP metrics
+  /inbox        legacy WA + IG list
+
+Analytics:
+  /stats        🔄 digital-presence dashboard + alerts
+
+Self-grading:
+  /score        rubric coverage from the sandbox evaluator
+
+Conversation:
+  /reset        clear thread context
+  /help         this menu
+```
+
+Free text on the owner bot:
+- `make a post about <topic>` / `draft a reel about <topic>` / `gbp post about <topic>` → claude -p drafts a caption, brand-checked, queued for approve/schedule/publish
+- `edit draft_<id> <new caption>` → in-line edit
+- Anything else → owner agent (asks back through the same chat with the live "thinking…" stream)
+
 ## Architecture, in five lines
 
 - `claude -p` is the agent runtime. One subprocess per inbound message; per-role tool allowlists in [src/agent/allowlists.ts](./src/agent/allowlists.ts).
@@ -73,6 +121,7 @@ If you see `(empty)` and `Invalid MCP configuration`, re-run `bun run setup:mcp`
 - The frontend never talks to the sandbox MCP. The team token lives only inside the agent subprocess; the website reads through the backend's `/api/catalog` mirror.
 - Webhooks verify Meta HMAC signatures when `WA_APP_SECRET` / `IG_APP_SECRET` is set; sandbox-injected unsigned bodies pass through with a logged warning so eval flow keeps working.
 - Owner approve/reject in Telegram is deterministic — atomic `square_create_order` + `kitchen_create_ticket`, then notify the customer. The agent only sees the result.
+- Owner cockpit is DDD-layered: bounded contexts in `src/domain/{content-studio,engagement,analytics}` each ship pure entities + a `Repository` interface + a SQLite impl + application services; MCP is one transport behind `PublishAdapter` (gbp/ig/wa). Real-Meta path is a one-line adapter swap.
 
 For the full picture: [ARCHITECTURE.md](./ARCHITECTURE.md), then [docs/02-architecture/MCP.md](./docs/02-architecture/MCP.md) and [docs/02-architecture/AGENT-RUNTIME.md](./docs/02-architecture/AGENT-RUNTIME.md).
 
@@ -109,11 +158,23 @@ src/
 ├── channels/                whatsapp, instagram, telegram, web
 ├── agent/
 │   ├── invoke.ts            claude -p subprocess wrapper
+│   ├── drafter.ts           claude -p one-shot for content captions
 │   ├── router.ts            picks role from incoming message
-│   ├── prompts/             per-role system prompts
-│   └── mcp/                 stdio MCP exposing the local domain
-├── domain/                  pure business logic (orders, constraints, sync, escalations)
-├── bots/owner/              Telegram cockpit (slash, callbacks, marketing, log)
+│   ├── prompts/             per-role system prompts (incl. brand.md)
+│   └── mcp/
+│       ├── local-server.ts  stdio MCP exposing local domain
+│       └── adapters/        gbp/ig/wa publish shims (sandbox today)
+├── domain/                  pure business logic — bounded contexts:
+│   ├── content-studio/      post/reel lifecycle, brand-checker, scheduler
+│   ├── engagement/          DM + review pull, sentiment, risk gates
+│   ├── analytics/           digital-presence snapshots + alert publisher
+│   ├── orders / catalog-sync / policies / campaigns / tools.ts
+├── bots/owner/              Telegram cockpit:
+│   ├── commands.ts          slash router
+│   ├── callbacks.ts         approve/reject/view_esc deterministic taps
+│   ├── inbox-reviews.ts     async slash dispatcher
+│   ├── marketing/           post-studio, presenter, engagement, stats
+│   └── live.ts              "thinking…" placeholder + streaming sink
 ├── lib/                     webhook HMAC, sandbox MCP client, DO Spaces
 ├── db/                      SQLite + schema
 └── scripts/                 setup:mcp, db:seed, preflight, world:run, evidence
