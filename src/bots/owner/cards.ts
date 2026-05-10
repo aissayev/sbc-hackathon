@@ -12,6 +12,7 @@ import { sendTelegram } from '../../channels/telegram.ts'
 import { config } from '../../config.ts'
 import { getOrderStatus } from '../../domain/tools.ts'
 import { fmtMoney, shortId } from './format.ts'
+import { scoreLead, fmtStars } from './scoring.ts'
 
 /**
  * Post an "approve / reject" card for a freshly-created draft order.
@@ -30,8 +31,13 @@ export async function postDraftOrderCard(orderId: string): Promise<boolean> {
   const customer = (status.customer_name as string | null | undefined) ?? null
   const scheduled = (status.scheduled_at as string | null | undefined) ?? null
 
+  const channel = (status.channel as string | null | undefined) ?? null
+  const threadId = (status.thread_id as string | null | undefined) ?? ''
+  const score = scoreLead({ total_cents: total, thread_id: threadId, channel })
+
   const lines: string[] = [
     `New draft order ${shortId(orderId)}`,
+    `Score: ${fmtStars(score.stars)}${score.reasons.length ? '  · ' + score.reasons.join(', ') : ''}`,
     `Total: ${fmtMoney(total)}`,
   ]
   if (customer) lines.push(`Customer: ${customer}`)
