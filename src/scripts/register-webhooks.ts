@@ -1,8 +1,14 @@
-// Register our public URL with the sandbox so it forwards inbound WA + IG
+// Register our public URL with the SANDBOX so it forwards inbound WA + IG
 // events to our /webhooks/* routes — the canonical flow per the brief:
 //
 //   "Customer messages tunnel into the computer through ngrok or Cloudflare
 //    Tunnel, hits the agent's bot wrapper, which calls `claude -p`."
+//
+// SCOPE: this registers ONLY with the sandbox MCP. For real customer
+// messaging on Meta's WhatsApp Cloud API and Instagram Graph API, you also
+// need to subscribe the same URL in the Meta App Dashboard (Webhooks →
+// WhatsApp / Instagram → Add subscription). That's a UI step, not a script.
+// See docs/05-deploy/LIVE-CHANNELS.md for the full runbook.
 //
 // Run it once after starting your tunnel:
 //   bun run register-webhooks https://abc123.ngrok-free.app
@@ -19,6 +25,10 @@
 //     instead of us having to pull them.
 //   - The eval can drive synthetic customers through the canonical webhook
 //     path — exactly what the rubric scores.
+//
+// Real Meta webhooks (real customers on real phones) require the Meta
+// Dashboard subscription step above. With BOTH registered (sandbox here +
+// Meta in the dashboard), one tunnel URL serves both customer types.
 //
 // Idempotent — registering the same URL twice is a no-op.
 

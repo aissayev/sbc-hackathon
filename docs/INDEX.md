@@ -55,6 +55,7 @@ External materials we can't change. Treat as truth.
 - [DEPLOY.md](./05-deploy/DEPLOY.md) — laptop + ngrok (canonical) + droplet options
 - [PRODUCTION.md](./05-deploy/PRODUCTION.md) — post-hackathon path (stub)
 - [STORAGE.md](./05-deploy/STORAGE.md) — where uploads + brand assets actually live, how to flip Spaces on
+- [LIVE-CHANNELS.md](./05-deploy/LIVE-CHANNELS.md) — turn on real WhatsApp + Instagram without regressing the MCP/eval path
 
 ## _archive — kept for reference, not load-bearing
 

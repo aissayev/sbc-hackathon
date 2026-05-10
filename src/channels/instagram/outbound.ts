@@ -1,8 +1,21 @@
 // Instagram outbound surface — text DM + sender actions + comment reply.
 //
+// Customer-facing reply path. Mirrors src/channels/whatsapp.ts — call this
+// adapter's .send() for real customer DMs; DO NOT call sandbox MCP
+// `instagram_send_dm` directly from agent tools, that's the world-sim path.
+// The fan-out below ensures both real Graph API + sandbox see every reply
+// when IG_OUTBOUND_MODE='both' (default).
+//
 // Two backends as before (real Graph API + sandbox MCP), controlled by
-// IG_OUTBOUND_MODE. The adapter `send()` method is unchanged externally
-// so existing consumers (channel router, world scripts) keep working.
+// IG_OUTBOUND_MODE:
+//   real     — graph.facebook.com only (real DMs to real users).
+//   sandbox  — sandbox MCP `instagram_send_dm` only (evaluator scoring).
+//   both     — fire both in parallel; default. Best for the hackathon.
+//
+// The adapter `send()` method is unchanged externally so existing consumers
+// (channel router, world scripts) keep working.
+//
+// Full enablement runbook: docs/05-deploy/LIVE-CHANNELS.md.
 //
 // New surface beyond plain text:
 //   - markSeen(threadId)   — fires the read receipt so the customer sees us
