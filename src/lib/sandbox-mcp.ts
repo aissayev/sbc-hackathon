@@ -50,10 +50,31 @@ function rpcId() {
   return `rpc_${Date.now()}_${nextId++}`
 }
 
+// HTTP statuses that warrant a retry. 4xx are real client errors (bad
+// args, missing auth) — retrying would just waste time.
+const RETRYABLE_HTTP = new Set([408, 429, 500, 502, 503, 504])
+
+function isTransient(err: unknown): boolean {
+  if (err instanceof SandboxMcpError) {
+    // HTTP failures: status is in err.code.
+    if (RETRYABLE_HTTP.has(err.code)) return true
+    // JSON-RPC -32603 = internal server error (often transient).
+    if (err.code === -32603) return true
+    return false
+  }
+  // Network errors (DNS, ECONNREFUSED, abort) throw raw Errors — retry once.
+  return true
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 /**
  * Call a sandbox MCP tool directly via HTTP JSON-RPC.
  * The tool name is the BARE name from the sandbox (e.g. `square_list_catalog`),
  * NOT the prefixed `mcp__happycake__*` name the agent sees.
+ *
+ * Retries once with a 500ms backoff on transient failures (5xx / 429 /
+ * network). 4xx and JSON-RPC method errors fail fast.
  *
  * @example
  *   const catalog = await callSandboxTool<{}, { items: any[] }>('square_list_catalog', {})
@@ -62,6 +83,27 @@ function rpcId() {
 export async function callSandboxTool<TResult = unknown>(
   toolName: string,
   args: Record<string, unknown> = {},
+  opts?: { maxRetries?: number; retryDelayMs?: number },
+): Promise<TResult> {
+  const maxRetries = opts?.maxRetries ?? 1
+  const retryDelayMs = opts?.retryDelayMs ?? 500
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await callSandboxToolOnce<TResult>(toolName, args)
+    } catch (err) {
+      lastErr = err
+      if (attempt === maxRetries || !isTransient(err)) break
+      console.warn(`[sandbox-mcp] ${toolName} attempt ${attempt + 1} failed (${(err as Error).message}); retrying in ${retryDelayMs}ms`)
+      await sleep(retryDelayMs)
+    }
+  }
+  throw lastErr
+}
+
+async function callSandboxToolOnce<TResult>(
+  toolName: string,
+  args: Record<string, unknown>,
 ): Promise<TResult> {
   const url = config.sandbox.mcpUrl
   const token = config.sandbox.teamToken
