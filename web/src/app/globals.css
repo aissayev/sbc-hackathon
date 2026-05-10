@@ -109,14 +109,14 @@
   }
 
   /* Atmospheric photo treatment — Seed-style depth-of-field bokeh.
-     Heavy gaussian blur (~36px) softens the dining-room photo into
-     dreamy environmental light. Slight saturation lift + warm hue
-     shift keeps the photo on-brand with cream/cocoa tones. Scale
-     prevents the blur's edge halo from showing. */
+     Pulled blur back from 36 → 28px so the honey-cake's horizontal
+     layered structure barely registers as soft warmth-banding. That
+     micro-detail is the difference between "nice gradient" and "feels
+     like real bakery light." Scale prevents blur's edge halo. */
   .hero-photo-atmospheric {
-    filter: blur(36px) saturate(0.95) brightness(1.05) hue-rotate(-2deg);
-    transform: scale(1.06);
-    opacity: 0.78;
+    filter: blur(28px) saturate(1.00) brightness(1.07) hue-rotate(-2deg);
+    transform: scale(1.05);
+    opacity: 0.82;
   }
 
   /* Veil overlay — cream gradient that protects type contrast on the
