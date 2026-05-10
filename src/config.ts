@@ -101,15 +101,15 @@ export const config = {
     backendSecret: envGet('WEB_BACKEND_SECRET'),
   },
 
-  elevenlabs: {
-    // Used for Telegram voice-message transcription. When unset, voice
-    // messages get a "voice transcription not configured" reply instead of
-    // being silently dropped.
-    apiKey: envGet('ELEVENLABS_API_KEY'),
-    // scribe_v2 (default) is newer + supports filler-word stripping.
-    // scribe_v1 is the older stable model. Both are multilingual (99 langs
-    // including Russian, English, Kazakh).
-    sttModel: envGet('ELEVENLABS_STT_MODEL') ?? 'scribe_v2',
+  openai: {
+    // Used for Telegram voice-message transcription via Whisper. When unset,
+    // voice messages get a "voice transcription not configured" reply
+    // instead of being silently dropped.
+    apiKey: envGet('OPENAI_API_KEY'),
+    // whisper-1 (default) supports verbose_json so we get detected language
+    // back for logging — useful for confirming RU/EN/KZ routing. Override
+    // with 'gpt-4o-mini-transcribe' for ~50% lower cost (text-only output).
+    sttModel: envGet('OPENAI_STT_MODEL') ?? 'whisper-1',
   },
 } as const
 

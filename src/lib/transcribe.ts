@@ -1,94 +1,93 @@
-// ElevenLabs Scribe — speech-to-text client.
+// OpenAI Whisper — speech-to-text client.
 //
 // Used for Telegram voice messages: the owner records a voice note in TG,
 // the poller downloads the .ogg, this module turns it into text, and the
 // rest of the pipeline runs as if the owner had typed it.
 //
-// Why ElevenLabs over OpenAI Whisper / self-hosted:
-//   - We already have ELEVENLABS_API_KEY in the budget for TTS (brand voice
-//     experiments). Reusing it adds zero new vendor surface.
-//   - Scribe is multilingual (99 langs) and explicitly supports Russian,
-//     English, and Kazakh — the three the owner uses.
-//   - Auto language detection is on by default (omit `language_code`).
-//   - Cost: ~$0.40/hr. Owner volume is < 10 min/day → effectively free.
+// Why OpenAI Whisper:
+//   - $0.006/min (~$0.36/hr) — cheapest mainstream paid STT after Groq
+//   - 99 languages including Russian, English, Kazakh — auto-detected
+//   - whisper-1 + verbose_json gives us the detected language for logging
+//   - One env var (OPENAI_API_KEY) most projects already have lying around
 //
-// Endpoint: POST https://api.elevenlabs.io/v1/speech-to-text
-// Auth: header `xi-api-key`. Body: multipart/form-data.
-// Spec: https://elevenlabs.io/docs/api-reference/speech-to-text/convert
+// Endpoint: POST https://api.openai.com/v1/audio/transcriptions
+// Auth: Bearer token. Body: multipart/form-data.
+// Spec: https://platform.openai.com/docs/api-reference/audio/createTranscription
+//
+// Model choice (OPENAI_STT_MODEL):
+//   - whisper-1 (default) — supports verbose_json so we can log the
+//     detected language. Best Kazakh quality.
+//   - gpt-4o-mini-transcribe — ~$0.18/hr, text-only, no language echo
+//   - gpt-4o-transcribe — newer, similar pricing, text-only
 
 import { config } from '../config.ts'
 
-const ELEVENLABS_API = 'https://api.elevenlabs.io/v1/speech-to-text'
+const OPENAI_API = 'https://api.openai.com/v1/audio/transcriptions'
 
-export type SttLanguage = 'eng' | 'rus' | 'kaz' | undefined
+// ISO-639-1 codes. OpenAI uses these (Kazakh is `kk`, Russian `ru`,
+// English `en`). We pass them straight through if the caller knows; auto-
+// detection is fine for owner usage.
+export type SttLanguage = 'en' | 'ru' | 'kk' | undefined
 
 export interface TranscribeOptions {
-  // ISO-639-3. Omit (or undefined) for auto-detect — Scribe handles it well
-  // for Russian/English/Kazakh, which is what the owner speaks.
   language?: SttLanguage
-  // Override the audio MIME if the caller knows it (e.g. Telegram voice is
-  // always audio/ogg with Opus). Defaults to audio/ogg.
   mimeType?: string
-  // Filename for the multipart part. Cosmetic — the API doesn't care, but
-  // some debug tools display it.
   filename?: string
 }
 
 export interface TranscribeResult {
   text: string
-  // Detected (or echoed) language as ISO-639-3.
+  // Detected language (full English name from whisper-1's verbose_json,
+  // e.g. "russian", "kazakh"). Undefined when using a model that doesn't
+  // return language metadata (gpt-4o-*-transcribe).
   languageCode?: string
-  // Confidence score, 0..1. Only present when the model returns one.
-  languageProbability?: number
-  // Raw shape kept around for diagnostics — never logged unless debug.
+  // Audio duration in seconds, when the model returns it.
+  durationSec?: number
   raw?: unknown
 }
 
 export class TranscribeNotConfiguredError extends Error {
   constructor() {
-    super('ELEVENLABS_API_KEY is not set; cannot transcribe audio')
+    super('OPENAI_API_KEY is not set; cannot transcribe audio')
     this.name = 'TranscribeNotConfiguredError'
   }
 }
 
 export function isTranscribeConfigured(): boolean {
-  return Boolean(config.elevenlabs.apiKey)
+  return Boolean(config.openai.apiKey)
 }
 
-/**
- * Transcribe an audio buffer to text via ElevenLabs Scribe.
- *
- * Throws TranscribeNotConfiguredError when the API key is missing — callers
- * should catch and surface a graceful "voice transcription not configured"
- * message. Throws Error on network / API failure (5xx, malformed body).
- */
+// whisper-1 is the only OpenAI STT model that supports verbose_json. The
+// gpt-4o-* transcribe models only return plain text. We fall back to plain
+// json for those so we still get something useful.
+function supportsVerboseJson(model: string): boolean {
+  return model === 'whisper-1'
+}
+
 export async function transcribeAudio(
   audio: Uint8Array | ArrayBuffer | Blob,
   opts: TranscribeOptions = {},
 ): Promise<TranscribeResult> {
-  const apiKey = config.elevenlabs.apiKey
+  const apiKey = config.openai.apiKey
   if (!apiKey) throw new TranscribeNotConfiguredError()
 
+  const model = config.openai.sttModel
   const blob =
     audio instanceof Blob
       ? audio
       : new Blob([audio as ArrayBuffer], { type: opts.mimeType ?? 'audio/ogg' })
 
   const form = new FormData()
-  form.append('model_id', config.elevenlabs.sttModel)
   form.append('file', blob, opts.filename ?? 'voice.ogg')
-  // Omit language_code → Scribe auto-detects. We only set it if the caller
-  // is confident (e.g. per-bot language preference in the future).
-  if (opts.language) form.append('language_code', opts.language)
-  // Drop laughter/applause tags — owner voice notes don't need them and
-  // they pollute the agent's input.
-  form.append('tag_audio_events', 'false')
-  // Owner monologues — diarization is overhead with no benefit.
-  form.append('diarize', 'false')
+  form.append('model', model)
+  if (opts.language) form.append('language', opts.language)
+  if (supportsVerboseJson(model)) {
+    form.append('response_format', 'verbose_json')
+  }
 
-  const res = await fetch(ELEVENLABS_API, {
+  const res = await fetch(OPENAI_API, {
     method: 'POST',
-    headers: { 'xi-api-key': apiKey },
+    headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
   })
 
@@ -99,23 +98,23 @@ export async function transcribeAudio(
     } catch {
       // ignore
     }
-    throw new Error(`ElevenLabs STT ${res.status}: ${body.slice(0, 300)}`)
+    throw new Error(`OpenAI STT ${res.status}: ${body.slice(0, 300)}`)
   }
 
   const data = (await res.json()) as {
     text?: string
-    language_code?: string
-    language_probability?: number
+    language?: string
+    duration?: number
   }
 
   if (typeof data.text !== 'string') {
-    throw new Error(`ElevenLabs STT returned no text: ${JSON.stringify(data).slice(0, 200)}`)
+    throw new Error(`OpenAI STT returned no text: ${JSON.stringify(data).slice(0, 200)}`)
   }
 
   return {
     text: data.text.trim(),
-    languageCode: data.language_code,
-    languageProbability: data.language_probability,
+    languageCode: data.language,
+    durationSec: data.duration,
     raw: data,
   }
 }
