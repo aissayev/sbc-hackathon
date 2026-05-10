@@ -8,12 +8,18 @@ import { BRAND } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 import { Wordmark } from './wordmark'
 
+// Primary nav. Kept to four items on purpose — Stories + Chat live in the
+// footer / inline links so the top bar can breathe. Mobile drawer mirrors
+// this list plus the secondary links.
 const NAV = [
   { href: '/menu', label: 'Menu' },
   { href: '/business', label: 'For business' },
   { href: '/about', label: 'Our story' },
-  { href: '/blog', label: 'Stories' },
   { href: '/policies', label: 'Visit & FAQ' },
+]
+
+const NAV_SECONDARY = [
+  { href: '/blog', label: 'Stories' },
   { href: '/chat', label: 'Chat' },
 ]
 
@@ -28,24 +34,14 @@ export function SiteHeader() {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  // Bigger logo on the home page (the marketing surface) — every other
-  // page keeps the standard sized lockup so the chrome doesn't fight the
-  // page hero. Same component, two scales.
-  const isHome = pathname === '/'
-
   return (
     <>
       <header className="sticky top-0 z-30 bg-cream/85 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-cocoa-700/10">
-      <div
-        className={cn(
-          'container flex items-center justify-between gap-4 transition-[padding] duration-200',
-          isHome ? 'py-3 md:py-4' : 'py-2.5 md:py-3',
-        )}
-      >
+      <div className="container flex items-center justify-between gap-4 py-2.5 md:py-3">
         <Link href="/" aria-label={`${BRAND.name} home`} className="flex items-center -my-1">
-          <Wordmark size={isHome ? 'lg' : 'md'} />
+          <Wordmark />
         </Link>
-        <nav className="hidden lg:flex items-center gap-1 text-sm text-cocoa-900">
+        <nav className="hidden md:flex items-center gap-1 text-sm text-cocoa-900">
           {NAV.map((n) => {
             const active = pathname === n.href || pathname.startsWith(n.href + '/')
             return (
@@ -64,13 +60,7 @@ export function SiteHeader() {
             )
           })}
         </nav>
-        <div className="hidden lg:flex items-center gap-3">
-          <a
-            href={BRAND.phone.hrefTel}
-            className="text-sm text-cocoa-900/70 hover:text-cocoa-900 inline-flex items-center gap-1.5"
-          >
-            <Phone className="h-3.5 w-3.5" /> {BRAND.phone.display}
-          </a>
+        <div className="hidden md:flex items-center">
           <Link
             href="/order"
             className="inline-flex items-center rounded-full bg-cocoa-700 text-cream text-sm font-medium px-5 h-10 hover:bg-cocoa-900 transition-colors"
@@ -83,7 +73,7 @@ export function SiteHeader() {
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
-          className="lg:hidden inline-flex items-center justify-center h-11 w-11 rounded-full bg-cream-100 text-cocoa-900 hover:bg-cream-200"
+          className="md:hidden inline-flex items-center justify-center h-11 w-11 rounded-full bg-cream-100 text-cocoa-900 hover:bg-cream-200"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -95,12 +85,12 @@ export function SiteHeader() {
           a fixed-positioned drawer to the header's height. */}
       <div
         className={cn(
-          'lg:hidden fixed inset-x-0 top-[64px] bottom-0 z-40 bg-cream overflow-y-auto transition-transform duration-300 ease-out',
+          'md:hidden fixed inset-x-0 top-[60px] bottom-0 z-40 bg-cream overflow-y-auto transition-transform duration-300 ease-out',
           open ? 'translate-y-0' : '-translate-y-[110%] pointer-events-none',
         )}
       >
         <nav className="container pt-6 pb-8 flex flex-col gap-1">
-          {NAV.map((n) => (
+          {[...NAV, ...NAV_SECONDARY].map((n) => (
             <Link
               key={n.href}
               href={n.href}
