@@ -19,5 +19,6 @@ export {
   logOutbound,
   logError,
   logSystem,
+  logVoiceTranscription,
   handleOwnerAsyncCommand,
 } from './owner/index.ts'
