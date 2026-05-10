@@ -161,3 +161,37 @@
     background-size: 14px 14px;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Telegram Mini App — density adjustments.
+   TgAppProvider tags <html class="is-tg-mini-app"> when running inside
+   Telegram. We tighten container padding, drop the desktop section
+   border/eyebrow stack on the admin shell, and trim the AdminNav row
+   so the cockpit feels native in a 360–420px webview. Public pages are
+   untouched (admin-only by parent path). Outside Telegram (regular
+   web) these rules don't fire and the cockpit looks identical to before.
+   ────────────────────────────────────────────────────────────────────── */
+.is-tg-mini-app body {
+  /* Telegram supplies its own header + back button — no need for the
+     extra cream "Owner console" band that wastes the top 140px. */
+  background-color: var(--tg-bg-color, #FFF7EA);
+}
+.is-tg-mini-app [data-admin-shell] {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+.is-tg-mini-app [data-admin-shell] > section.container,
+.is-tg-mini-app [data-admin-shell] > div.container {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+/* Hide the cockpit's "Happy Cake control room" header inside Telegram
+   — Telegram already shows the bot name at the top. Reveal the slim
+   inline AdminNav that's hidden on regular web so the operator can
+   still switch tabs. */
+.is-tg-mini-app [data-admin-shell-header] {
+  display: none;
+}
+.is-tg-mini-app [data-admin-shell-mini-nav] {
+  display: block !important;
+}
