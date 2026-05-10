@@ -25,7 +25,8 @@ import {
 } from 'lucide-react'
 
 import type { Product } from '@/lib/api'
-import { fmtUsd, leadTimeLabel } from '@/lib/format'
+import { fmtUsd } from '@/lib/format'
+import { earliestReadyLabel } from '@/lib/hours'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -620,11 +621,15 @@ function CakesStep({
                   </p>
                 )}
 
-                {/* Meta row: lead-time badge + allergen note + OOS hint. */}
+                {/* Meta row: lead-time badge + allergen note + OOS hint.
+                    The badge respects store hours via `earliestReadyLabel`,
+                    so a 1h-lead product on a Saturday at midnight reads
+                    "Sunday at 12:00 PM" instead of the misleading
+                    "About an hour". */}
                 {product && (
                   <div className="mt-2.5 flex items-center gap-2 text-xs text-cocoa-900/65 flex-wrap">
                     <Badge variant="outline" className="text-[11px]">
-                      {oos ? 'Out today · back tomorrow' : leadTimeLabel(product.lead_time_hours)}
+                      {oos ? 'Out today · back tomorrow' : earliestReadyLabel(product.lead_time_hours)}
                     </Badge>
                     {allergens.length > 0 && (
                       <span className="text-[11px]">contains {allergens.join(' · ')}</span>
@@ -1020,6 +1025,15 @@ function BasketAside({
   stepIdx: number
   onAddMore: () => void
 }) {
+  // Custom designs and catering volume need Askhat to approve before the
+  // kitchen sees the order; standard catalog auto-approves and goes
+  // straight to the kitchen (matches the backend split in PR #101). The
+  // step subtext below mirrors that so we don't promise a manual review
+  // when there isn't one.
+  const requiresApproval = watchItems.some((it) => {
+    const p = products.find((x) => x.id === it.product_id)
+    return p?.kind === 'custom' || p?.kind === 'catering'
+  })
   return (
     <aside className="lg:sticky lg:top-28 self-start rounded-lg bg-cream-100 border border-cocoa-700/15 p-6">
       <p className="eyebrow">Order summary</p>
@@ -1073,7 +1087,10 @@ function BasketAside({
         Square at confirmation, cash at pickup, or Zelle.
       </p>
       <p className="mt-4 text-xs text-cocoa-900/55">
-        Step {stepIdx + 1} of {STEPS.length} — Askhat reviews and confirms within an hour during open hours.
+        Step {stepIdx + 1} of {STEPS.length} —{' '}
+        {requiresApproval
+          ? 'Askhat reviews custom and catering orders within an hour during open hours.'
+          : "We'll queue the kitchen as soon as we open — no need to wait for an approval."}
       </p>
     </aside>
   )
