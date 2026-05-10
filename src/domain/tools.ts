@@ -336,6 +336,7 @@ interface OrderListRow {
   customer_name: string | null
   scheduled_at: string | null
   created_at: number
+  items_json: string | null
 }
 
 interface ListedOrder {
@@ -346,9 +347,15 @@ interface ListedOrder {
   customer_name: string | null
   scheduled_at: string | null
   created_at: number
+  // Carried into list rows so the admin orders page can label each row
+  // with the WHY ("custom design", "catering") without a per-row
+  // round-trip to the detail endpoint.
+  approval_reasons: string[]
 }
 
 function shapeListed(row: OrderListRow): ListedOrder {
+  let items: StoredItem[] = []
+  try { items = row.items_json ? (JSON.parse(row.items_json) as StoredItem[]) : [] } catch {}
   return {
     id: row.id,
     friendly_id: friendlyOrderId(row.rowid),
@@ -357,6 +364,7 @@ function shapeListed(row: OrderListRow): ListedOrder {
     customer_name: row.customer_name,
     scheduled_at: row.scheduled_at,
     created_at: row.created_at,
+    approval_reasons: approvalReasons(items),
   }
 }
 
@@ -365,13 +373,13 @@ export function listOrders(filter?: { status?: string; limit?: number }): Listed
   const rows = filter?.status
     ? (getDb()
         .prepare(
-          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at, items_json FROM orders
            WHERE status = ? ORDER BY created_at DESC LIMIT ?`,
         )
         .all(filter.status, limit) as OrderListRow[])
     : (getDb()
         .prepare(
-          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at, items_json FROM orders
            ORDER BY created_at DESC LIMIT ?`,
         )
         .all(limit) as OrderListRow[])

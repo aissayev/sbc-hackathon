@@ -12,7 +12,7 @@ import type { Context } from 'hono'
 import type { MessageHandler } from '../channels/types.ts'
 import { config } from '../config.ts'
 import { parseWhatsApp } from '../channels/whatsapp.ts'
-import { parseInstagram } from '../channels/instagram.ts'
+import { parseInstagram, markSeen } from '../channels/instagram/index.ts'
 import { verifyMetaSignature } from '../lib/webhook-hmac.ts'
 
 // Log the "no app secret" warning at most once per channel per process.
@@ -105,6 +105,10 @@ export function createWebhookRoutes(onMessage: MessageHandler) {
     const msgs = parseInstagram(v.body as Parameters<typeof parseInstagram>[0], config.instagram.userId)
     queueMicrotask(async () => {
       for (const m of msgs) {
+        // Fire mark-seen immediately so the customer sees us as engaged
+        // within seconds of the webhook hitting. Best-effort — never throws,
+        // never blocks the agent invocation.
+        void markSeen(m.threadId)
         try {
           await onMessage(m)
         } catch (err) {
