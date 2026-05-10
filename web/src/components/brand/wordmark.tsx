@@ -5,17 +5,20 @@ import Image from 'next/image'
 import { ASSETS } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
-// "Happy Cake" wordmark. The official logo asset already contains the
-// "Family sweets / Happy Cake" lockup, so the header just renders the image —
-// no separate cupcake glyph and no duplicated text.
+// "Happy Cake" wordmark. The official logo asset is a 1024×1024 square
+// containing the "Family sweets / Happy Cake" lockup (cake illustration
+// arc, "Happy" in sky, "Cake" in cocoa). It's an emblem, not a horizontal
+// wordmark — there's no wide variant in the asset pack — so the header
+// renders it as a chunky icon at one consistent size on every page.
 //
 // Variants:
-//   horizontal     — header / footer chrome (logo at inline height)
+//   horizontal     — header / footer chrome (default; emblem-as-icon)
 //   mark-only      — same image, sized for tight slots (chips, avatars)
 //   wordmark-only  — pure typographic fallback if you ever need text only
 //
-// Sizes (`size`) map to fixed Tailwind heights so the header lockup stays
-// visually proportional to the rest of the chrome on every breakpoint.
+// Sizes (`size`) map to fixed Tailwind heights. Use `sm` in tight chrome
+// (footer columns), `md` everywhere else. The square aspect means going
+// taller than ~h-16 turns the lockup into a billboard — avoid.
 
 export function Wordmark({
   className,
@@ -26,7 +29,7 @@ export function Wordmark({
   className?: string
   variant?: 'horizontal' | 'mark-only' | 'wordmark-only'
   tone?: 'cocoa' | 'cream'
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md'
 }) {
   if (variant === 'wordmark-only') {
     const text = tone === 'cream' ? 'text-cream' : 'text-cocoa-700'
@@ -48,18 +51,9 @@ export function Wordmark({
     return <LogoImage pxSize={56} className={cn('h-10 w-auto', className)} priority />
   }
 
-  // horizontal — the default header / footer rendering. The `lg` step is
-  // what the home-page header uses; `md` is the previous default for inner
-  // pages and the footer.
-  const heightClass =
-    size === 'lg'
-      ? 'h-14 md:h-20 lg:h-24'
-      : size === 'sm'
-        ? 'h-10 md:h-12'
-        : 'h-12 md:h-16'
-  // Render a chunky raster so retina + zoomed-in displays stay crisp at the
-  // larger header sizes (the source asset is 1024px so we have headroom).
-  const pxSize = size === 'lg' ? 112 : size === 'sm' ? 56 : 80
+  // horizontal — the default header / footer rendering.
+  const heightClass = size === 'sm' ? 'h-10 md:h-12' : 'h-12 md:h-14'
+  const pxSize = size === 'sm' ? 48 : 56
   return (
     <span className={cn('inline-flex items-center', className)} aria-label="Happy Cake">
       <LogoImage pxSize={pxSize} className={cn(heightClass, 'w-auto shrink-0')} priority />
