@@ -272,7 +272,7 @@ We wrote: ~200 lines of `invoke.ts` + ~150 lines of MCP server + 4 prompt files.
 
 **"My MCP tool isn't being seen."** Check three things:
 1. The tool is registered in `local-server.ts` with `server.registerTool('name', ...)` (or in the sandbox tool list).
-2. The full name `mcp__<server>__<tool>` is in the role's `ROLE_TOOL_ALLOWLIST` in `invoke.ts`.
+2. The full name `mcp__<server>__<tool>` is in the role's `ROLE_TOOL_ALLOWLIST` in `src/agent/allowlists.ts`.
 3. `bun run setup:mcp` was run after the last template change.
 
 **"It exited with `Invalid MCP configuration`."** `.mcp.json` is missing or has a wrong shape. Run `bun run setup:mcp`. Check the `_doc` field has been stripped (the rendered JSON shouldn't have it).

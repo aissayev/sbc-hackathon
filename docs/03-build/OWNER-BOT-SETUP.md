@@ -184,4 +184,4 @@ src/
 └── agent/prompts/owner.md          owner system prompt (no brand-voice prepend)
 ```
 
-The owner role's tool allowlist is in `src/agent/invoke.ts` (`ROLE_TOOL_ALLOWLIST.owner`). Add a tool there to make it available to free-text owner turns.
+The owner role's tool allowlist is in `src/agent/allowlists.ts` (`ROLE_TOOL_ALLOWLIST.owner`). Add a tool there to make it available to free-text owner turns.

@@ -38,7 +38,7 @@ If you want full context: read [README.md](./README.md) and [ARCHITECTURE.md](./
 |---|---|
 | Understand the runtime pattern | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | Change the agent's behavior in a role | `src/agent/prompts/<role>.md` (concierge / kitchen / marketing / owner) |
-| Add a new domain tool the agent can call | `src/domain/tools.ts` (logic) → register in `src/agent/mcp/local-server.ts` (MCP wrapper) → add to role allowlist in `src/agent/invoke.ts` |
+| Add a new domain tool the agent can call | `src/domain/tools.ts` (logic) → register in `src/agent/mcp/local-server.ts` (MCP wrapper) → add to role allowlist in `src/agent/allowlists.ts` |
 | Add a new channel | new file in `src/channels/`, implement `ChannelAdapter`; register adapter and webhook route in `src/server.ts` |
 | Change how the router picks roles | `src/agent/router.ts` |
 | Add a SQL table | `src/db/schema.sql`; new query helpers in `src/domain/tools.ts` |
@@ -77,5 +77,5 @@ sqlite3 .data/happycake.db "SELECT role, thread_id, duration_ms, cost_usd, exit_
 
 - `claude -p` errors → check `.mcp.json` exists (run `bun run setup:mcp`), check `SBC_TEAM_TOKEN` is set, check `claude --version` is ≥ 2.0.
 - "Invalid MCP configuration: command: expected string" → you tried to use the old SDK-style config; we use `type: "http"` for the sandbox MCP. See [.mcp.json.template](./.mcp.json.template).
-- Agent calls `ToolSearch` instead of the tool we want → tool isn't in the role allowlist OR it's not properly registered. Check `src/agent/invoke.ts` `ROLE_TOOL_ALLOWLIST` and the matching MCP registration.
+- Agent calls `ToolSearch` instead of the tool we want → tool isn't in the role allowlist OR it's not properly registered. Check `src/agent/allowlists.ts` `ROLE_TOOL_ALLOWLIST` and the matching MCP registration.
 - Type errors with `bun:sqlite` `.all(...params)` — use literal arg arrays, not `unknown[]` spreads. See examples in `src/domain/tools.ts`.

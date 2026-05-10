@@ -16,7 +16,7 @@ Each invocation is a child process launched with two strict fences:
 
 ### Fence 1 — `--allowedTools` (per-role allowlist)
 
-Defined in [`src/agent/invoke.ts:41`](../src/agent/invoke.ts) (`ROLE_TOOL_ALLOWLIST`). The agent for any role can ONLY call tools listed there. Everything else is rejected at the framework level.
+Defined in [`src/agent/allowlists.ts`](../../src/agent/allowlists.ts) (`ROLE_TOOL_ALLOWLIST`). The agent for any role can ONLY call tools listed there. Everything else is rejected at the framework level.
 
 | Role | Total tools allowed | Categories |
 |---|---|---|

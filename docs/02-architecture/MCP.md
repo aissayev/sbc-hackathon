@@ -17,7 +17,7 @@ There are two MCPs in this project. They're both wired into every `claude -p` in
 
 Both are addressed by Claude as `mcp__<server>__<tool>`. So `mcp__happycake__square_list_catalog` is the catalog tool on the sandbox; `mcp__local__list_products` is our cached mirror of it.
 
-**You do not write MCP request bodies by hand.** You let the agent (`claude -p`) do that. We only declare the tools (in `local-server.ts`) and the role-scoped allowlist (in `invoke.ts`).
+**You do not write MCP request bodies by hand.** You let the agent (`claude -p`) do that. We only declare the tools (in `local-server.ts`) and the role-scoped allowlist (in `allowlists.ts`).
 
 ---
 
@@ -273,7 +273,7 @@ Concretely, this is the chain when a customer message arrives:
 You'd think we'd need to "register" each sandbox tool somewhere. We don't. Here's why:
 
 - The sandbox MCP advertises its tool list automatically when Claude Code connects. Claude reads the schemas from the MCP itself (the `tools/list` JSON-RPC method).
-- All we do is **decide which tools each role is allowed to call** via `--allowedTools`. That's `ROLE_TOOL_ALLOWLIST` in `src/agent/invoke.ts:41`.
+- All we do is **decide which tools each role is allowed to call** via `--allowedTools`. That's `ROLE_TOOL_ALLOWLIST` in `src/agent/allowlists.ts`.
 
 If you want to add a NEW capability, two scenarios:
 
@@ -311,8 +311,8 @@ Every `claude -p` we run during the hackathon is **billed against Adilet's Claud
 | Smoke a customer message | `bun run smoke:agent "your message"` |
 | Preview what judges will see | `bun run evidence` |
 | Drive a time-compressed business day | `bun run world:start launch-day-revenue-engine` |
-| Add a new local tool | edit `src/domain/tools.ts` + `src/agent/mcp/local-server.ts` + role allowlist in `src/agent/invoke.ts` |
-| Allow an existing sandbox tool to a role | add the `mcp__happycake__<tool>` string to that role in `src/agent/invoke.ts` |
+| Add a new local tool | edit `src/domain/tools.ts` + `src/agent/mcp/local-server.ts` + role allowlist in `src/agent/allowlists.ts` |
+| Allow an existing sandbox tool to a role | add the `mcp__happycake__<tool>` string to that role in `src/agent/allowlists.ts` |
 | Re-render `.mcp.json` after editing the template | `bun run setup:mcp` |
 | Reset all local state | `rm .data/happycake.db && bun run db:seed` |
 | See the most recent agent runs | `sqlite3 .data/happycake.db "SELECT * FROM agent_invocations ORDER BY created_at DESC LIMIT 10"` |
