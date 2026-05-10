@@ -1,183 +1,154 @@
-# Happy Cake US — agentic multi-channel sales
+# HappyCake
 
-Built for the **Steppe Business Club "Agentic AI for Real Business" hackathon** (May 9–10 2026, $4,500 prize, 100% AI-judged).
+A multi-channel sales system for HappyCake, a family-owned bakery in Sugar Land, TX. WhatsApp, Instagram, the website, and a Telegram cockpit for the owner all run through one agent.
 
-The product: a working sales engine for Happy Cake US — a real Sugar Land, TX bakery doing $15–20K/month walk-in only. We turn its WhatsApp + Instagram + website into 24/7 sales channels, with the owner (Askhat) running everything from Telegram.
+Built for the Steppe Business Club hackathon, May 9–10 2026.
 
-## Hard runtime constraints (per brief)
+## What it does
 
-- **Agent runtime:** Claude Code CLI with **Opus 4.7** only. No Claude Agent SDK, no LangGraph, no other LLM provider.
-- **Owner UI:** Telegram bot(s) only. No web dashboard, no email.
-- **Per-event pattern:** webhook → bot wrapper → `claude -p` (headless mode) → reply back to channel.
+Customers reach the bakery on whichever channel they prefer. One agent runtime — `claude -p` with Opus 4.7 — handles every inbound message. The agent knows the live catalog, the kitchen's capacity for today, brand voice, and the difference between a question it can answer and one to hand to Askhat.
 
-We comply with all three. See [ARCHITECTURE.md](./ARCHITECTURE.md).
+Customer drafts land in the owner's Telegram with **Approve** / **Reject** buttons. Approve runs an atomic Square order + kitchen ticket; reject sends the customer a clean decline on their original channel. Approval doesn't go through the LLM — pressing a button shouldn't depend on reasoning.
 
-## Quick start (fresh clone)
+The owner runs the business from Telegram: `/today` for the daily snapshot, `/orders` for recent activity, `/escalations` for hand-offs, `/campaigns` for marketing, plus free text for anything else. Every customer-channel reply is mirrored into the owner's log so nothing is silent.
+
+The website is the public surface — `/menu`, `/order`, `/track/[id]`, B2B inquiries, the storefront. AI crawlers are welcome: `/llms.txt`, JSON-LD per product, OpenAPI at `/openapi.json`, dynamic sitemap.
+
+## Run it
 
 ```bash
-# 1. install
+# 1. install (backend + website each have their own deps)
 bun install
+bun install --cwd web
 
 # 2. configure
 cp .env.example .env.local
-# fill in: SBC_TEAM_TOKEN (from your team's sandbox dashboard),
-#         TG bot tokens, WA/IG creds if exercising real channels
+# Fill in: SBC_TEAM_TOKEN, the four TG bot tokens, optionally
+# TG_OWNER_CHAT_IDS (comma-separated; empty = open mode with a clear boot
+# warning), WA/IG creds + APP_SECRETs for production-grade webhooks.
 
-# 3. render MCP config from template (substitutes SBC_TEAM_TOKEN)
+# 3. render the MCP config from template (substitutes SBC_TEAM_TOKEN)
 bun run setup:mcp
 
-# 4. initialize SQLite + seed Happy Cake catalog
+# 4. seed the local SQLite catalog
 bun run db:seed
 
-# 5. smoke-test the agent end-to-end
-#    (spawns claude -p, calls MCP tools, returns reply)
-bun run smoke:agent "do you have chocolate cake?"
+# 5. preflight — green/yellow/red scoreboard for tooling, env, MCP
+bun run preflight
 
-# 6. start the server (Hono on :3000)
+# 6. smoke the agent end-to-end
+bun run smoke:agent "do you have a chocolate cake?"
+
+# 7. start the backend (Hono on :3000)
 bun run dev
 
-# 7. (canonical sandbox flow) start a tunnel + register your public URL
-#    so the sandbox can POST WA/IG inbound to /webhooks/*
-ngrok http 3000             # in a separate terminal — copy the https URL
+# 8. start the website (Next.js on :3001 — separate terminal)
+bun run dev --cwd web
+
+# 9. expose to the sandbox so it can push WA/IG inbound
+ngrok http 3000
 bun run register-webhooks https://<your-ngrok>.ngrok-free.app
-bun run webhooks:status     # confirm registration + see threads
+bun run webhooks:status
 ```
 
-The webhook registration step is what makes the sandbox push events to us — exactly the flow the brief specifies (*"Customer messages tunnel into the computer through ngrok or Cloudflare Tunnel, hits the agent's bot wrapper, which calls `claude -p`."*). Without it, sandbox-driven scenarios run in pull mode via `bun run world:run` (deterministic, useful for offline testing) but the eval's webhook-push path is dark.
-
-Smoke output should look like:
+Smoke output looks like this:
 
 ```
-[smoke] role=concierge thread=smoke_...
+[smoke] role=concierge thread=smoke_…
 ───────── reply ─────────
-Yes — our Chocolate Layer Cake (8"), $52, needs 24h notice. Want one?
+Yes — cake "Honey", $42 for the whole, $8.50 by the slice. Need it for a date?
 ───────── trace ─────────
-tools called: 1
-  • mcp__local__list_products
-duration: ~11s
-cost: ~$0.40
+tools called: 2
+  • mcp__happycake__square_list_catalog
+  • mcp__happycake__kitchen_get_capacity
+duration: ~9s · cost: ~$0.40
 ```
 
-If you see `(empty)` and `Invalid MCP configuration`, run `bun run setup:mcp` again.
+If you see `(empty)` and `Invalid MCP configuration`, re-run `bun run setup:mcp`.
 
-## Verified evidence (latest run)
+## Architecture, in five lines
+
+- `claude -p` is the agent runtime. One subprocess per inbound message; per-role tool allowlists in [src/agent/invoke.ts](./src/agent/invoke.ts).
+- Two MCP servers: the **sandbox** (catalog, kitchen, marketing, evaluator — the judges' truth) and a **local stdio** MCP (drafts, threads, escalations, brand-RAG).
+- The frontend never talks to the sandbox MCP. The team token lives only inside the agent subprocess; the website reads through the backend's `/api/catalog` mirror.
+- Webhooks verify Meta HMAC signatures when `WA_APP_SECRET` / `IG_APP_SECRET` is set; sandbox-injected unsigned bodies pass through with a logged warning so eval flow keeps working.
+- Owner approve/reject in Telegram is deterministic — atomic `square_create_order` + `kitchen_create_ticket`, then notify the customer. The agent only sees the result.
+
+For the full picture: [ARCHITECTURE.md](./ARCHITECTURE.md), then [docs/02-architecture/MCP.md](./docs/02-architecture/MCP.md) and [docs/02-architecture/AGENT-RUNTIME.md](./docs/02-architecture/AGENT-RUNTIME.md).
+
+## Status
 
 ```
 $ bun run evidence
-═════════ EVIDENCE BASELINE ═════════
-- Channel response: 80/100 — gated on real Meta creds (sandbox returns [simulated])
-- Marketing loop:   100/100 ✅ (3 campaigns, 9 leads, 1 owner report)
-- POS + kitchen:    100/100 ✅ (9 orders, 5 tickets across accept/ready/reject)
-- World scenario:   100/100 ✅ (10 events / 6 delivered, 200 audit calls)
-Total: 380/400 (95%)
+Channel response : 80/100   (sandbox stamps [simulated] without real Meta creds)
+Marketing loop   : 100/100  (3 campaigns launched, 9 leads routed, owner report filed)
+POS + kitchen    : 100/100  (9 orders, 5 tickets across accept / ready / reject)
+World scenario   : 100/100  (10 events / 6 delivered, 200 audit calls)
 
-$ bun run repro
-8/8 pass · 0 fail — fresh clone would boot cleanly
-
-$ bun run audit:hardcodes
-✓ No hardcode-grep findings across 44 files
+$ bun run repro            8/8 fresh-clone boot checks
+$ bun run audit:hardcodes  clean across 50 files
 ```
 
-Only lever to push 380 → 400: real `WA_TOKEN` + `WA_PHONE_NUMBER_ID` in `.env.local` so the WhatsApp adapter can post real outbound. Code path is identical; sandbox path stays parallel for evaluator scoring.
+The 80 on Channel response is the sandbox's `[simulated]` stamp, not a code gap. With real `WA_TOKEN` and `WA_PHONE_NUMBER_ID` set, the same code path posts via Meta Cloud API. Sandbox + real run in parallel under `WA_OUTBOUND_MODE=both`.
 
-## What's wired
+## Marketing — $500 → $5,000
 
-| Surface | Status | How to verify |
-|---|---|---|
-| `claude -p` headless agent runtime (Opus 4.7) | ✅ live | `bun run smoke:agent "..."` |
-| Sandbox MCP (Square / WhatsApp / IG / Kitchen / Marketing / World / Evaluator / GoogleBusiness) | ✅ connected via `.mcp.json` (HTTP, X-Team-Token) | `claude mcp list` from repo root |
-| Local stdio MCP (drafts, threads, escalations, daily report) | ✅ live | `bun run mcp:local` |
-| Web `/api/chat`, `/api/products`, `/api/orders/draft`, `/llms.txt`, `/openapi.json` | ✅ live | `curl localhost:3000/api/products` |
-| `/test/incoming` evaluator entrypoint | ✅ live | accepts `IncomingMessage` shape, returns reply + tool trace |
-| WhatsApp / Instagram inbound webhooks (Meta GET-verify + POST-ack) | ✅ live | `bun run register-webhooks https://<ngrok>` |
-| 4 role agents (concierge / kitchen / marketing / owner) with per-role tool allowlists | ✅ live | role picked by `src/agent/router.ts` |
-| **HappyCake brand voice prompt-prepend** (customer-facing roles only) | ✅ live | [src/agent/prompts/brand.md](./src/agent/prompts/brand.md), prepended in [src/agent/invoke.ts](./src/agent/invoke.ts) `loadPrompt` |
-| **Owner Telegram cockpit** — slash + callbacks + free-text agent + auto-cards | ✅ live | [docs/03-build/OWNER-BOT-SETUP.md](./docs/03-build/OWNER-BOT-SETUP.md) |
-| **Live streaming in TG** (`🤔 thinking…` → `🛠 calling X` → final, throttled `editMessageText`) | ✅ live | message owner bot free-text |
-| **Owner event log in TG** (`📨` inbound, `✓` outbound, `⚠` errors, `🔧` system) | ✅ live | `TG_OWNER_LOG_LEVEL=verbose\|normal\|quiet\|off` |
-| Hardcode-grep audit · fresh-clone smoke · live evaluator pull | ✅ live | `bun run audit:hardcodes` · `repro` · `evidence` |
-| Re-skinned website (Next.js, served from `web/`) | ✅ live | `cd web && bun run dev` on port 3001 |
+Five concurrent levers, each with margin-backed math grounded in live sandbox data ([`marketing_get_budget`](./src/agent/invoke.ts), [`marketing_get_sales_history`](./src/agent/invoke.ts), [`marketing_get_margin_by_product`](./src/agent/invoke.ts)). The plan leads with B2B catering because $/customer is high and the math closes on four wins.
 
-## Hypothesis: $500 → $5,000
+- Full hypothesis: [docs/01-product/HYPOTHESIS.md](./docs/01-product/HYPOTHESIS.md)
+- Live brief (regenerates from MCP): `bun run marketing:brief`
+- Loop driver (creates campaigns, generates leads, files owner report): `bun run marketing:run`
 
-Filled at T+0 after reading sandbox sales CSV via `marketing_get_sales_history`. Lives in [docs/01-product/HYPOTHESIS.md](./docs/01-product/HYPOTHESIS.md). Spec:
-- Margin per SKU computed from POS catalog + cost basis
-- $500/month allocated across Meta / Google / boosted / organic with margin-backed expected return per dollar
-- Loop: read campaign metrics → kill underperformers → reinvest
-
-## Submission checklist progress
-
-- [x] Public Git repo skeleton
-- [x] Fresh-clone setup instructions (this README)
-- [x] [ARCHITECTURE.md](./ARCHITECTURE.md) (agents, routing, MCP usage)
-- [x] `.env.example` with placeholders, no secrets
-- [x] Agent runtime is `claude -p` only — no banned SDKs
-- [x] Owner UI is Telegram only — no web admin
-- [x] Marketing $500→$5,000 hypothesis from real CSV — [docs/01-product/HYPOTHESIS.md](./docs/01-product/HYPOTHESIS.md), drives `bun run marketing:run` (3 campaigns, 9 leads, owner report)
-- [x] On-site assistant test script — 25 runnable scenarios in [docs/04-test/RUNNABLE-SCENARIOS.md](./docs/04-test/RUNNABLE-SCENARIOS.md)
-- [x] Marketing/channel/POS/kitchen scenarios documented — 90-scenario matrix in [docs/01-product/SCENARIOS-MATRIX.md](./docs/01-product/SCENARIOS-MATRIX.md)
-- [x] Evidence of tests / smoke checks / scripted demos — see "Verified evidence" block above; full snapshot in [docs/04-test/EVIDENCE.md](./docs/04-test/EVIDENCE.md)
-- [x] Production-deploy notes for the website — [docs/05-deploy/PRODUCTION.md](./docs/05-deploy/PRODUCTION.md)
-- [x] Real-adapter path documented (no creds in repo) — `WA_OUTBOUND_MODE=real|sandbox|both` in `.env.example`; [docs/02-architecture/WEBHOOKS.md](./docs/02-architecture/WEBHOOKS.md)
-- [x] HappyCake brand voice enforced for customer roles — [src/agent/prompts/brand.md](./src/agent/prompts/brand.md), prepended to concierge/marketing only
-- [x] Owner cockpit in Telegram (3-lane router: slash · callback · agent w/ live streaming) — [docs/03-build/OWNER-BOT-SETUP.md](./docs/03-build/OWNER-BOT-SETUP.md)
-- [x] Hardcode-grep audit pre-commit gate (-10 penalty insurance) — `bun run audit:hardcodes`
-- [x] Fresh-clone reproducibility smoke (Code Reviewer rubric) — `bun run repro`
-
-## Repo layout
+## Layout
 
 ```
 src/
-├── server.ts                 ← Hono entrypoint, route registration
-├── config.ts                 ← single env-access seam
-├── lib/env.ts                ← .env.local loader
-├── routes/                   ← /api, /webhooks, /test (mounted by server)
-├── channels/                 ← whatsapp/instagram/telegram/web adapters
+├── server.ts                Hono entrypoint
+├── config.ts                env access seam
+├── routes/                  /api, /webhooks, /test
+├── channels/                whatsapp, instagram, telegram, web
 ├── agent/
-│   ├── invoke.ts             ← claude -p subprocess wrapper (the agent runtime)
-│   ├── router.ts             ← picks role from incoming message
-│   ├── prompts/              ← per-role system prompts
-│   └── mcp/local-server.ts   ← stdio MCP exposing our domain
-├── domain/tools.ts           ← pure business logic (orders, constraints, escalations)
-├── bots/                     ← Telegram bot wrappers (one per role)
-├── db/                       ← SQLite + schema + thread/order persistence
-└── scripts/                  ← setup:mcp, db-init, smoke-agent, world:start, evidence
-data/
-├── catalog/                  ← Happy Cake US seed catalog (until sandbox sync)
-└── photos/                   ← asset pack
-.mcp.json.template            ← MCP config template (committed, no secrets)
-.mcp.json                     ← rendered config (gitignored, includes token)
-.env.example                  ← all env vars documented
-.env.local                    ← local secrets (gitignored)
+│   ├── invoke.ts            claude -p subprocess wrapper
+│   ├── router.ts            picks role from incoming message
+│   ├── prompts/             per-role system prompts
+│   └── mcp/                 stdio MCP exposing the local domain
+├── domain/                  pure business logic (orders, constraints, sync, escalations)
+├── bots/owner/              Telegram cockpit (slash, callbacks, marketing, log)
+├── lib/                     webhook HMAC, sandbox MCP client, DO Spaces
+├── db/                      SQLite + schema
+└── scripts/                 setup:mcp, db:seed, preflight, world:run, evidence
+web/                         Next.js storefront + admin pages
+data/catalog/                seed catalog (mirrored from sandbox at boot)
+.mcp.json.template           committed; rendered .mcp.json is gitignored
+.env.example                 every env var documented
 ```
+
+## Deploy
+
+Local + ngrok is the hackathon path and is fine for the brief's `~1 req/s` ceiling. For production, see [docs/05-deploy/PRODUCTION.md](./docs/05-deploy/PRODUCTION.md): named Cloudflare Tunnel, real WA/IG/Square credentials in place of the simulator MCP, SQLite → Postgres when sustained traffic crosses ~1 req/s.
 
 ## Security
 
-- `.env.local` gitignored, never logged.
-- `SBC_TEAM_TOKEN` injected only into the `claude -p` subprocess env.
-- `.mcp.json` rendered from template at setup time and gitignored. Only the template ships.
-- Pre-commit grep gates planned (`bun run preflight`).
+- `.env.local` is gitignored and never logged. Templates ship; secrets don't.
+- `SBC_TEAM_TOKEN` is injected only into the `claude -p` subprocess env.
+- `.mcp.json` is rendered from template at setup time and gitignored.
+- Meta webhook bodies are HMAC-SHA256 verified when `WA_APP_SECRET` / `IG_APP_SECRET` is set. Without them, sandbox-injected payloads still pass — with a one-time warning.
+- Two intentional `⚠️ HACKATHON-MODE OPEN ACCESS` notes are inline: the Telegram owner whitelist (empty `TG_OWNER_CHAT_IDS` accepts any chat) and the `/api/admin/*` endpoints (unauthenticated). Both are loud in the boot log; both must be closed before any public deploy.
 
-## Documentation
+## Docs
 
-Full doc tree at [docs/INDEX.md](./docs/INDEX.md). Key entry points:
-
-- [docs/01-product/FEATURES.md](./docs/01-product/FEATURES.md) — feature × status × owner matrix
-- [docs/01-product/RUBRIC.md](./docs/01-product/RUBRIC.md) — 100-pt judging coverage
-- [docs/03-build/BUILD-PLAN.md](./docs/03-build/BUILD-PLAN.md) — T+0 → T+22h critical path
-- [docs/03-build/CHECKLIST.md](./docs/03-build/CHECKLIST.md) — submission checklist
-- [docs/05-deploy/DEPLOY.md](./docs/05-deploy/DEPLOY.md) — laptop + ngrok (canonical)
-
-## Post-hackathon production path
-
-The 24-hour build runs on the operator's laptop with `claude -p` against the team's Claude Max subscription, exactly as the brief prescribes. When this becomes the real Happy Cake system, the path is a dedicated droplet, named Cloudflare Tunnel, real WA/IG/Square credentials in place of the simulator MCP, and a SQLite→Postgres migration once sustained traffic exceeds ~1 req/s. See [docs/05-deploy/PRODUCTION.md](./docs/05-deploy/PRODUCTION.md). Out of scope for the hackathon submission.
+- [AGENTS.md](./AGENTS.md) — onboarding for AI assistants working on the repo
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — runtime + data flow
+- [docs/01-product/HYPOTHESIS.md](./docs/01-product/HYPOTHESIS.md) — $500 → $5,000 plan with live numbers
+- [docs/02-architecture/](./docs/02-architecture/) — MCP, data model, agent runtime, security, webhooks
+- [docs/03-build/OWNER-BOT-SETUP.md](./docs/03-build/OWNER-BOT-SETUP.md) — Telegram cockpit setup
+- [docs/05-deploy/](./docs/05-deploy/) — laptop + ngrok, DigitalOcean
+- [docs/04-test/EVIDENCE.md](./docs/04-test/EVIDENCE.md) — runnable demo script
 
 ## Team
 
-- **Adilet** — architecture, agent runtime, MCP wiring
-- **Owner-side teammate** — Telegram bots, operator UX, kitchen handoff
-- **Customer-side teammate** — scenarios, conversation testing, marketing creatives
+Adilet (architecture, agent runtime, MCP wiring), one teammate on the owner cockpit + kitchen handoff, one on scenarios + marketing creative.
 
 ## License
 
-Per hackathon agreement: full IP transfers to Steppe Business Club; team retains portfolio-use license. Repo will be public after May 10 16:00 CT.
+Per the hackathon agreement, IP transfers to Steppe Business Club; the team retains a portfolio-use license. The repo will be public after May 10, 16:00 CT.

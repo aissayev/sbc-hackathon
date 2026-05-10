@@ -8,8 +8,14 @@ export const BRAND = {
   legal: 'Happy Cake US',
   city: 'Sugar Land, TX',
   region: 'Sugar Land + Houston metro',
-  tagline: 'Where every bite tells a story.',
-  slogan: 'Handcrafted cakes and pastries made with love — European traditions, warm Kazakh hospitality.',
+  // Canonical tagline from the brand book. Specific, modest, the same line
+  // we've used since opening — and the line the agent quotes back when asked
+  // "what makes you different?".
+  tagline: "It's just like homemade.",
+  // Used as the meta description / OG description on every page. Rule from
+  // the brand book: specifics over adjectives, two epithets max. So no
+  // "handcrafted with love" stack — say what we make and where to find us.
+  slogan: 'Family-owned bakery in Sugar Land. Honey cake, pistachio roll, and custom orders for the occasion.',
   closing: 'Order on the site or send us a message on WhatsApp.',
   address: {
     line1: '350 Promenade Way, Suite 500',
