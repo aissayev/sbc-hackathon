@@ -1,80 +1,173 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Cake, Store, Truck, ArrowRight, Clock, MessageSquareHeart } from 'lucide-react'
+import { format } from 'date-fns'
+import {
+  CalendarDays,
+  Cake,
+  ChefHat,
+  Clock,
+  Croissant,
+  Gift,
+  MessageSquareHeart,
+  Minus,
+  Plus,
+  Store,
+  Truck,
+} from 'lucide-react'
 
 import type { Product } from '@/lib/api'
-import { CATALOG } from '@/lib/catalog'
+import { CATALOG, KIND_LABELS, type ProductKind } from '@/lib/catalog'
 import { fmtUsd, leadTimeLabel } from '@/lib/format'
+import {
+  combineDateAndTime,
+  hoursLabelForDay,
+  isOpenDay,
+  nextOpenDate,
+  timeSlotsForDate,
+} from '@/lib/hours'
 import { cn } from '@/lib/utils'
+import {
+  RichSelect as Select,
+  RichSelectContent as SelectContent,
+  RichSelectItem as SelectItem,
+  RichSelectTrigger as SelectTrigger,
+  RichSelectValue as SelectValue,
+} from '@/components/ui/select-rich'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 
-// Inline lead-capture form that lives in the home hero. The full /order
-// wizard owns validation, payment, kitchen routing — this is just the
-// "pick a cake, pick a mode, when do you want it" funnel that hands off
-// the prefilled state via query params. Mirrors the lead-form pattern
-// from the websites monorepo (rabbit-roofing HeroForm) but tuned to the
-// HappyCake palette.
+// Inline lead-capture form that lives in the home hero. Owns:
+//   - the order "kind" tab (slice / whole / custom / catering)
+//   - a polished cake picker (image thumb + name + price via Radix Select)
+//   - quantity stepper (with sane caps per kind)
+//   - pickup vs delivery toggle
+//   - a calendar popover that disables closed days
+//   - a time-slot picker that's gated by BRAND.openingHoursSpec
+// On submit it routes to /order with prefilled query params; the existing
+// 3-step wizard owns validation, payment, and kitchen routing.
 
 type Mode = 'pickup' | 'delivery'
 
-const FEATURED_KINDS = ['slice', 'whole', 'pastry', 'custom'] as const
+const TAB_DEFS: Array<{ kind: ProductKind; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { kind: 'slice', label: 'By the slice', icon: Cake },
+  { kind: 'whole', label: 'Whole cake', icon: Gift },
+  { kind: 'pastry', label: 'Pastries', icon: Croissant },
+  { kind: 'custom', label: 'Custom', icon: ChefHat },
+]
+
+// Quantity caps mirror the order-form's intent: slices and pastries can be
+// bought in higher quantity than whole cakes (kitchen capacity), and customs
+// are always one-off designs.
+const QTY_CAPS: Record<ProductKind, number> = {
+  slice: 12,
+  whole: 3,
+  pastry: 12,
+  custom: 1,
+  catering: 4,
+}
 
 export function QuickOrderForm({ products }: { products: Product[] }) {
   const router = useRouter()
 
-  // Pull one product per featured kind (slice / whole / pastry / custom)
-  // so the dropdown reads as the case browser would. The backend's stale
-  // seed sometimes omits `in_stock` and `kind`, leaving `products` empty —
-  // when that happens we fall back to the canonical CATALOG so the hero
-  // form never ships with an empty dropdown.
-  const featured = React.useMemo(() => {
-    const source = products.length > 0 ? products : CATALOG
-    const picks: Product[] = []
-    for (const k of FEATURED_KINDS) {
-      const p = source.find((x) => x.kind === k)
-      if (p) picks.push(p)
-    }
-    if (picks.length < 4) {
-      for (const p of source) {
-        if (picks.length >= 6) break
-        if (!picks.includes(p)) picks.push(p)
-      }
-    }
-    return picks
-  }, [products])
+  // Backend's stale seed sometimes returns products without `kind` or
+  // `in_stock`; the home page filters to in_stock then passes here. If
+  // we still got nothing, fall back to the canonical catalog so the
+  // hero never ships empty.
+  const source = products.length > 0 ? products : (CATALOG as Product[])
 
-  const [productId, setProductId] = React.useState(featured[0]?.id ?? '')
+  // Group products by kind so each tab has its own list and the dropdown
+  // can show grouped sections.
+  const byKind = React.useMemo(() => {
+    const map = new Map<ProductKind, Product[]>()
+    for (const p of source) {
+      const arr = map.get(p.kind) ?? []
+      arr.push(p)
+      map.set(p.kind, arr)
+    }
+    return map
+  }, [source])
+
+  // Show only tabs that actually have products. Custom is always available
+  // because the wizard handles it specially even if the kind is empty.
+  const tabs = React.useMemo(
+    () => TAB_DEFS.filter((t) => byKind.get(t.kind)?.length || t.kind === 'custom'),
+    [byKind],
+  )
+
+  const [kind, setKind] = React.useState<ProductKind>(tabs[0]?.kind ?? 'slice')
+  const optionsForKind = byKind.get(kind) ?? []
+  const [productId, setProductId] = React.useState<string>(optionsForKind[0]?.id ?? '')
+  const [qty, setQty] = React.useState(1)
   const [mode, setMode] = React.useState<Mode>('pickup')
-  const [when, setWhen] = React.useState('')
+
+  // Default the date to the first open day at or after tomorrow morning,
+  // so we don't seed Monday (closed) or a past time when bakery is shut.
+  const [date, setDate] = React.useState<Date>(() => {
+    const start = new Date()
+    start.setHours(11, 0, 0, 0)
+    start.setDate(start.getDate() + 1)
+    return nextOpenDate(start) ?? start
+  })
+  const [time, setTime] = React.useState<string>('')
+  const [calOpen, setCalOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
 
-  const minWhen = React.useMemo(() => {
-    const d = new Date(Date.now() + 60 * 60 * 1000)
-    d.setSeconds(0, 0)
-    return toLocalDatetimeValue(d)
-  }, [])
-
+  // Re-pick the product when the tab changes. If the current product is
+  // still in the new tab's list (rare), keep it; otherwise grab the first.
   React.useEffect(() => {
-    if (!when) setWhen(defaultPickupTime())
-  }, [when])
+    if (!optionsForKind.find((p) => p.id === productId)) {
+      setProductId(optionsForKind[0]?.id ?? '')
+      setQty(1)
+    }
+  }, [kind, optionsForKind, productId])
 
-  const selected = products.find((p) => p.id === productId)
+  const selected = optionsForKind.find((p) => p.id === productId)
+  const slots = React.useMemo(
+    () =>
+      timeSlotsForDate(date, {
+        minLeadHours: selected?.lead_time_hours ?? 1,
+      }),
+    [date, selected?.lead_time_hours],
+  )
+
+  // Reset time whenever the available slots change so we never submit a
+  // stale value (e.g. user picked 6 PM yesterday, switches to today, 6 PM
+  // already passed — drop it and let them re-pick).
+  React.useEffect(() => {
+    if (slots.length === 0) {
+      setTime('')
+      return
+    }
+    if (!slots.find((s) => s.value === time)) {
+      setTime(slots[Math.min(2, slots.length - 1)]?.value ?? slots[0].value)
+    }
+  }, [slots, time])
+
+  const qtyMax = QTY_CAPS[kind]
+  const canSubmit = !!productId && !!time && !submitting
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!productId) return
+    if (!canSubmit) return
     setSubmitting(true)
-    const params = new URLSearchParams({ product: productId, mode })
-    if (when) params.set('when', new Date(when).toISOString())
+    const when = combineDateAndTime(date, time)
+    const params = new URLSearchParams({
+      product: productId,
+      mode,
+      qty: String(qty),
+      when: when.toISOString(),
+    })
     router.push(`/order?${params.toString()}`)
   }
 
   return (
     <form
       onSubmit={onSubmit}
-      className="bakery-card p-6 md:p-7 ring-1 ring-cocoa-700/5"
+      className="rounded-3xl bg-white shadow-lift ring-1 ring-cocoa-700/5 p-6 md:p-7"
       aria-labelledby="quick-order-heading"
     >
       <div className="flex items-center gap-2.5">
@@ -89,91 +182,160 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
         </div>
       </div>
 
-      <div className="mt-5 space-y-4">
+      {/* Kind tabs — pill-row, scrolls horizontally on tight viewports. */}
+      <div className="mt-5 -mx-1 px-1 overflow-x-auto">
+        <div className="inline-flex gap-1 p-1 rounded-full bg-cream-100 border border-cocoa-700/10">
+          {tabs.map((t) => {
+            const active = t.kind === kind
+            const Icon = t.icon
+            return (
+              <button
+                key={t.kind}
+                type="button"
+                onClick={() => setKind(t.kind)}
+                aria-pressed={active}
+                className={cn(
+                  'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-medium transition-all',
+                  active
+                    ? 'bg-cocoa-700 text-cream shadow-sm'
+                    : 'text-cocoa-900/70 hover:text-cocoa-900',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {kind === 'custom' && optionsForKind.length === 0 ? (
+        <CustomCakePromo />
+      ) : (
+        <CakePicker
+          options={optionsForKind}
+          productId={productId}
+          onChange={setProductId}
+          selected={selected}
+          qty={qty}
+          qtyMax={qtyMax}
+          onQtyChange={setQty}
+          kind={kind}
+        />
+      )}
+
+      <div className="mt-5">
+        <span className="block text-sm font-medium text-cocoa-900">How would you like it?</span>
+        <div className="mt-1.5 grid grid-cols-2 gap-2" role="group" aria-label="Pickup or delivery">
+          {(
+            [
+              { value: 'pickup' as const, label: 'Pickup', icon: Store, hint: 'Free at our shop' },
+              { value: 'delivery' as const, label: 'Delivery', icon: Truck, hint: 'Greater Houston area' },
+            ]
+          ).map(({ value, label, icon: Icon, hint }) => {
+            const active = mode === value
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                aria-pressed={active}
+                className={cn(
+                  'h-auto py-3 px-4 rounded-xl border text-left transition-all duration-150',
+                  active
+                    ? 'border-sky bg-sky/10 text-cocoa-900 shadow-sm'
+                    : 'border-cocoa-700/15 bg-cream-50 text-cocoa-900 hover:border-cocoa-700/30',
+                )}
+              >
+                <span className="flex items-center gap-2 font-medium text-sm">
+                  <Icon className={cn('h-4 w-4', active ? 'text-sky-700' : 'text-cocoa-700')} />
+                  {label}
+                </span>
+                <span className="block mt-0.5 text-[11px] text-cocoa-900/60">{hint}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="quick-cake" className="block text-sm font-medium text-cocoa-900">
-            What would you like?
+          <label htmlFor="quick-date" className="block text-sm font-medium text-cocoa-900">
+            Date
           </label>
-          <div className="relative mt-1.5">
-            <select
-              id="quick-cake"
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              className="w-full appearance-none h-12 rounded-xl border border-cocoa-700/15 bg-cream-50 px-4 pr-10 text-sm text-cocoa-900 focus:outline-none focus:border-sky focus:ring-2 focus:ring-sky/25"
+          <Popover open={calOpen} onOpenChange={setCalOpen}>
+            <PopoverTrigger
+              id="quick-date"
+              className="mt-1.5 w-full h-12 rounded-xl border border-cocoa-700/15 bg-cream-50 px-4 text-left text-sm text-cocoa-900 inline-flex items-center justify-between gap-2 focus:outline-none focus:border-sky focus:ring-2 focus:ring-sky/25"
             >
-              {featured.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {fmtUsd(p.price_cents)}
-                </option>
-              ))}
-            </select>
-            <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-cocoa-900/45">
-              ▾
-            </span>
-          </div>
-          {selected?.lead_time_hours ? (
-            <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-cocoa-900/65">
-              <Clock className="h-3 w-3" /> Earliest: {leadTimeLabel(selected.lead_time_hours).toLowerCase()}
-            </p>
-          ) : null}
+              <span className="inline-flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-cocoa-700" />
+                {format(date, 'EEE, MMM d')}
+              </span>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="p-0">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(d) => {
+                  if (!d) return
+                  setDate(d)
+                  setCalOpen(false)
+                }}
+                disabled={(d) => {
+                  if (!isOpenDay(d)) return true
+                  const today = new Date()
+                  today.setHours(0, 0, 0, 0)
+                  return d < today
+                }}
+              />
+              <div className="px-4 pb-3 pt-1 text-[11px] text-cocoa-900/60 border-t border-cocoa-700/10">
+                Closed Mondays · Tue–Sat 11–7 · Sun 12–6
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div>
-          <span className="block text-sm font-medium text-cocoa-900">How would you like it?</span>
-          <div className="mt-1.5 grid grid-cols-2 gap-2" role="group" aria-label="Pickup or delivery">
-            {(
-              [
-                { value: 'pickup' as const, label: 'Pickup', icon: Store, hint: 'Free at our shop' },
-                { value: 'delivery' as const, label: 'Delivery', icon: Truck, hint: 'Greater Houston area' },
-              ]
-            ).map(({ value, label, icon: Icon, hint }) => {
-              const active = mode === value
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setMode(value)}
-                  aria-pressed={active}
-                  className={cn(
-                    'group h-auto py-3 px-4 rounded-xl border text-left transition-all duration-150',
-                    active
-                      ? 'border-sky bg-sky/10 text-cocoa-900 shadow-sm'
-                      : 'border-cocoa-700/15 bg-cream-50 text-cocoa-900 hover:border-cocoa-700/30',
-                  )}
-                >
-                  <span className="flex items-center gap-2 font-medium text-sm">
-                    <Icon className={cn('h-4 w-4', active ? 'text-sky-700' : 'text-cocoa-700')} />
-                    {label}
-                  </span>
-                  <span className="block mt-0.5 text-[11px] text-cocoa-900/60">{hint}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="quick-when" className="block text-sm font-medium text-cocoa-900">
-            When do you need it?
+          <label htmlFor="quick-time" className="block text-sm font-medium text-cocoa-900">
+            Time
           </label>
-          <input
-            id="quick-when"
-            type="datetime-local"
-            min={minWhen}
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            className="mt-1.5 w-full h-12 rounded-xl border border-cocoa-700/15 bg-cream-50 px-4 text-sm text-cocoa-900 focus:outline-none focus:border-sky focus:ring-2 focus:ring-sky/25"
-          />
+          <Select value={time} onValueChange={setTime}>
+            <SelectTrigger id="quick-time" className="mt-1.5">
+              <span className="inline-flex items-center gap-2">
+                <Clock className="h-4 w-4 text-cocoa-700" />
+                <SelectValue placeholder={slots.length === 0 ? 'Closed this day' : 'Pick a time'} />
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              {slots.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-cocoa-900/60">
+                  We&apos;re closed on {format(date, 'EEEE')}.
+                </div>
+              ) : (
+                slots.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <p className="mt-1.5 text-[11px] text-cocoa-900/60">
+            {hoursLabelForDay(date)}
+            {selected?.lead_time_hours
+              ? ` · earliest ${leadTimeLabel(selected.lead_time_hours).toLowerCase()}`
+              : ''}
+          </p>
         </div>
       </div>
 
       <button
         type="submit"
-        disabled={submitting || !productId}
-        className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-full bg-cocoa-700 text-cream font-medium h-12 px-6 hover:bg-cocoa-900 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        disabled={!canSubmit}
+        className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-cocoa-700 text-cream font-medium h-12 px-6 hover:bg-cocoa-900 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       >
         Continue to checkout
-        <ArrowRight className="h-4 w-4" />
       </button>
 
       <div className="mt-4 flex items-center justify-between text-xs text-cocoa-900/65">
@@ -195,16 +357,128 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
   )
 }
 
-function defaultPickupTime() {
-  // Default to 26h ahead so whole-cake leads (about an hour notice) and
-  // custom-cake leads (24h notice) both fit comfortably.
-  const d = new Date(Date.now() + 26 * 60 * 60 * 1000)
-  d.setMinutes(0, 0, 0)
-  return toLocalDatetimeValue(d)
+function CakePicker({
+  options,
+  productId,
+  onChange,
+  selected,
+  qty,
+  qtyMax,
+  onQtyChange,
+  kind,
+}: {
+  options: Product[]
+  productId: string
+  onChange: (id: string) => void
+  selected: Product | undefined
+  qty: number
+  qtyMax: number
+  onQtyChange: (qty: number) => void
+  kind: ProductKind
+}) {
+  const label = KIND_LABELS[kind]
+  return (
+    <div className="mt-5">
+      <label htmlFor="quick-cake" className="block text-sm font-medium text-cocoa-900">
+        {options.length > 1 ? `Pick your ${label.singular.toLowerCase()}` : label.singular}
+      </label>
+      <Select value={productId} onValueChange={onChange}>
+        <SelectTrigger id="quick-cake" className="mt-1.5 h-auto py-2.5">
+          {selected ? (
+            <CakeOptionRow product={selected} compact />
+          ) : (
+            <SelectValue placeholder="Pick a cake" />
+          )}
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((p) => (
+            <SelectItem key={p.id} value={p.id} className="py-2 pl-2 pr-8">
+              <CakeOptionRow product={p} />
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {qtyMax > 1 ? (
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="text-sm text-cocoa-900/70">How many?</span>
+          <div className="inline-flex items-center rounded-full border border-cocoa-700/15 bg-cream-50">
+            <button
+              type="button"
+              onClick={() => onQtyChange(Math.max(1, qty - 1))}
+              disabled={qty <= 1}
+              aria-label="Decrease quantity"
+              className="h-9 w-10 inline-flex items-center justify-center text-cocoa-700 disabled:opacity-30 hover:bg-cream-100 rounded-l-full"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <span className="min-w-9 text-center text-sm font-medium text-cocoa-900" aria-live="polite">
+              {qty}
+            </span>
+            <button
+              type="button"
+              onClick={() => onQtyChange(Math.min(qtyMax, qty + 1))}
+              disabled={qty >= qtyMax}
+              aria-label="Increase quantity"
+              className="h-9 w-10 inline-flex items-center justify-center text-cocoa-700 disabled:opacity-30 hover:bg-cream-100 rounded-r-full"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
-function toLocalDatetimeValue(d: Date) {
-  const off = d.getTimezoneOffset()
-  const local = new Date(d.getTime() - off * 60 * 1000)
-  return local.toISOString().slice(0, 16)
+function CakeOptionRow({ product, compact = false }: { product: Product; compact?: boolean }) {
+  return (
+    <span className="flex items-center gap-3 w-full text-left">
+      <span
+        className={cn(
+          'relative shrink-0 overflow-hidden rounded-lg bg-cream-100',
+          compact ? 'h-9 w-9' : 'h-11 w-11',
+        )}
+      >
+        {product.photo_url && (
+          <Image
+            src={product.photo_url}
+            alt=""
+            fill
+            sizes="44px"
+            className="object-cover"
+            unoptimized
+          />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-cocoa-900 truncate">{product.name}</span>
+        {!compact && product.allergens && (
+          <span className="block text-[11px] text-cocoa-900/55 truncate">
+            contains {product.allergens.split(',').map((s) => s.trim()).join(', ')}
+          </span>
+        )}
+      </span>
+      <span className="shrink-0 text-sm font-medium text-cocoa-900 tabular-nums">
+        {fmtUsd(product.price_cents)}
+      </span>
+    </span>
+  )
+}
+
+function CustomCakePromo() {
+  return (
+    <div className="mt-5 rounded-2xl border border-sky/30 bg-sky/5 p-4">
+      <p className="text-sm text-cocoa-900">
+        Custom designs go through a quick chat — flavors, message, photo or fondant. Askhat quotes
+        by phone within an hour.
+      </p>
+      <Link
+        href="/order/custom"
+        className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-sky-700 underline-offset-4 hover:underline"
+      >
+        Start a custom design →
+      </Link>
+    </div>
+  )
 }

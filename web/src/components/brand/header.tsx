@@ -13,7 +13,7 @@ import { Wordmark } from './wordmark'
 // this list plus the secondary links.
 const NAV = [
   { href: '/menu', label: 'Menu' },
-  { href: '/business', label: 'For business' },
+  { href: '/business', label: 'Catering' },
   { href: '/about', label: 'About us' },
   { href: '/policies', label: 'Visit & FAQ' },
 ]

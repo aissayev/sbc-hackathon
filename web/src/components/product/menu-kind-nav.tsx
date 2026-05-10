@@ -32,9 +32,9 @@ export function MenuKindNav({ available }: { available: ProductKind[] }) {
   return (
     <nav
       aria-label="Menu sections"
-      className="sticky top-[68px] z-10 -mx-4 md:mx-0 overflow-x-auto whitespace-nowrap bg-cream/85 backdrop-blur border-y border-cocoa-700/8"
+      className="sticky top-[60px] z-10 -mx-4 md:mx-0 overflow-x-auto whitespace-nowrap bg-cream/85 backdrop-blur"
     >
-      <ul className="flex gap-2 px-4 md:px-0 py-2">
+      <ul className="inline-flex gap-1 p-1 my-2 rounded-full bg-cream-100 border border-cocoa-700/10">
         {KIND_ORDER.filter((k) => available.includes(k)).map((kind) => {
           const meta = KIND_LABELS[kind]
           return (
@@ -42,10 +42,10 @@ export function MenuKindNav({ available }: { available: ProductKind[] }) {
               <a
                 href={`#${kind}`}
                 className={cn(
-                  'inline-flex items-center rounded-full px-4 h-9 text-sm font-medium transition-colors border',
+                  'inline-flex items-center rounded-full px-4 h-9 text-sm font-medium transition-colors',
                   active === kind
-                    ? 'bg-cocoa-700 text-cream-50 border-cocoa-700'
-                    : 'bg-white border-cocoa-700/15 text-cocoa-900 hover:bg-cream-100',
+                    ? 'bg-cocoa-700 text-cream shadow-sm'
+                    : 'text-cocoa-900/75 hover:text-cocoa-900',
                 )}
               >
                 {meta.plural}

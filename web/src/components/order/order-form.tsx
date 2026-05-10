@@ -172,6 +172,15 @@ export function OrderForm({ products }: { products: Product[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const seededProduct = searchParams.get('product') ?? products[0]?.id ?? ''
+  // Quantity from the hero quick-form. Cap at 50 to mirror the schema; fall
+  // back to 1 if missing or invalid.
+  const seededQty = (() => {
+    const raw = searchParams.get('qty')
+    if (!raw) return 1
+    const n = Number.parseInt(raw, 10)
+    if (!Number.isFinite(n) || n < 1) return 1
+    return Math.min(50, n)
+  })()
   const seededMode = (searchParams.get('mode') === 'delivery' ? 'delivery' : 'pickup') as
     | 'pickup'
     | 'delivery'
@@ -199,7 +208,7 @@ export function OrderForm({ products }: { products: Product[] }) {
     resolver: zodResolver(schema),
     mode: 'onTouched',
     defaultValues: {
-      items: [{ product_id: seededProduct, quantity: 1 }],
+      items: [{ product_id: seededProduct, quantity: seededQty }],
       scheduled_at_iso: seededWhen,
       pickup_or_delivery: seededMode,
       customer_name: '',
