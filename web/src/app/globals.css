@@ -108,6 +108,32 @@
     -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 85%);
   }
 
+  /* Editorial cake-photo treatment — mask + warm color grade so the
+     photo dissolves into the cream wash and reads as a watercolor
+     atmosphere rather than a stock-photo slap.
+     • Mask: radial fade. The photo is brightest at left ~30% / vertical
+       middle (where the cake itself sits), and falls to fully transparent
+       toward the right where the form lives and the headline column
+       begins. Adjusting the mask stops shifts how much "cake" you see.
+     • Tint: gentle desaturate + warm shift via filter, plus opacity. The
+       multiply blend would tint the cake too dark over the cream — a
+       straight low-opacity filtered photo composes more cleanly. */
+  .hero-photo-mask {
+    /* Bright center pulled to the very left so the cake texture peaks
+       outside the type column and fades out well before the headline.
+       The 55% transparent stop kills the photo before it reaches the
+       middle of the hero — keeps headline + body contrast clean. */
+    -webkit-mask-image: radial-gradient(ellipse 60% 95% at 14% 50%, black 14%, transparent 58%);
+    mask-image: radial-gradient(ellipse 60% 95% at 14% 50%, black 14%, transparent 58%);
+  }
+  .hero-photo-tint {
+    /* Lower opacity (was 0.68 → 0.5) so the photo reads as warm wash
+       rather than competing photographic subject. Slight desaturation +
+       brightness lift keep it on-palette with the cream gradient. */
+    filter: saturate(0.82) brightness(1.05) contrast(0.93) hue-rotate(-3deg);
+    opacity: 0.58;
+  }
+
   /* Paper grain — fractal-noise SVG tiled and overlaid in multiply mode.
      Adds tactility (think risograph / brown-paper bag) without showing up
      as visible noise. Opacity is intentionally tiny — the human eye reads

@@ -106,17 +106,37 @@ export default async function HomePage() {
 function Hero({ products }: { products: Product[] }) {
   return (
     <section className="relative overflow-hidden">
-      {/* Layered "Confetti Morning" backdrop, back to front:
+      {/* Layered editorial backdrop, back to front:
           1. home-hero-bg     — warm cream + butter/sky/blush radial glows
-          2. home-hero-grid   — soft cocoa dot mesh, masked to the centre
-          3. home-hero-grain  — subtle paper grain (multiply blend) for tactility
-          4. soft-blur orbs   — extra atmospheric bloom in the corners
-          5. HeroDecor        — bunting, sparkles, sprinkle field, steam, frosting
-          Each layer is pointer-events-none and aria-hidden so the form
-          and copy on top stay fully accessible. */}
+          2. home-hero-grain  — subtle paper grain (multiply blend) for tactility
+          3. hero-photo       — real honey-cake photo on the left, masked
+                                to dissolve into the cream toward the type
+          4. soft-blur orbs   — atmospheric bloom in the corners
+          5. HeroDecor        — bunting, frosting swoosh, cake silhouette
+          The photo is the anchor — research shows real food photography
+          is the dominant pattern across leading bakery heroes (Magnolia,
+          Janjou, Levain). Decoration is now restrained accent, not
+          competing focus. */}
       <div className="absolute inset-0 home-hero-bg pointer-events-none" aria-hidden />
-      <div className="absolute inset-0 home-hero-grid pointer-events-none opacity-60" aria-hidden />
       <div className="absolute inset-0 home-hero-grain pointer-events-none" aria-hidden />
+
+      {/* Editorial cake photo — bleeds in from the left, masked with a
+          radial fade so it dissolves into the cream around the headline.
+          Color-graded warm via mix-blend-mode + filter so it reads as
+          part of the page, not a stock-photo slap. Hidden on mobile. */}
+      <div className="absolute -left-[18%] top-0 bottom-0 w-[68%] hidden md:block pointer-events-none" aria-hidden>
+        <div className="relative h-full w-full hero-photo-mask hero-px-back">
+          <Image
+            src={ASSETS.hero[0]}
+            alt=""
+            fill
+            priority
+            sizes="68vw"
+            className="object-cover hero-photo-tint"
+          />
+        </div>
+      </div>
+
       <div className="absolute -top-40 -right-32 h-[26rem] w-[26rem] rounded-full bg-amber-300/25 blur-3xl pointer-events-none" aria-hidden />
       <div className="absolute -bottom-44 -left-32 h-[30rem] w-[30rem] rounded-full bg-berry/15 blur-3xl pointer-events-none" aria-hidden />
       <HeroDecor />
