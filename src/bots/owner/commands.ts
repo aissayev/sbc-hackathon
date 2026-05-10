@@ -16,8 +16,8 @@ import { listOrders, listEscalations, dailyReport } from '../../domain/tools.ts'
 import {
   loadCampaignsFile,
   loadCampaignRunState,
-  statusForPlan,
-  type CampaignPlan,
+  statusForStrategy,
+  type CampaignStrategy,
 } from '../../domain/campaigns.ts'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -110,7 +110,7 @@ function helpReply(): BotReply {
       "/today        today's orders, revenue, pending approvals",
       '/orders       last 10 orders + one-tap approve',
       '/escalations  open escalations',
-      '/campaigns    marketing portfolio + status + approve/launch',
+      '/campaigns    pick ONE strategy (full $500/mo) + approve/launch',
       '/brief        live MCP data brief (sales, margins, GBP demand, reviews)',
       '/reset        clear conversation context',
       '/help         this menu',
@@ -266,31 +266,24 @@ function briefReply(): BotReply {
   }
 }
 
-function statusEmoji(s: 'planned' | 'launched' | 'unknown'): string {
+function statusEmoji(s: 'planned' | 'chosen' | 'launched' | 'unknown'): string {
   if (s === 'launched') return '🟢'
+  if (s === 'chosen') return '🔵'
   if (s === 'unknown') return '🟡'
   return '⚪'
 }
 
-function leverLabel(lever: string): string {
-  if (lever === 'primary') return 'PRIMARY'
-  if (lever === 'primary_support') return 'PRIMARY+'
-  if (lever === 'secondary') return 'SECONDARY'
-  if (lever === 'amplifier') return 'RETARGET'
-  if (lever === 'earned') return 'ORGANIC'
-  return lever.toUpperCase()
-}
-
 /**
- * /campaigns — list the marketing portfolio with status and a button per
- * campaign that opens the detail card. Detail card has "Approve & Launch"
- * for planned campaigns; the callback handler routes that to the sandbox
- * MCP. The plan itself lives in data/campaigns/plans.json (read-only here).
+ * /campaigns — list the 4 alternative marketing strategies (each = full $500
+ * deployment). The recommended one is badged ⭐. The owner picks ONE and
+ * approves; the rest stay visible as alternatives but unspent.
+ *
+ * Plan source: data/campaigns/plans.json (read-only here).
  */
 function campaignsReply(): BotReply {
-  let plans
+  let plan
   try {
-    plans = loadCampaignsFile()
+    plan = loadCampaignsFile()
   } catch (err) {
     return {
       text: `Couldn't read campaign plan: ${(err as Error).message}\n\nIs data/campaigns/plans.json present?`,
@@ -298,30 +291,33 @@ function campaignsReply(): BotReply {
   }
 
   const state = loadCampaignRunState()
-  const launchedCount = plans.campaigns.filter(
-    (c) => statusForPlan(c.id, state).status === 'launched',
-  ).length
+  const launched = plan.strategies.find((s) => statusForStrategy(s.id, state).status === 'launched')
 
   const headerLines = [
-    `Marketing portfolio — $${plans.totalAllocatedUsd}/${plans.constraint.monthlyBudgetUsd} allocated`,
-    `Target: $${plans.constraint.targetEffectUsd} attributable rev (${plans.constraint.challenge})`,
-    `Status: ${launchedCount}/${plans.campaigns.length} launched · last reviewed ${plans.lastReviewed}`,
+    `Marketing strategy — $${plan.constraint.monthlyBudgetUsd}/mo, ONE strategy at a time`,
+    `Target: $${plan.constraint.targetEffectUsd} attributable rev (${plan.constraint.challenge})`,
+    `Recommended: ${plan.recommendation.primary}`,
+    launched ? `Live: ${launched.name}` : `Status: nothing launched yet`,
     '',
-    'Tap a campaign to see the hypothesis and approve.',
+    'Tap a strategy to see the rollout, projection, and approve.',
   ]
 
-  const rows: Array<Array<{ text: string; data: string }>> = plans.campaigns.map((c) => {
-    const st = statusForPlan(c.id, state)
-    const label = `${statusEmoji(st.status)} ${leverLabel(c.lever)} · $${c.budgetUsd} · ${c.name.slice(0, 38)}`
-    return [{ text: label, data: `view_campaign:${c.id}` }]
+  const rows: Array<Array<{ text: string; data: string }>> = plan.strategies.map((s) => {
+    const st = statusForStrategy(s.id, state)
+    const star = s.recommended ? '⭐ ' : '   '
+    const label = `${statusEmoji(st.status)} ${star}$${s.fullBudgetUsd} · ${s.name.slice(0, 36)}`
+    return [{ text: label, data: `view_campaign:${s.id}` }]
   })
+
+  // Always-on organic gets a separate row (it's not a paid strategy)
+  rows.push([{ text: '🌱    $0 · ' + plan.alwaysOnOrganic.name.slice(0, 36), data: `view_organic` }])
 
   return { text: headerLines.join('\n'), keyboard: rows }
 }
 
 /**
  * /campaign <id> — direct deep-link form. Useful for testing without the
- * inline keyboard. Same body as the callback's view_campaign:<id>.
+ * inline keyboard.
  */
 function campaignDetailReply(rawText: string): BotReply {
   const id = rawText.split(/\s+/)[1]?.trim()
@@ -334,61 +330,113 @@ function campaignDetailReply(rawText: string): BotReply {
 }
 
 /**
- * Shared renderer used by /campaign <id> and the view_campaign:<id>
- * callback in callbacks.ts. Exported for callbacks.ts.
+ * Shared renderer for the strategy detail card. Used by /campaign <id> and
+ * the view_campaign:<id> callback in callbacks.ts. Shows ICP, thesis, the
+ * 6-month rollout projections, kill/scale rules, and an Approve & Launch
+ * button if the strategy is still planned.
  */
-export function renderCampaignDetail(planId: string): BotReply {
-  let plans
+export function renderCampaignDetail(strategyId: string): BotReply {
+  let plan
   try {
-    plans = loadCampaignsFile()
+    plan = loadCampaignsFile()
   } catch (err) {
     return { text: `Couldn't read plan: ${(err as Error).message}` }
   }
-  const plan: CampaignPlan | undefined = plans.campaigns.find((c) => c.id === planId)
-  if (!plan) return { text: `No campaign with id "${planId}". Try /campaigns.` }
+
+  if (strategyId === 'organic') {
+    const o = plan.alwaysOnOrganic
+    const lines = [
+      `🌱 ${o.name}`,
+      `Budget: $${o.budgetUsd} (zero ad spend)`,
+      `Effort: ${o.effortRequired}`,
+      '',
+      `Purpose: ${o.purpose}`,
+      '',
+      'Tracks:',
+      ...Object.entries(o.tracks).map(([k, t]) => `  · ${k}: ${t.expectedOutcome}`),
+      '',
+      'Timeline:',
+      ...Object.entries(o.monthlyTimeline).map(([k, v]) => `  ${k}: ${v}`),
+      '',
+      'Runs in parallel with whichever paid strategy is launched.',
+    ]
+    return {
+      text: lines.join('\n'),
+      keyboard: [[{ text: '↩ Back to strategies', data: '/campaigns' }]],
+    }
+  }
+
+  const strategy: CampaignStrategy | undefined = plan.strategies.find((s) => s.id === strategyId)
+  if (!strategy) return { text: `No strategy with id "${strategyId}". Try /campaigns.` }
 
   const state = loadCampaignRunState()
-  const st = statusForPlan(planId, state)
+  const st = statusForStrategy(strategyId, state)
 
-  const hyp = plan.hypothesis as Record<string, unknown>
-  const hypLines = Object.entries(hyp)
-    .slice(0, 8)
-    .map(([k, v]) => `  · ${k}: ${typeof v === 'number' ? v : String(v)}`)
+  const m1 = strategy.monthlyRollout.month1
+  const m3 = strategy.monthlyRollout.month3
+  const m6 = strategy.monthlyRollout.month6
+
+  const fmtOutcome = (o?: Record<string, number | string>) =>
+    o
+      ? Object.entries(o)
+          .slice(0, 4)
+          .map(([k, v]) => `      · ${k}: ${v}`)
+          .join('\n')
+      : '      (no projection)'
 
   const lines: string[] = [
-    `${statusEmoji(st.status)} ${plan.name}`,
-    `Lever: ${leverLabel(plan.lever)} · Budget: $${plan.budgetUsd} · Channel: ${plan.channel}`,
+    `${statusEmoji(st.status)} ${strategy.recommended ? '⭐ ' : ''}${strategy.name}`,
+    `Full budget: $${strategy.fullBudgetUsd}/mo (no split)`,
+    `Channel: ${strategy.primaryChannel}${strategy.secondaryChannel ? ' + ' + strategy.secondaryChannel : ''}`,
+    `Anchor: ${strategy.anchorSku}`,
     '',
-    'ICP:',
-    ...plan.icp.slice(0, 3).map((i) => `  · ${i}`),
+    `Thesis: ${strategy.thesis}`,
     '',
-    'Anchor SKU: ' + plan.anchorSku,
-    plan.supportingSkus.length ? 'Supporting: ' + plan.supportingSkus.join(', ') : '',
-    '',
-    'Offer: ' + plan.offer,
-    '',
-    'Creative strategy: ' + plan.creativeStrategy,
-    '',
-    'Hypothesis:',
-    ...hypLines,
-    '',
-    'Kill: ' + plan.killThreshold,
-    'Scale: ' + plan.scaleThreshold,
-  ].filter(Boolean)
+  ]
+
+  if (strategy.alternativeNote) {
+    lines.push(`Note: ${strategy.alternativeNote}`, '')
+  }
+
+  lines.push('ICP:')
+  for (const i of strategy.icp.slice(0, 3)) lines.push(`  · ${i}`)
+  lines.push('')
+
+  if (m1) {
+    lines.push(`Month 1 — ${m1.phase}`)
+    lines.push(fmtOutcome(m1.expectedOutcomes))
+    lines.push('')
+  }
+  if (m3) {
+    lines.push(`Month 3 — ${m3.phase}`)
+    lines.push(fmtOutcome(m3.expectedOutcomes))
+    lines.push('')
+  }
+  if (m6) {
+    lines.push(`Month 6 — ${m6.phase}`)
+    lines.push(fmtOutcome(m6.expectedOutcomes))
+    lines.push('')
+  }
+
+  lines.push(`Kill: ${strategy.killThresholdsBlended}`)
+  lines.push(`Scale: ${strategy.scaleThresholdsBlended}`)
 
   if (st.status === 'launched' && st.campaignId) {
     lines.push('', `Sandbox campaignId: ${st.campaignId}`, `Leads generated: ${st.leadsGenerated}`)
   }
 
   const keyboard: Array<Array<{ text: string; data: string }>> = []
-  if (st.status === 'planned' && plan.budgetUsd > 0) {
+  if (st.status === 'planned' || st.status === 'chosen') {
     keyboard.push([
-      { text: `✓ Approve & Launch ($${plan.budgetUsd})`, data: `launch_campaign:${plan.id}` },
-      { text: '↩ Back', data: '/campaigns' },
+      {
+        text: `✓ Approve & Launch ($${strategy.fullBudgetUsd}/mo, full budget)`,
+        data: `launch_campaign:${strategy.id}`,
+      },
     ])
+    keyboard.push([{ text: '↩ Back', data: '/campaigns' }])
   } else if (st.status === 'launched') {
     keyboard.push([
-      { text: '📊 Read metrics', data: `metrics_campaign:${plan.id}` },
+      { text: '📊 Read metrics', data: `metrics_campaign:${strategy.id}` },
       { text: '↩ Back', data: '/campaigns' },
     ])
   } else {
