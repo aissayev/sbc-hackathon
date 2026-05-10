@@ -37,8 +37,14 @@ import {
   getOrderStatus,
   createLead,
   createLeadSchema,
+  listOrders,
+  listEscalations,
+  dailyReport,
 } from './domain/tools.ts'
 import { getPolicies } from './domain/policies.ts'
+import { syncCatalogFromSandbox, getLastSync, startCatalogSync } from './domain/catalog-sync.ts'
+import { approveDraftAndPromote, rejectDraft } from './domain/order-orchestration.ts'
+import { postDraftOrderCard } from './bots/owner.ts'
 import { openApiSpec } from './web/openapi.ts'
 import { loadSpacesConfig, uploadToSpaces, buildUploadKey, UPLOAD_LIMITS } from './lib/spaces.ts'
 
@@ -151,6 +157,32 @@ app.get('/api/products/:id', (c) => {
 app.get('/openapi.json', (c) => c.json(openApiSpec()))
 app.get('/api/policies', (c) => c.json(getPolicies()))
 
+// ─── Catalog (sandbox MCP-mirrored, served from SQLite) ──────────────────
+// The website calls this — never the MCP directly. The agent still calls the
+// sandbox tool itself (rubric requirement); this endpoint is for the storefront.
+app.get('/api/catalog', (c) => {
+  const products = listProducts({ in_stock_only: false })
+  const sync = getLastSync()
+  return c.json({
+    products,
+    sync: sync ? { ok: sync.ok, at: sync.at, matched: sync.matched, error: sync.error } : null,
+  })
+})
+
+// On-demand refresh. Gated by a shared secret so it can't be triggered by the
+// public internet. Disabled entirely when CATALOG_SYNC_SECRET is unset.
+app.post('/api/catalog/sync', async (c) => {
+  if (!config.catalog.syncSecret) {
+    return c.json({ error: 'sync endpoint disabled (CATALOG_SYNC_SECRET not set)' }, 503)
+  }
+  const provided = c.req.header('x-sync-secret')
+  if (provided !== config.catalog.syncSecret) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+  const result = await syncCatalogFromSandbox()
+  return c.json(result, result.ok ? 200 : 502)
+})
+
 // ─── Orders API (customer-side direct order flow) ────────────────────────
 
 app.post('/api/orders/draft', async (c) => {
@@ -168,8 +200,11 @@ app.post('/api/orders/draft', async (c) => {
   if (!result.ok) {
     return c.json(result, 400)
   }
-  // Status is `draft`. The owner approves via Telegram or admin UI; that flow
-  // promotes to sandbox `square_create_order` + `kitchen_create_ticket`.
+  // Web-submitted drafts also need to ping the owner — same card the agent
+  // would post via the MCP `create_draft_order` tool. Best-effort; never blocks.
+  postDraftOrderCard(result.order_id).catch((err) =>
+    console.error('[orders/draft] postDraftOrderCard failed:', (err as Error).message),
+  )
   return c.json({
     order_id: result.order_id,
     total_cents: result.total_cents,
@@ -186,6 +221,46 @@ app.get('/api/orders/:id', (c) => {
     return c.json(status, 404)
   }
   return c.json(status)
+})
+
+// ─── Owner admin API (powers /admin/* in the website) ────────────────────
+//
+// ⚠️ HACKATHON-MODE OPEN ACCESS:
+// These routes are intentionally unauthenticated for the build window — the
+// admin pages are owner-facing per the brief ("owner UI is Telegram only" is
+// the agent constraint; the website's /admin/* is a Mini-App-style surface
+// for the owner). For any public deploy, gate behind cookie auth or the
+// X-Telegram-Init-Data header (Mini App pattern).
+app.get('/api/admin/today', (c) => c.json(dailyReport()))
+app.get('/api/admin/orders', (c) => {
+  const status = c.req.query('status') ?? undefined
+  return c.json({ orders: listOrders({ status }) })
+})
+app.get('/api/admin/orders/:id', (c) => {
+  const id = c.req.param('id')
+  const status = getOrderStatus({ order_id: id }) as Record<string, unknown>
+  if (status && 'ok' in status && status.ok === false) return c.json(status, 404)
+  return c.json(status)
+})
+app.get('/api/admin/escalations', (c) => {
+  const status = c.req.query('status') ?? undefined
+  return c.json({ escalations: listEscalations({ status }) })
+})
+
+app.post('/api/admin/orders/:id/approve', async (c) => {
+  const id = c.req.param('id')
+  const result = await approveDraftAndPromote(id)
+  return c.json(result, result.ok ? 200 : 400)
+})
+app.post('/api/admin/orders/:id/reject', async (c) => {
+  const id = c.req.param('id')
+  let body: { reason?: string } = {}
+  try {
+    body = (await c.req.json()) as { reason?: string }
+  } catch {}
+  const reason = (body.reason ?? '').trim() || 'Owner declined via admin'
+  const result = await rejectDraft(id, reason)
+  return c.json(result, result.ok ? 200 : 400)
 })
 
 // ─── Leads (B2B + custom-cake funnels) ───────────────────────────────────
@@ -342,6 +417,30 @@ console.log(`[server] starting on :${config.port} channels=${configuredChannels(
 console.log(`[server] agent=${config.agent.enabled ? config.agent.model : 'disabled'}`)
 console.log(`[server] sandbox_mcp=${config.sandbox.mcpUrl} token=${config.sandbox.teamToken ? 'set' : 'MISSING'}`)
 console.log(`[server] telegram bots: ${configuredBots().map((b) => b.role).join(', ') || '(none)'}`)
+
+// Multi-owner whitelist visibility. Open mode is intentional during the
+// hackathon (so we can collect team chat ids by having them message the bot
+// and reading the logs) but it MUST be closed before any public deploy —
+// the warning below is the single signal we surface for that.
+const ownerWhitelist = config.telegram.owner.chatIds
+if (config.telegram.owner.token) {
+  if (ownerWhitelist.length === 0) {
+    console.warn('[server] ⚠️  TG OWNER WHITELIST: OPEN MODE — any chat may interact with the owner bot')
+    console.warn('[server]    Set TG_OWNER_CHAT_IDS=chatA,chatB,... before production deploy.')
+  } else {
+    console.log(`[server] telegram owner whitelist: ${ownerWhitelist.length} chat id(s)`)
+  }
+}
+
+// Catalog sync runs only when we have a sandbox token; without it the call
+// would fail every tick and pollute logs. The website still renders from the
+// seeded SQLite mirror in that case.
+if (config.sandbox.teamToken && config.catalog.syncIntervalMs > 0) {
+  startCatalogSync(config.catalog.syncIntervalMs)
+  console.log(`[server] catalog sync: every ${config.catalog.syncIntervalMs}ms`)
+} else {
+  console.log('[server] catalog sync: disabled (no token or interval=0)')
+}
 
 // One-shot boot ping so the owner sees the server come up. Verbose-only by
 // default — set TG_OWNER_LOG_LEVEL=verbose to see system events in TG.

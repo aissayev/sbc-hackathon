@@ -73,6 +73,7 @@ const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__local__create_draft_order',
     'mcp__local__get_order_status',
     'mcp__local__escalate_to_owner',
+    'mcp__local__brand_lookup',
   ],
   kitchen: [
     'mcp__happycake__kitchen_create_ticket',
@@ -85,6 +86,7 @@ const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__local__get_order_status',
     'mcp__local__list_orders',
     'mcp__local__notify_customer',
+    'mcp__local__brand_lookup',
   ],
   marketing: [
     'mcp__happycake__marketing_create_campaign',
@@ -101,6 +103,7 @@ const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__happycake__square_recent_sales_csv',
     'mcp__happycake__gb_simulate_post',
     'mcp__local__queue_owner_approval',
+    'mcp__local__brand_lookup',
   ],
   owner: [
     'mcp__local__list_orders',
@@ -108,6 +111,7 @@ const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__local__approve_order',
     'mcp__local__reject_order',
     'mcp__local__daily_report',
+    'mcp__local__brand_lookup',
     'mcp__happycake__evaluator_get_evidence_summary',
     'mcp__happycake__evaluator_generate_team_report',
     'mcp__happycake__square_get_pos_summary',

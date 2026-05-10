@@ -15,7 +15,6 @@
     "agent:kitchen": "bun src/scripts/agent-cli.ts kitchen",
     "agent:marketing": "bun src/scripts/agent-cli.ts marketing",
     "agent:owner": "bun src/scripts/agent-cli.ts owner",
-    "smoke:wa": "bun src/scripts/smoke-wa.ts",
     "mcp:local": "bun src/agent/mcp/local-server.ts",
     "db:init": "bun src/scripts/db-init.ts",
     "db:seed": "bun src/scripts/db-init.ts --seed",

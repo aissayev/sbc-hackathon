@@ -4,6 +4,21 @@
 
 import { envGet, envBool } from './lib/env.ts'
 
+function parseChatIds(raw: string | undefined): string[] {
+  if (!raw) return []
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+}
+
+// Multi-owner whitelist parsed once: TG_OWNER_CHAT_IDS preferred (comma-
+// separated), legacy TG_OWNER_CHAT_ID falls back. The first entry is also
+// exposed as `chatId` (singular) so older single-recipient call sites
+// (src/bots/owner/log.ts, cards.ts, src/agent/router.ts) keep working
+// without a sweep.
+const _ownerChatIds = parseChatIds(envGet('TG_OWNER_CHAT_IDS') ?? envGet('TG_OWNER_CHAT_ID'))
+
 export const config = {
   port: Number(envGet('PORT') ?? 3000),
   publicUrl: envGet('PUBLIC_URL'),
@@ -21,7 +36,17 @@ export const config = {
   },
 
   telegram: {
-    owner: { token: envGet('TG_OWNER_BOT_TOKEN'), chatId: envGet('TG_OWNER_CHAT_ID') },
+    owner: {
+      token: envGet('TG_OWNER_BOT_TOKEN'),
+      // ⚠️ HACKATHON-MODE OPEN ACCESS:
+      // When `chatIds` is empty, the owner bot accepts inbound from ANY
+      // chat (so we can iterate fast while collecting team chat ids). For
+      // production this MUST become a closed whitelist — anyone who finds
+      // the bot URL could otherwise approve drafts. The boot-time logger
+      // surfaces a clear "OPEN MODE" warning when the list is empty.
+      chatIds: _ownerChatIds,
+      chatId: _ownerChatIds[0], // back-compat for single-owner callers
+    },
     concierge: { token: envGet('TG_CONCIERGE_BOT_TOKEN') },
     kitchen: { token: envGet('TG_KITCHEN_BOT_TOKEN') },
     marketing: { token: envGet('TG_MARKETING_BOT_TOKEN') },
@@ -32,6 +57,9 @@ export const config = {
     token: envGet('WA_TOKEN'),
     verifyToken: envGet('WA_VERIFY_TOKEN') ?? 'happycake_verify_2026',
     wabaId: envGet('WA_BUSINESS_ACCOUNT_ID'),
+    // Meta App Secret for HMAC signature verification on inbound webhooks.
+    // When unset, sandbox-injected unsigned bodies are accepted (dev path).
+    appSecret: envGet('WA_APP_SECRET'),
     // 'real' = Meta Cloud API only (human demo).
     // 'sandbox' = sandbox MCP `whatsapp_send` only (eval scoring).
     // 'both' = call both backends in parallel (default — best for the hackathon).
@@ -53,6 +81,16 @@ export const config = {
 
   features: {
     worldScenario: envBool('WORLD_SCENARIO_ENABLED', false),
+  },
+
+  catalog: {
+    // How often the backend re-pulls `square_list_catalog` from the sandbox MCP
+    // and refreshes the local SQLite mirror. 0 disables periodic sync (still
+    // syncs once at startup).
+    syncIntervalMs: Number(envGet('CATALOG_SYNC_INTERVAL_MS') ?? 5 * 60 * 1000),
+    // Shared secret required to call POST /api/catalog/sync. Unset = endpoint
+    // disabled (only programmatic + scheduled refresh allowed).
+    syncSecret: envGet('CATALOG_SYNC_SECRET'),
   },
 } as const
 

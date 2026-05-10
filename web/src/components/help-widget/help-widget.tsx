@@ -34,6 +34,10 @@ function shouldHide(pathname: string | null): boolean {
   if (!pathname) return false
   if (pathname.startsWith('/admin')) return true
   if (pathname === '/chat') return true
+  // /track/[code]?embed=1 renders inside an iframe on partner / our own pages;
+  // a floating widget overlapping the host page would be jarring. The page's
+  // embed-mode CSS hides it too, but skipping the render here saves a paint.
+  if (pathname.startsWith('/track/') && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('embed') === '1') return true
   return false
 }
 
