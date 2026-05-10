@@ -31,6 +31,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { DELIVERY_CITIES, validateZipForDelivery } from '@/lib/delivery'
+import { AddressAutocomplete } from './address-autocomplete'
 
 // Browser-side thread id reused across visits so admin can correlate web-form
 // orders with prior chat threads from the same browser. Persisted in
@@ -97,23 +98,44 @@ async function postJson<T>(
   return { ok: true, data: data as T }
 }
 
+// Min digit count for any reachable phone — covers US 10-digit numbers
+// (with or without +1) and most international formats. We don't enforce
+// E.164 because the kitchen calls back via WhatsApp first; a permissive
+// check here keeps real customers in and obvious garbage out.
+const PHONE_REGEX = /^[+()\d\s\-.]+$/
+
 const baseSchema = z.object({
   items: z
     .array(
       z.object({
         product_id: z.string().min(1, 'Pick a cake'),
-        quantity: z.coerce.number().int().positive().max(50),
+        quantity: z.coerce
+          .number({ invalid_type_error: 'Quantity must be a number' })
+          .int('Whole numbers only')
+          .positive('At least one of each')
+          .max(50, 'Max 50 per cake — for bigger orders, talk to us in chat'),
       }),
     )
     .min(1, 'Add at least one cake'),
-  scheduled_at_iso: z.string().min(1, 'When would you like it?'),
+  scheduled_at_iso: z.string().min(1, 'Pick a pickup or delivery time'),
   pickup_or_delivery: z.enum(['pickup', 'delivery']),
-  customer_name: z.string().min(1, 'Your name'),
-  customer_phone: z.string().min(7, 'Phone or WhatsApp number'),
-  notes: z.string().optional(),
+  customer_name: z
+    .string()
+    .trim()
+    .min(2, 'Your name (so we can label the box)')
+    .max(80, 'That looks long — is it a typo?'),
+  customer_phone: z
+    .string()
+    .trim()
+    .min(7, 'Phone or WhatsApp number')
+    .max(20, 'That looks long — is it a typo?')
+    .regex(PHONE_REGEX, 'Use digits, spaces, +, -, ( or )')
+    .refine((s) => s.replace(/\D/g, '').length >= 7, 'Need at least 7 digits'),
+  notes: z.string().max(500, 'Keep notes under 500 characters').optional(),
   // Delivery-only — validated conditionally below.
   street: z.string().optional(),
   city: z.string().optional(),
+  state: z.string().optional(),
   zip: z.string().optional(),
 })
 
@@ -124,6 +146,15 @@ const schema = baseSchema.superRefine((v, ctx) => {
   }
   if (!v.city || v.city.trim().length < 2) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['city'], message: 'City required for delivery.' })
+  }
+  if (!v.state || v.state.trim().length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['state'], message: 'State required.' })
+  } else if (v.state.toUpperCase() !== 'TX') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['state'],
+      message: 'We deliver in Texas only — try pickup or chat for a custom quote.',
+    })
   }
   const zipCheck = validateZipForDelivery(v.zip ?? '')
   if (!zipCheck.ok) {
@@ -162,7 +193,7 @@ function fieldsForStep(stepKey: StepKey, deliveryMode: boolean, itemsCount: numb
   }
   if (stepKey === 'when') {
     return deliveryMode
-      ? (['scheduled_at_iso', 'pickup_or_delivery', 'street', 'city', 'zip'] as const)
+      ? (['scheduled_at_iso', 'pickup_or_delivery', 'street', 'city', 'state', 'zip'] as const)
       : (['scheduled_at_iso', 'pickup_or_delivery'] as const)
   }
   return ['customer_name', 'customer_phone'] as const
@@ -197,6 +228,7 @@ export function OrderForm({ products }: { products: Product[] }) {
   const [stepIdx, setStepIdx] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const formRef = React.useRef<HTMLFormElement>(null)
 
   const minWhen = React.useMemo(() => {
     const minDate = new Date(Date.now() + 60 * 60 * 1000)
@@ -216,6 +248,7 @@ export function OrderForm({ products }: { products: Product[] }) {
       notes: '',
       street: '',
       city: 'Sugar Land',
+      state: 'TX',
       zip: '',
     },
   })
@@ -239,17 +272,31 @@ export function OrderForm({ products }: { products: Product[] }) {
     }, 0)
   }, [watchItems, products])
 
+  // Scroll the form (not the page) into view on step change so the user
+  // sees the new step header. Only do it when the form is below the
+  // viewport — on desktop the whole wizard fits on screen and snapping
+  // to the top causes a jarring "bounce" the user complained about.
+  function nudgeFormIntoView() {
+    const el = formRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    if (rect.top >= 0 && rect.top <= 80) return
+    el.scrollIntoView({ block: 'start', behavior: 'auto' })
+    // Account for the sticky header so the title isn't tucked behind it.
+    requestAnimationFrame(() => window.scrollBy({ top: -80, behavior: 'auto' }))
+  }
+
   async function onNext() {
     const fields = fieldsForStep(step.key, mode === 'delivery', watchItems.length)
     const ok = await form.trigger(fields as Parameters<typeof form.trigger>[0])
     if (!ok) return
     setStepIdx((i) => Math.min(STEPS.length - 1, i + 1))
-    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+    requestAnimationFrame(nudgeFormIntoView)
   }
 
   function onBack() {
     setStepIdx((i) => Math.max(0, i - 1))
-    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+    requestAnimationFrame(nudgeFormIntoView)
   }
 
   async function onSubmit(values: FormValues) {
@@ -261,7 +308,7 @@ export function OrderForm({ products }: { products: Product[] }) {
     // This keeps the kitchen-facing ticket honest without changing the API.
     const addressLine =
       values.pickup_or_delivery === 'delivery'
-        ? `Deliver to: ${values.street}, ${values.city}, TX ${values.zip}`
+        ? `Deliver to: ${values.street}, ${values.city}, ${values.state ?? 'TX'} ${values.zip}`
         : null
     const composedNotes = [addressLine, values.notes?.trim() || null].filter(Boolean).join('\n')
 
@@ -288,7 +335,11 @@ export function OrderForm({ products }: { products: Product[] }) {
   const isLast = stepIdx === STEPS.length - 1
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-[1fr_360px]">
+    <form
+      ref={formRef}
+      onSubmit={form.handleSubmit(onSubmit)}
+      className="grid gap-8 lg:grid-cols-[1fr_360px] scroll-mt-24"
+    >
       <div>
         <ProgressRail stepIdx={stepIdx} />
 
@@ -337,7 +388,17 @@ export function OrderForm({ products }: { products: Product[] }) {
         )}
       </div>
 
-      <BasketAside watchItems={watchItems} products={products} mode={mode} total={total} stepIdx={stepIdx} />
+      <BasketAside
+        watchItems={watchItems}
+        products={products}
+        mode={mode}
+        total={total}
+        stepIdx={stepIdx}
+        onAddMore={() => {
+          setStepIdx(0)
+          requestAnimationFrame(nudgeFormIntoView)
+        }}
+      />
     </form>
   )
 }
@@ -499,13 +560,13 @@ function CakesStep({
           </div>
         )
       })}
-      <Button
+      <button
         type="button"
-        variant="secondary"
         onClick={() => append({ product_id: products[0]?.id ?? '', quantity: 1 })}
+        className="mt-1 w-full inline-flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-cocoa-700/25 bg-cream-50/40 py-4 text-sm font-medium text-cocoa-900/75 hover:border-cocoa-700/50 hover:bg-cream-100 hover:text-cocoa-900 transition-colors"
       >
-        <Plus className="h-4 w-4" /> Add another cake
-      </Button>
+        <Plus className="h-4 w-4" /> Add another cake to this order
+      </button>
     </div>
   )
 }
@@ -587,58 +648,29 @@ function WhenStep({
             We deliver to {DELIVERY_CITIES.slice(0, 5).join(', ')}, and Greater Houston (ZIPs starting 770–777).
             Outside that? <a href="/chat" className="text-sky-700 underline">Message us</a> for a custom quote.
           </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-[2fr_1fr_1fr]">
-            <div>
-              <Label htmlFor="street">Street address</Label>
-              <Input
-                id="street"
-                placeholder="123 Main St"
-                autoComplete="address-line1"
-                {...form.register('street')}
-                className="mt-1"
-              />
-              {form.formState.errors.street && (
-                <p className="mt-1 text-xs text-berry">{form.formState.errors.street.message}</p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                list="hc-delivery-cities"
-                autoComplete="address-level2"
-                {...form.register('city')}
-                className="mt-1"
-              />
-              <datalist id="hc-delivery-cities">
-                {DELIVERY_CITIES.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              {form.formState.errors.city && (
-                <p className="mt-1 text-xs text-berry">{form.formState.errors.city.message}</p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="zip">ZIP</Label>
-              <Input
-                id="zip"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={5}
-                placeholder="77478"
-                autoComplete="postal-code"
-                {...form.register('zip')}
-                className="mt-1"
-              />
-              {form.formState.errors.zip && (
-                <p className="mt-1 text-xs text-berry">{form.formState.errors.zip.message}</p>
-              )}
-            </div>
+          <div className="mt-4">
+            <AddressAutocomplete
+              value={{
+                street: form.watch('street') ?? '',
+                city: form.watch('city') ?? '',
+                state: form.watch('state') ?? '',
+                zip: form.watch('zip') ?? '',
+              }}
+              onChange={(next) => {
+                form.setValue('street', next.street, { shouldDirty: true, shouldValidate: false })
+                form.setValue('city', next.city, { shouldDirty: true, shouldValidate: false })
+                form.setValue('state', next.state, { shouldDirty: true, shouldValidate: false })
+                form.setValue('zip', next.zip, { shouldDirty: true, shouldValidate: false })
+              }}
+              errors={{
+                street: form.formState.errors.street?.message as string | undefined,
+                city: form.formState.errors.city?.message as string | undefined,
+                state: form.formState.errors.state?.message as string | undefined,
+                zip: form.formState.errors.zip?.message as string | undefined,
+              }}
+              cityHints={DELIVERY_CITIES}
+            />
           </div>
-          <p className="mt-3 text-xs text-cocoa-900/55">
-            State is locked to <span className="font-medium">TX</span> — we don&apos;t deliver out of state.
-          </p>
         </div>
       )}
     </div>
@@ -690,12 +722,14 @@ function BasketAside({
   mode,
   total,
   stepIdx,
+  onAddMore,
 }: {
   watchItems: FormValues['items']
   products: Product[]
   mode: 'pickup' | 'delivery'
   total: number
   stepIdx: number
+  onAddMore: () => void
 }) {
   return (
     <aside className="lg:sticky lg:top-28 self-start rounded-lg bg-cream-100 border border-cocoa-700/15 p-6">
@@ -718,6 +752,16 @@ function BasketAside({
           )
         })}
       </ul>
+      {/* Always-on shortcut back to step 1. From later steps it's the only
+          way to add another cake without losing the address / contact
+          inputs the user already filled in. */}
+      <button
+        type="button"
+        onClick={onAddMore}
+        className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-md border border-dashed border-cocoa-700/30 py-2 text-xs font-medium text-cocoa-900/75 hover:border-cocoa-700/60 hover:bg-white hover:text-cocoa-900 transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" /> Add another cake
+      </button>
       <div className="mt-4 border-t border-cocoa-700/15 pt-4 flex items-end justify-between">
         <span className="text-xs uppercase tracking-[0.16em] text-cocoa-900/60">Subtotal</span>
         <span className="text-2xl font-medium text-cocoa-900">{fmtUsd(total)}</span>
