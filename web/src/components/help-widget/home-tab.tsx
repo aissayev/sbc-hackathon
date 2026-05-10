@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { ArrowRight, MessageSquareHeart, Search, Package, ChevronDown } from 'lucide-react'
-import { Wordmark } from '@/components/brand/wordmark'
 import { TrackOrder } from './track-order'
 
 export function HomeTab({ onAsk, onOpenHelp }: { onAsk: () => void; onOpenHelp: () => void }) {
@@ -18,14 +17,14 @@ export function HomeTab({ onAsk, onOpenHelp }: { onAsk: () => void; onOpenHelp: 
   )
 }
 
-// Coloured banner that fades into the body. Mirrors Intercom's "tinted top
-// strip with greeting" pattern but uses our brand sky → cream so the cards
-// below sit on the cream surface and lift visually.
+// Coloured banner that fades into the body. Solid sky → sky-700 so it stays
+// fully opaque (the previous /85 variant let page content bleed through on
+// mobile). The greeting alone is the "brand" here — visitors already know
+// whose widget they're in, so a wordmark on top would be visual noise.
 function Hero() {
   return (
-    <div className="relative bg-gradient-to-b from-sky to-sky/85 text-white px-5 pt-6 pb-12">
-      <Wordmark variant="wordmark-only" className="text-base text-white" />
-      <h2 className="mt-5 font-display text-[26px] leading-tight">
+    <div className="relative bg-gradient-to-b from-sky to-sky-700 text-white px-5 pt-7 pb-14">
+      <h2 className="font-display text-[26px] leading-tight">
         Hi <span aria-hidden>👋</span>
       </h2>
       <p className="mt-1 font-display text-[26px] leading-tight">

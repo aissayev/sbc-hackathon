@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronLeft, ChevronRight, MessageCircle, Plus, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageCircle, Plus, Sparkles, X } from 'lucide-react'
 import { ChatView } from './chat-view'
 import { formatChatTime, type ChatMessage } from '@/lib/use-chat'
 import { cn } from '@/lib/utils'
@@ -48,21 +48,31 @@ export function MessagesTab({
   view,
   onOpenChat,
   onBackToList,
+  onClose,
 }: {
   view: 'list' | 'chat'
   onOpenChat: () => void
   onBackToList: () => void
+  onClose: () => void
 }) {
   if (view === 'chat') {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <div className="px-3 py-2 border-b border-cocoa-700/8 bg-cream-50 shrink-0">
+        <div className="px-3 py-2 border-b border-cocoa-700/8 bg-cream-50 shrink-0 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={onBackToList}
             className="text-sm text-sky-700 hover:text-sky inline-flex items-center gap-1"
           >
             <ChevronLeft className="h-4 w-4" /> All conversations
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-cream-100 text-cocoa-900"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
         <div className="flex-1 min-h-0">

@@ -9,5 +9,12 @@ export {
 export { handleOwnerCallback } from './callbacks.ts'
 export { postDraftOrderCard, postEscalationCard } from './cards.ts'
 export { sendOwnerThinking, finalizeOwnerThinking, makeOwnerStreamSink } from './live.ts'
-export { logToOwner, logInbound, logOutbound, logError, logSystem } from './log.ts'
+export {
+  logToOwner,
+  logInbound,
+  logOutbound,
+  logError,
+  logSystem,
+  logVoiceTranscription,
+} from './log.ts'
 export { handleOwnerAsyncCommand } from './inbox-reviews.ts'

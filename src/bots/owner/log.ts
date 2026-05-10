@@ -151,3 +151,40 @@ export function logError(channel: string, threadId: string, message: string): vo
 export function logSystem(summary: string, level: 'always' | 'verbose' = 'verbose'): void {
   void logToOwner('system', `🔧 ${summary}`, level)
 }
+
+/**
+ * `🎙 [tg] 12345…→ owner (russian, 4.2s, 1840ms): "Привет, как дела"`
+ *
+ * Logged in addition to the regular `logInbound` line so the owner has an
+ * audit trail of WHAT was heard from voice notes (Whisper isn't perfect,
+ * especially with accents — seeing the transcript in the log lets the owner
+ * spot misrecognitions).
+ *
+ * `transformedTo` is set when we mapped a spoken keyword to a slash command
+ * (e.g. transcript "brief" → command `/brief`). Helps debug the voice
+ * shortcut layer.
+ */
+export function logVoiceTranscription(args: {
+  role: string
+  threadId: string
+  transcript: string
+  languageCode?: string
+  durationSec?: number
+  latencyMs: number
+  transformedTo?: string
+}): void {
+  const lang = args.languageCode ?? 'auto'
+  const dur = args.durationSec != null ? `${args.durationSec.toFixed(1)}s` : '?s'
+  const head = `🎙 [tg] ${shortThread(args.threadId)} → ${args.role} (${lang}, ${dur}, ${args.latencyMs}ms)`
+  const body = args.transformedTo
+    ? `: "${truncate(args.transcript, 80)}" → ${args.transformedTo}`
+    : `: "${truncate(args.transcript, 80)}"`
+  void logToOwner('inbound', `${head}${body}`)
+  // Console-side: full transcript (no truncation) so it's recoverable from
+  // the server logs even if the TG channel rolls.
+  console.log(
+    `[voice] role=${args.role} thread=${args.threadId} lang=${lang} dur=${dur} latency=${args.latencyMs}ms${
+      args.transformedTo ? ` cmd=${args.transformedTo}` : ''
+    } text="${args.transcript.replace(/\n/g, ' ')}"`,
+  )
+}

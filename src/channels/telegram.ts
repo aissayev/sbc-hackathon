@@ -129,6 +129,29 @@ export async function editTelegramMessage(
 }
 
 /**
+ * Download a file from Telegram by file_id.
+ *
+ * Two-step: getFile returns a `file_path`, then we GET it from
+ * `api.telegram.org/file/bot<TOKEN>/<file_path>`. Voice messages are .ogg
+ * Opus. Telegram caps file_path at 20MB which is far beyond any voice note.
+ */
+export async function downloadTelegramFile(
+  token: string,
+  fileId: string,
+): Promise<{ buffer: Uint8Array; filePath: string }> {
+  const meta = await tgRequest<{ result?: { file_path?: string } }>(token, 'getFile', {
+    file_id: fileId,
+  })
+  const filePath = meta.result?.file_path
+  if (!filePath) throw new Error(`Telegram getFile returned no file_path for ${fileId}`)
+  const url = `${TG_API}/file/bot${token}/${filePath}`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Telegram file download ${res.status} for ${filePath}`)
+  const buf = new Uint8Array(await res.arrayBuffer())
+  return { buffer: buf, filePath }
+}
+
+/**
  * Show "typing..." in the operator's chat. Indicator auto-clears after ~5s
  * or when the next message arrives, so we re-emit it during long agent runs.
  */
@@ -155,12 +178,33 @@ interface TgChat {
   type: string
 }
 
+interface TgVoice {
+  file_id: string
+  file_unique_id: string
+  duration: number
+  mime_type?: string
+  file_size?: number
+}
+
+interface TgAudio {
+  file_id: string
+  file_unique_id: string
+  duration: number
+  mime_type?: string
+  title?: string
+  performer?: string
+  file_size?: number
+}
+
 interface TgMessage {
   message_id: number
   from?: TgUser
   chat: TgChat
   date: number
   text?: string
+  caption?: string
+  voice?: TgVoice
+  audio?: TgAudio
 }
 
 interface TgCallbackQuery {
