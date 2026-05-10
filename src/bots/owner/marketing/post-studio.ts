@@ -190,8 +190,12 @@ export async function handleStudioCallback(data: string, chatId: string): Promis
       return true
     }
     case 'stats':
-      await sendTelegram(token, chatId, 'Stats coming in Phase 3 — campaigns + analytics layer.')
+    case 'stats_rebuild': {
+      const { handleStatsCommand } = await import('./stats.ts')
+      const reply = await handleStatsCommand()
+      await sendTelegram(token, chatId, reply.text, reply.keyboard)
       return true
+    }
     default:
       return false
   }

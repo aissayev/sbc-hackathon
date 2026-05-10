@@ -186,3 +186,16 @@ CREATE TABLE IF NOT EXISTS content_plan_slots (
 
 CREATE INDEX IF NOT EXISTS idx_slots_week ON content_plan_slots(iso_week);
 CREATE INDEX IF NOT EXISTS idx_slots_status ON content_plan_slots(status);
+
+-- ─── Analytics: digital-presence snapshots ──────────────────────────────
+-- Hourly snapshot of the brand's digital health. Cheap to rebuild; we cache
+-- so /stats is instant even when the sandbox MCP is slow. One row per
+-- ISO date is enough for the daily-delta line; intra-day rebuilds upsert.
+--
+-- payload_json schema is owned by src/domain/analytics/metrics.ts — keep
+-- that file in sync with what's read here.
+CREATE TABLE IF NOT EXISTS digital_presence_snapshots (
+  iso_date        TEXT PRIMARY KEY,         -- "2026-05-09"
+  payload_json    TEXT NOT NULL,
+  built_at        INTEGER NOT NULL
+);

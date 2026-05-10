@@ -33,6 +33,8 @@ export {
   handleEngagementCallback,
 } from './engagement-inbox.ts'
 
+export { handleStatsCommand } from './stats.ts'
+
 import { isoWeekOf } from '../../../domain/content-studio/index.ts'
 import { draftService, planService } from './post-studio.ts'
 import { renderPlanWeek, renderDraftsList } from './presenter.ts'

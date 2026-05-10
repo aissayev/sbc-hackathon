@@ -45,6 +45,7 @@ import {
   handleEngagementCallback,
 } from './bots/owner/marketing/index.ts'
 import { startContentScheduler } from './domain/content-studio/scheduler.ts'
+import { startSnapshotScheduler } from './domain/analytics/index.ts'
 import { clearHistory } from './db/threads.ts'
 import { startCatalogSync } from './domain/catalog-sync.ts'
 
@@ -237,6 +238,17 @@ if (config.sandbox.teamToken && config.catalog.syncIntervalMs > 0) {
     console.log(`[server] content scheduler: every ${intervalMs}ms`)
   } else {
     console.log('[server] content scheduler: disabled (interval=0)')
+  }
+}
+
+// Analytics snapshot rebuilder: hourly. Cheap; owner /stats reads cached row.
+{
+  const intervalMs = Number(process.env.SNAPSHOT_INTERVAL_MS ?? 60 * 60 * 1000)
+  if (intervalMs > 0) {
+    startSnapshotScheduler({ intervalMs })
+    console.log(`[server] snapshot scheduler: every ${intervalMs}ms`)
+  } else {
+    console.log('[server] snapshot scheduler: disabled (interval=0)')
   }
 }
 
