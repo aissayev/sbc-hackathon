@@ -136,19 +136,19 @@ async function fetchLiveSignals(): Promise<Map<string, LiveSignal> | null> {
   return out
 }
 
-export async function listProducts(): Promise<Product[]> {
+export async function listProducts(opts?: { includeOutOfStock?: boolean }): Promise<Product[]> {
   const live = await fetchLiveSignals()
-  return CATALOG
-    .map((p) => {
-      const sig = live?.get(p.id)
-      if (!sig) return p
-      return {
-        ...p,
-        in_stock: sig.in_stock ?? p.in_stock,
-        daily_capacity: sig.daily_capacity ?? p.daily_capacity,
-      }
-    })
-    .filter((p) => p.in_stock)
+  const merged = CATALOG.map((p) => {
+    const sig = live?.get(p.id)
+    if (!sig) return p
+    return {
+      ...p,
+      in_stock: sig.in_stock ?? p.in_stock,
+      daily_capacity: sig.daily_capacity ?? p.daily_capacity,
+    }
+  })
+  if (opts?.includeOutOfStock) return merged
+  return merged.filter((p) => p.in_stock)
 }
 
 export async function getProduct(id: string): Promise<Product | null> {

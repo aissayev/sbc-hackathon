@@ -14,6 +14,8 @@ import { Testimonials } from '@/components/sections/testimonials'
 import { NewsletterBand } from '@/components/sections/newsletter-band'
 import { VisitBand } from '@/components/sections/visit-band'
 import { ThreeWaysBand } from '@/components/sections/three-ways-band'
+import { ShowcaseRow } from '@/components/sections/showcase-row'
+import { DeliveryZones } from '@/components/sections/delivery-zones'
 import {
   ArrowRight,
   Sparkles,
@@ -34,17 +36,11 @@ export const revalidate = 60
 const PILLAR_ICONS = { sparkles: Sparkles, coffee: Coffee, gift: Gift, heart: Heart } as const
 
 export default async function HomePage() {
-  const products = await listProducts()
-  // Pull one of each major kind so the home grid reads as the case browser
-  // would: by-the-slice, whole, pastry, custom. This also addresses
-  // "show by slice, whole cake separation" without rebuilding /menu.
-  const pickByKind = (kind: string) => products.find((p) => p.kind === kind)
-  const featured = [
-    pickByKind('slice'),
-    pickByKind('whole'),
-    pickByKind('pastry'),
-    pickByKind('custom'),
-  ].filter((p): p is NonNullable<typeof p> => Boolean(p))
+  // includeOutOfStock so the showcase can surface the "Out today" state via
+  // the card itself instead of silently dropping anything Askhat marked
+  // unavailable. The Hero's quick-order picker uses an in-stock-only slice.
+  const products = await listProducts({ includeOutOfStock: true })
+  const inStockProducts = products.filter((p) => p.in_stock)
 
   const localBusinessJsonLd = {
     '@context': 'https://schema.org',
@@ -88,37 +84,10 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
-      <Hero products={products} />
+      <Hero products={inStockProducts} />
       <Pillars />
 
-      <section className="container mt-24">
-        <div className="flex items-end justify-between flex-wrap gap-4 mb-3">
-          <div>
-            <Eyebrow>Today&apos;s bake</Eyebrow>
-            <h2 className="display-h2 mt-3">No two cakes the same</h2>
-            <p className="mt-2 text-cocoa-900/70 max-w-xl">
-              Every cake in the case comes from a different tradition — Kazakh honey, modern
-              meringue, Italian classic, French chocolate. Worth trying all of them.
-            </p>
-          </div>
-          <Button asChild variant="outline-sky" shape="pill" size="default">
-            <Link href="/menu">
-              See the full menu
-              <ArrowRight />
-            </Link>
-          </Button>
-        </div>
-        {/* Showcase row: each cake is genuinely unique on the market — the
-            collectible-style card surfaces its tradition (Kazakh-European
-            honey, modern meringue, Italian classic, celebration), its flavor
-            stack, and a one-line tagline. Equal-height tiles fit one viewport
-            on desktop. */}
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr">
-          {featured.map((p) => (
-            <ProductCard key={p.id} product={p} variant="showcase" />
-          ))}
-        </div>
-      </section>
+      <ShowcaseRow products={products} />
 
       <ThreeWaysBand />
       <PlaceToGather />
@@ -126,6 +95,7 @@ export default async function HomePage() {
       <Manifesto />
       <StoriesBand />
       <VisitBand />
+      <DeliveryZones />
       <BusinessBand />
       <NewsletterBand />
       <ClosingCta />

@@ -29,7 +29,7 @@ export function Wordmark({
   className?: string
   variant?: 'horizontal' | 'mark-only' | 'wordmark-only'
   tone?: 'cocoa' | 'cream'
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
 }) {
   if (variant === 'wordmark-only') {
     const text = tone === 'cream' ? 'text-cream' : 'text-cocoa-700'
@@ -52,8 +52,13 @@ export function Wordmark({
   }
 
   // horizontal — the default header / footer rendering.
-  const heightClass = size === 'sm' ? 'h-10 md:h-12' : 'h-12 md:h-14'
-  const pxSize = size === 'sm' ? 48 : 56
+  // `lg` extends beyond the header's vertical padding via negative margins
+  // so the wordmark reads bigger without inflating the row height (the row
+  // height is set by the nav links + button beside it). Visual size goes up
+  // ~30%, layout stays put.
+  const heightClass =
+    size === 'sm' ? 'h-10 md:h-12' : size === 'lg' ? 'h-16 md:h-20 -my-3 md:-my-4' : 'h-12 md:h-14'
+  const pxSize = size === 'sm' ? 48 : size === 'lg' ? 80 : 56
   return (
     <span className={cn('inline-flex items-center', className)} aria-label="Happy Cake">
       <LogoImage pxSize={pxSize} className={cn(heightClass, 'w-auto shrink-0')} priority />
