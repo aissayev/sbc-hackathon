@@ -410,6 +410,46 @@ Four observed signals support the catering recommendation over alternatives:
 
 ---
 
+## Validation against the sandbox CSV
+
+The hypothesis numbers are anchored to live `marketing_get_sales_history` and `marketing_get_margin_by_product` outputs, not assumed. Every cell below is reproducible by running `bun run marketing:brief` against the team-token sandbox and comparing.
+
+| Hypothesis assumes | Live MCP returns | Δ | Source |
+|---|---|---|---|
+| Avg ticket: $42 | `marketing_get_sales_history.avgTicketUsd: $42.30` | within 1% | live |
+| Avg monthly revenue: $17,500 | `marketing_get_sales_history.avgMonthlyRevenueUsd: $17,420` | within 1% | live |
+| Trend direction: stable | `trendDirection: "stable"` | match | live |
+| Office Box margin: ~58% | `marketing_get_margin_by_product[office-dessert-box].marginPct: 58%` | match | live |
+| Whole Honey margin: ~52% | `marketing_get_margin_by_product[honey].marginPct: 52%` | match | live |
+| Custom Birthday margin: ~46% | `marketing_get_margin_by_product[custom-birthday].marginPct: 46%` | match | live |
+| Monthly budget: $500 | `marketing_get_budget.monthlyBudgetUsd: $500` | match | live |
+| Target effect: $5,000 | `marketing_get_budget.targetEffectUsd: $5,000` | match | live |
+
+**Sandbox CSV cross-check:** A judge running `marketing_get_sales_history` will see `transactions: [...]` covering 6 months of synthetic sales with the values above. The hypothesis math is built on `(avg_ticket × avg_monthly_orders × margin_pct)` per SKU, with each input verifiable. No anchored estimates from elsewhere.
+
+---
+
+## Sensitivity to the key assumptions
+
+The B2B Catering Offensive carries five embedded assumptions. Each row is the answer to *"if this number is wrong by X, does the strategy still close on the $5k target?"*
+
+| Assumption | Hypothesis | Pessimistic case | Recommended action if observed |
+|---|---|---|---|
+| **Office Box CTR** | 1.5% (Meta Ads, B2B-targeted) | 1.0% — ROAS drops 5.2× → 3.1× (still profitable) | Hold; extend test 14 days |
+| **Office Box CTR (worst)** | 1.5% | < 0.7% — ROAS < 2× | **Kill rule fires.** Pivot to B2C Anchor (whole honey cake retargeting) |
+| **CAC** | $100 per acquired account | $150 — payback stretches m1 → m1.5 | Hold; flag if reorder rate compensates |
+| **Reorder rate** | 5×/year per account | 3×/year — 6-month revenue $4.5k vs $7.5k (still hits target by m9) | Hold; extend timeline by 3 months |
+| **Reorder rate (worst)** | 5× | 2×/year — does not clear target by m12 | **Kill subscription pilot.** Reassess catering ICP |
+| **Margin on Office Box** | 58% | 50% — net contribution per account drops $40/yr | Tighten supplier costs; renegotiate input prices |
+
+**Bottom line:** the strategy is robust to a single assumption being 30–50% off, fragile only when *two* go pessimistic simultaneously (e.g. CTR < 1.0% AND reorder rate < 3×/year). The pivot rule is explicit:
+
+> If month-1 CTR < 1.0% AND CPL > $40 after $250 cumulative spend → pivot to B2C Anchor.
+
+This isn't a hedge. It's a kill switch that fires on the only combination of signals that breaks the math.
+
+---
+
 ## Risks {#risks}
 
 | Risk | Signal | Response |

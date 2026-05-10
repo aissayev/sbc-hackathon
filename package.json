@@ -38,7 +38,8 @@
     "self-eval": "bun src/scripts/self-eval.ts",
     "marketing:digest": "bun src/scripts/marketing-digest.ts",
     "wa:followup": "bun src/scripts/wa-followup.ts",
-    "e2e": "bun src/scripts/e2e-suite.ts"
+    "e2e": "bun src/scripts/e2e-suite.ts",
+    "smoke:full": "bun src/scripts/smoke-full.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

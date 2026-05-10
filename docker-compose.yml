@@ -1,0 +1,45 @@
+# Docker Compose for local-dev or single-host deploys.
+#
+# Two services on the same network:
+#   - backend  (Hono + Bun, :3000)  ← agent wrapper, webhook receiver, MCP server
+#   - web      (Next.js 15, :3001)  ← public storefront + admin Mini App
+#
+# Reverse-proxy (Caddy / nginx) is the recommended add-on for prod — see
+# docs/05-deploy/DOCKER.md. Compose is intentionally minimal here.
+#
+# Run:    docker compose up --build
+# Stop:   docker compose down
+# Logs:   docker compose logs -f backend
+
+services:
+  backend:
+    build: .
+    container_name: happycake-backend
+    env_file:
+      - .env.local
+    ports:
+      - "3000:3000"
+    volumes:
+      # SQLite persistence — the .data directory must survive restarts.
+      - ./.data:/app/.data
+      # MCP config rendered locally via `bun run setup:mcp`. Read-only
+      # so the container can't accidentally rewrite it. Required because
+      # the template references SBC_TEAM_TOKEN, which we don't bake into
+      # the image.
+      - ./.mcp.json:/app/.mcp.json:ro
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      args:
+        # Talk to the backend service over the internal Docker network.
+        BACKEND_URL: http://backend:3000
+    container_name: happycake-web
+    env_file:
+      - ./web/.env.local
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    restart: unless-stopped
