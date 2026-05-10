@@ -21,6 +21,7 @@ directly via JSON. ${BRAND.tagline} ${BRAND.slogan}
 - POST /api/orders/draft         Create a draft order (returns order_id; queued for owner approval)
 - GET  /api/orders/{id}          Order status (public, by id)
 - POST /api/leads/{source}       Capture a B2B / custom-cake / newsletter / press lead (queued for owner review)
+- POST /api/uploads              Upload an image / short video (multipart, ≤10 MB) → public CDN URL on DO Spaces
 - POST /api/chat                 Talk to the on-site assistant; returns thread_id + replies[]
 - GET  /openapi.json             Full API spec (OpenAPI 3.1)
 - GET  /sitemap.xml              All public URLs
