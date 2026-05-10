@@ -4,26 +4,46 @@ import * as React from 'react'
 import type { OrderStatus } from '@/lib/api'
 import { fmtUsd, fmtRelativeDate } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, Clock, ChefHat, Package, XCircle, Copy, Check } from 'lucide-react'
+import {
+  CheckCircle2,
+  Clock,
+  ChefHat,
+  Package,
+  XCircle,
+  Copy,
+  Check,
+  Cake,
+  Share2,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+// Cake-themed status copy. The customer-facing wording mirrors what the
+// concierge prompt teaches the agent to say, and the in-the-kitchen
+// transitions read like Domino's tracker — "we're rolling honey biscuit"
+// is more comforting than "in_kitchen". Status ↔ step-index mapping is
+// the same as before.
 const STATUS_LABEL: Record<string, { label: string; tone: 'default' | 'blue' | 'sage' | 'coral' }> = {
   draft: { label: 'Sent · awaiting Askhat', tone: 'blue' },
-  approved: { label: 'Approved · in the kitchen', tone: 'blue' },
-  in_kitchen: { label: 'Baking', tone: 'blue' },
-  ready: { label: 'Ready for pickup', tone: 'sage' },
-  out_for_delivery: { label: 'On the way', tone: 'sage' },
-  picked_up: { label: 'Picked up', tone: 'sage' },
-  completed: { label: 'Completed', tone: 'sage' },
-  rejected: { label: 'Cannot fulfill', tone: 'coral' },
+  approved: { label: 'Approved · queued for the kitchen', tone: 'blue' },
+  in_kitchen: { label: 'Hands on the bench — baking now', tone: 'blue' },
+  ready: { label: 'Ready · come grab it', tone: 'sage' },
+  out_for_delivery: { label: 'On its way to you', tone: 'sage' },
+  picked_up: { label: 'Picked up · enjoy', tone: 'sage' },
+  completed: { label: 'Completed · thank you', tone: 'sage' },
+  rejected: { label: "Couldn't fulfill", tone: 'coral' },
   cancelled: { label: 'Cancelled', tone: 'coral' },
 }
 
-const STEPS: Array<{ key: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: 'draft', label: 'Sent', icon: Clock },
-  { key: 'approved', label: 'Approved', icon: CheckCircle2 },
-  { key: 'in_kitchen', label: 'In the kitchen', icon: ChefHat },
-  { key: 'ready', label: 'Ready', icon: Package },
+const STEPS: Array<{
+  key: string
+  label: string
+  hint: string
+  icon: React.ComponentType<{ className?: string }>
+}> = [
+  { key: 'draft', label: 'Order received', hint: 'Askhat will look within the hour', icon: Clock },
+  { key: 'approved', label: 'Approved', hint: 'Confirmed by phone or WhatsApp', icon: CheckCircle2 },
+  { key: 'in_kitchen', label: 'In the kitchen', hint: 'Layered, custarded, decorated', icon: ChefHat },
+  { key: 'ready', label: 'Ready', hint: 'Pick up at Promenade Way', icon: Package },
 ]
 
 const STEP_INDEX: Record<string, number> = {
@@ -59,8 +79,8 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
   const failed = order.status === 'rejected' || order.status === 'cancelled'
 
   return (
-    <div className="rounded-lg border border-cocoa-700/15 bg-white p-6 md:p-8">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="rounded-2xl border border-cocoa-700/15 bg-white p-6 md:p-8 shadow-sm">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p className="eyebrow">Order received</p>
           <h2 className="display-h2 mt-1">
@@ -70,10 +90,13 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
               ? 'Ready for pickup'
               : order.status === 'completed'
               ? 'Thank you'
-              : 'Order on the way'}
+              : 'Order in the kitchen'}
           </h2>
         </div>
-        <Badge variant={status.tone}>{status.label}</Badge>
+        <div className="inline-flex items-center gap-2">
+          <Badge variant={status.tone}>{status.label}</Badge>
+          <ShareButton orderId={order.id} />
+        </div>
       </div>
       {/* Full reference id, copy-able. Prior version showed only the last
           eight chars (`#4_UG4G4J`) which left the chat agent unable to
@@ -82,26 +105,66 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
       <OrderIdRef id={order.id} />
 
       {!failed && (
-        <ol className="mt-8 grid grid-cols-4 gap-3">
-          {STEPS.map((s, i) => {
-            const done = i <= stepIdx
-            const Icon = s.icon
-            return (
-              <li
-                key={s.key}
-                className={cn(
-                  'rounded-md p-3 text-center text-xs border',
-                  done
-                    ? 'border-cocoa-700 bg-cocoa-700/5 text-cocoa-900'
-                    : 'border-cocoa-700/15 bg-cream-50 text-cocoa-900/40',
-                )}
-              >
-                <Icon className={cn('h-5 w-5 mx-auto', done ? 'text-cocoa-700' : 'text-cocoa-900/30')} />
-                <span className="mt-1 block">{s.label}</span>
-              </li>
-            )
-          })}
-        </ol>
+        <>
+          {/* Horizontal step rail — like Domino's pizza tracker. Each step
+              shows: icon (filled/glowing when done, current step pulses),
+              label, hint copy. The connector line between steps fills sky
+              when crossed. */}
+          <ol className="mt-8 grid sm:grid-cols-4 gap-2 sm:gap-3" aria-label="Order progress">
+            {STEPS.map((s, i) => {
+              const done = i < stepIdx
+              const current = i === stepIdx
+              const Icon = s.icon
+              return (
+                <li key={s.key} className="relative">
+                  <div
+                    className={cn(
+                      'rounded-2xl p-4 text-center border transition-colors',
+                      done && 'border-emerald-300 bg-emerald-50',
+                      current && 'border-sky-400 bg-sky/8 ring-2 ring-sky/20',
+                      !done && !current && 'border-cocoa-700/12 bg-cream-50',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'mx-auto h-9 w-9 rounded-full inline-flex items-center justify-center transition-colors',
+                        done && 'bg-emerald-500 text-white',
+                        current && 'bg-sky text-white animate-pulse',
+                        !done && !current && 'bg-cream-200 text-cocoa-900/40',
+                      )}
+                      aria-hidden
+                    >
+                      {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                    </span>
+                    <div
+                      className={cn(
+                        'mt-2 text-sm font-medium leading-tight',
+                        current ? 'text-cocoa-900' : done ? 'text-emerald-800' : 'text-cocoa-900/55',
+                      )}
+                    >
+                      {s.label}
+                    </div>
+                    <div
+                      className={cn(
+                        'mt-1 text-[11px] leading-snug',
+                        current ? 'text-cocoa-900/75' : 'text-cocoa-900/45',
+                      )}
+                    >
+                      {s.hint}
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+          {/* Live ETA / scheduled-time hint immediately below the rail. */}
+          <p className="mt-4 inline-flex items-center gap-2 text-sm text-cocoa-900/70">
+            <Cake className="h-4 w-4 text-sky-700" />
+            {order.scheduled_at
+              ? `Ready around ${fmtRelativeDate(order.scheduled_at)}`
+              : 'Askhat reviews and confirms within an hour during open hours.'}
+          </p>
+        </>
       )}
 
       {failed && (
@@ -214,5 +277,56 @@ function OrderIdRef({ id }: { id: string }) {
         {copied ? 'Copied' : 'Copy'}
       </button>
     </div>
+  )
+}
+
+// Share button — uses Web Share API on mobile (the native share sheet),
+// falls back to clipboard copy on desktop. Targets the short /track/<id>
+// route so the recipient gets a clean tracker, not the full confirmation
+// page.
+function ShareButton({ orderId }: { orderId: string }) {
+  const [copied, setCopied] = React.useState(false)
+  React.useEffect(() => {
+    if (!copied) return
+    const t = setTimeout(() => setCopied(false), 1800)
+    return () => clearTimeout(t)
+  }, [copied])
+
+  async function share() {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/track/${orderId}` : ''
+    const text = `Tracking my Happy Cake order — ${url}`
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({ title: 'Happy Cake order tracker', text, url })
+        return
+      } catch {
+        // User cancelled or browser declined; fall through to clipboard.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+    } catch {
+      // Clipboard blocked too — last resort: open the URL so the user can
+      // copy from the address bar.
+      window.open(url, '_blank', 'noopener')
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={share}
+      aria-label={copied ? 'Tracker link copied' : 'Share tracker link'}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+        copied
+          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+          : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
+      )}
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+      {copied ? 'Link copied' : 'Share'}
+    </button>
   )
 }

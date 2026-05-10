@@ -46,8 +46,10 @@ export function ProductCard({
 // Per-tradition accent: a cream-side card surface, a coloured chip, and a
 // faint top-edge stripe so each card carries its family's identity without
 // shouting. Kept subtle (low opacity) so the row still reads as a coherent
-// set rather than a clown parade of colours.
-const TRADITION_THEME: Record<
+// set rather than a clown parade of colours. Exported so the product
+// detail page can reuse the same theme map for its tradition pill +
+// background tint without re-deriving the palette.
+export const TRADITION_THEME: Record<
   NonNullable<Product['tradition']>,
   { chip: string; stripe: string; bgTint: string }
 > = {
@@ -92,8 +94,9 @@ const TRADITION_THEME: Record<
 // Wording mirrors what the concierge prompt teaches the agent so the card
 // and the chat reply about the same product line up. Kept short so the pill
 // always fits on one line — long copy used to wrap and push the See-details
-// link out of horizontal alignment with sibling cards.
-function statusFor(product: Product): { text: string; tone: 'sage' | 'sky' | 'cocoa' | 'berry' } {
+// link out of horizontal alignment with sibling cards. Exported so the
+// product detail page can render the same status pill its card siblings do.
+export function statusFor(product: Product): { text: string; tone: 'sage' | 'sky' | 'cocoa' | 'berry' } {
   if (!product.in_stock) {
     return { text: 'Out today · back tomorrow', tone: 'berry' }
   }
@@ -120,7 +123,7 @@ const STATUS_PILL: Record<'sage' | 'sky' | 'cocoa' | 'berry', string> = {
   berry: 'bg-berry/15 text-berry',
 }
 
-function StatusPill({ status }: { status: ReturnType<typeof statusFor> }) {
+export function StatusPill({ status }: { status: ReturnType<typeof statusFor> }) {
   return (
     <span
       className={cn(
@@ -163,6 +166,15 @@ function DefaultCard({
   const allergens = product.allergens?.split(',').map((a) => a.trim()).filter(Boolean) ?? []
   const kindLabel = kindLabelOf(product)
   const status = statusFor(product)
+  // When the kind pill is suppressed (e.g. on /menu where the section
+  // header already names the kind), surface the *tradition* chip instead.
+  // This way each menu card still carries a small family signal — Honey,
+  // Italian, Meringue, etc. — without doubling chrome with the section
+  // header above it.
+  const tradition = product.tradition
+  const showTraditionChip = !showKindPill && Boolean(tradition)
+  const traditionTheme = tradition ? TRADITION_THEME[tradition] : undefined
+  const traditionLabel = tradition ? TRADITION_LABELS[tradition].short : ''
   return (
     <Link
       href={`/menu/${product.id}`}
@@ -184,6 +196,16 @@ function DefaultCard({
         {showKindPill && (
           <span className="absolute top-3 left-3 inline-flex items-center rounded-full bg-cream/95 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-cocoa-900 shadow-sm">
             {kindLabel}
+          </span>
+        )}
+        {showTraditionChip && traditionTheme && (
+          <span
+            className={cn(
+              'absolute top-3 left-3 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 shadow-sm',
+              traditionTheme.chip,
+            )}
+          >
+            {traditionLabel}
           </span>
         )}
       </div>

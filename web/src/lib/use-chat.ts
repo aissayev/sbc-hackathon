@@ -84,7 +84,9 @@ export function useChat({ greeting, resetOnMount }: UseChatOptions = {}): UseCha
         })
         const ct = res.headers.get('content-type') ?? ''
         if (!ct.toLowerCase().includes('application/json')) {
-          throw new Error('Kitchen system is offline')
+          // Backend unreachable (Next.js rewrite returned an HTML 404).
+          // Sentinel string is consumed by the catch block below.
+          throw new Error('chat_backend_unreachable')
         }
         const data = (await res.json()) as { thread_id?: string; replies?: string[]; error?: string }
         if (data.thread_id) {
@@ -110,8 +112,8 @@ export function useChat({ greeting, resetOnMount }: UseChatOptions = {}): UseCha
                   pending: false,
                   failed: true,
                   text:
-                    (err as Error).message === 'Kitchen system is offline'
-                      ? 'Sorry — our kitchen system is offline right now. Try WhatsApp?'
+                    (err as Error).message === 'chat_backend_unreachable'
+                      ? "Chat's taking a moment to wake up. Text us at (281) 979-8320 or give it another try in a few seconds."
                       : 'Sorry — connection hiccup. Try again in a moment?',
                 }
               : x,

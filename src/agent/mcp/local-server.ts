@@ -34,6 +34,7 @@ import {
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { getPolicies } from '../../domain/policies.ts'
 import { postDraftOrderCard, postEscalationCard } from '../../bots/owner/index.ts'
+import { brandLookup, brandLookupSchema } from './brand-rag.ts'
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] }
@@ -292,6 +293,16 @@ server.registerTool(
     inputSchema: {},
   },
   async () => ok(getPolicies()),
+)
+
+server.registerTool(
+  'brand_lookup',
+  {
+    description:
+      'Brand-RAG over docs/agent-context/brand-rules.md. Use this when you need canonical brand voice, naming conventions, taglines, halal/kosher policy, logo guidance, or any other brand rule \u2014 instead of inventing or memorising. Returns the top-N matching sections by keyword overlap. Cheap, deterministic, no LLM call.',
+    inputSchema: brandLookupSchema.shape,
+  },
+  async (args) => ok(brandLookup(args as z.infer<typeof brandLookupSchema>)),
 )
 
 const transport = new StdioServerTransport()
