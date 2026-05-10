@@ -1,7 +1,18 @@
 {
-  "_note": "Source of truth for the marketing strategy. We deploy the FULL $500/mo to ONE strategy at a time — splitting a $500 budget across 5 channels guarantees zero learning per channel. Each strategy below is a complete $500 deployment with its own 3- and 6-month rollout. The owner picks ONE in Telegram /campaigns and that one launches. Organic is a separate always-on track that runs alongside whichever paid strategy is chosen.",
-  "version": 4,
+  "_note": "Source of truth for the marketing strategy. $500/mo deploys to ONE strategy at a time — no splitting. Each strategy includes month 1/2/3/6 rollout and CAC/LTV math. Owner picks ONE in Telegram /campaigns. Organic always runs alongside.",
+  "version": 5,
   "lastReviewed": "2026-05-10",
+  "dataSources": {
+    "_note": "Every number in this file traces to one of these. Refresh by running `bun run marketing:brief`.",
+    "marginPct": "mcp__happycake__marketing_get_margin_by_product (sandbox, live)",
+    "prepMinutes": "mcp__happycake__kitchen_get_menu_constraints.prepMinutes (sandbox, live)",
+    "capacityUnitsPerDay": "mcp__happycake__kitchen_get_menu_constraints.capacityUnitsPerDay (sandbox, live)",
+    "kitchenDailyMinutes": "mcp__happycake__kitchen_get_capacity.dailyCapacityMinutes (sandbox, live: 420)",
+    "salesBaseline": "mcp__happycake__marketing_get_sales_history (sandbox, live: 6 months monthly aggregates)",
+    "gbpDemand": "mcp__happycake__gb_get_metrics (sandbox, live: 30-day window)",
+    "customerVoice": "mcp__happycake__gb_list_reviews (sandbox, live)",
+    "industryBenchmarks": "WordStream / Triple Whale / AdAmigo / OwlClaw / PeopleLinx — May 2026 (cited per-field below)"
+  },
   "liveMarginsPulledAt": "2026-05-09T23:59Z",
   "liveMargins": {
     "honey-cake-slice": 68,
@@ -19,6 +30,97 @@
   "recommendation": {
     "primary": "b2b-catering-offensive",
     "rationale": "Highest first-order value ($240) × highest repeat cadence (catering corporate accounts) × validated by real customer (review rev_004 — already a repeat office-birthday client). At $500 against a 10× ROAS target the only unit economics that close are B2B catering."
+  },
+  "existingCatalogSnapshot": {
+    "_note": "These 5 SKUs are what the sandbox `marketing_get_margin_by_product` and `kitchen_get_menu_constraints` model. The website seed file has 5 additional SKUs (cloud-cake-slice, tiramisu-slice, chak-chak, truffle-bites, morning-pastry-mix) that render on /menu but aren't scored by the simulator. Source: live MCP, pulled 2026-05-09.",
+    "skus": [
+      { "id": "honey-cake-slice", "priceUsd": 8.50, "marginPct": 68, "marginUsd": 5.78, "prepMinutes": 3, "capacityPerDay": 80, "dailyMarginCeilingUsd": 462, "minPerMarginDollar": 0.52, "category": "slice" },
+      { "id": "whole-honey-cake", "priceUsd": 55, "marginPct": 62, "marginUsd": 34.10, "prepMinutes": 25, "capacityPerDay": 12, "dailyMarginCeilingUsd": 409, "minPerMarginDollar": 0.73, "category": "whole" },
+      { "id": "pistachio-roll", "priceUsd": 9.50, "marginPct": 64, "marginUsd": 6.08, "prepMinutes": 8, "capacityPerDay": 30, "dailyMarginCeilingUsd": 182, "minPerMarginDollar": 1.32, "category": "slice" },
+      { "id": "custom-birthday-cake", "priceUsd": 95, "marginPct": 58, "marginUsd": 55.10, "prepMinutes": 90, "capacityPerDay": 4, "dailyMarginCeilingUsd": 220, "minPerMarginDollar": 1.63, "category": "custom" },
+      { "id": "office-dessert-box", "priceUsd": 120, "marginPct": 60, "marginUsd": 72, "prepMinutes": 45, "capacityPerDay": 8, "dailyMarginCeilingUsd": 576, "minPerMarginDollar": 0.63, "category": "catering" }
+    ],
+    "kitchenDailyBudgetMinutes": 420
+  },
+  "suggestedNewSkus": {
+    "_note": "These are NOT in HappyCake's live catalog. They are OUR proposal — a tiered ladder built on top of existing SKUs to give the B2B campaign an entry / core / upsell offer structure. Each price is a build-up from existing SKU costs (margin% conservatively held flat to existing-SKU level). Owner approves before adding to Square.",
+    "rationale": "A single $120 entry point is a high commitment for a first-time B2B buyer. Adding a $48 sampler reduces trial friction; adding a $185 premium tier gives upsell room; the hotel and subscription variants serve specific ICPs.",
+    "skus": [
+      {
+        "id": "sampler-box-NEW",
+        "name": "Sampler Box (suggested)",
+        "newOrExisting": "NEW — must be created in Square + website",
+        "priceUsd": 48,
+        "buildup": "6 slices × $8.50 cost-equivalent = $51 raw → $48 retail (small bundle nudge)",
+        "buildupComponents": [
+          { "sku": "honey-cake-slice", "qty": 3 },
+          { "sku": "pistachio-roll", "qty": 2 },
+          { "sku": "tiramisu-slice", "qty": 1 }
+        ],
+        "marginPctTarget": 60,
+        "marginUsd": 28.80,
+        "prepMinutesEstimate": 18,
+        "campaignRole": "Entry tier — 4-person team taste-test. Lower commitment for first-time B2B leads.",
+        "capacityHint": "Constrained by slice availability — assume 10/day until tested"
+      },
+      {
+        "id": "office-dessert-box",
+        "name": "Office Dessert Box (existing core)",
+        "newOrExisting": "EXISTS — no change",
+        "priceUsd": 120,
+        "buildup": "live catalog SKU, not modified",
+        "marginPct": 60,
+        "marginUsd": 72,
+        "campaignRole": "Core B2B offer — 8–10 person teams."
+      },
+      {
+        "id": "big-day-box-NEW",
+        "name": "Big Day Box (suggested premium)",
+        "newOrExisting": "NEW — must be created in Square + website",
+        "priceUsd": 185,
+        "buildup": "12 slices ($102) + 1 cake \"Honey\" ($55) + chak-chak cluster ($7) + truffle bites ($7.50) = $171.50 raw → $185 retail (premium positioning, branded packaging)",
+        "buildupComponents": [
+          { "sku": "honey-cake-slice", "qty": 6 },
+          { "sku": "pistachio-roll", "qty": 6 },
+          { "sku": "whole-honey-cake", "qty": 1 },
+          { "sku": "chak-chak", "qty": 1 },
+          { "sku": "truffle-bites", "qty": 1 }
+        ],
+        "marginPctTarget": 58,
+        "marginUsd": 107.30,
+        "prepMinutesEstimate": 75,
+        "campaignRole": "Upsell tier — 18+ person events, holiday office parties, all-hands. Realtor closing-gift sweet spot.",
+        "capacityHint": "Limited by whole-cake capacity (12/day) — assume 4/day"
+      },
+      {
+        "id": "hotel-welcome-set-NEW",
+        "name": "Hotel Welcome Set (suggested)",
+        "newOrExisting": "NEW — must be created in Square + website",
+        "priceUsd": 95,
+        "buildup": "8 slices ($68) + branded packaging ($10 cost) = $78 raw → $95 retail (concierge-grade presentation premium)",
+        "buildupComponents": [
+          { "sku": "honey-cake-slice", "qty": 4 },
+          { "sku": "pistachio-roll", "qty": 2 },
+          { "sku": "cloud-cake-slice", "qty": 2 }
+        ],
+        "marginPctTarget": 55,
+        "marginUsd": 52.25,
+        "prepMinutesEstimate": 24,
+        "campaignRole": "Hotel ICP-specific — in-room amenity, concierge gift desk. Drives the 'wish you delivered' demand from rev_002.",
+        "capacityHint": "8/day baseline"
+      },
+      {
+        "id": "weekly-corporate-subscription-NEW",
+        "name": "Weekly Corporate Subscription (suggested)",
+        "newOrExisting": "NEW — must be created in Square + website (recurring billing)",
+        "priceUsd": 108,
+        "buildup": "Office Box ($120) × 0.9 (subscription discount) = $108/wk = $432/mo recurring",
+        "marginPctTarget": 56,
+        "marginUsd": 60.48,
+        "campaignRole": "Highest-LTV anchor — converts a one-time B2B account into ~$5,200/yr recurring revenue per subscriber. Drives the LTV math hard.",
+        "capacityHint": "Each subscriber consumes 1 Office Box slot/week — caps at ~6 active subscribers (8 slots/day × 5 days / 4 weeks per slot = ~10 max but reserve some for one-off catering)"
+      }
+    ]
   },
   "strategies": [
     {
@@ -118,6 +220,43 @@
           }
         }
       },
+      "unitEconomics": {
+        "_note": "Standard cake-industry attribution — CAC = ad spend / acquired accounts; LTV uses gross margin × repeat cadence × retention. Industry benchmark for catering corporate repeat is 25%+ retention; we model 80% y1→y2, 80% y2→y3 conservatively.",
+        "month1": {
+          "adSpendUsd": 500,
+          "acquiredAccounts": 5,
+          "cacPerAccountUsd": 100,
+          "industryBenchmarkCacUsd": "$84 (B2B Meta avg) – $99 (food/bev lead-gen median × 4.5 lead→account)",
+          "avgFirstOrderUsd": 240,
+          "firstOrderMarginPct": 60,
+          "firstOrderMarginUsd": 144,
+          "paybackOrderCount": 0.69,
+          "paybackInterpretation": "Payback within first order — $100 CAC < $144 first-order margin"
+        },
+        "yearOneLtv": {
+          "reordersPerYear": 5.5,
+          "avgOrderUsd": 240,
+          "yr1RevenuePerAccountUsd": 1440,
+          "yr1MarginPerAccountUsd": 864,
+          "ltvToCacRatioYr1": 8.6,
+          "industryBenchmark": "Excellent is 5:1+; we project 8.6:1 on yr-1 alone"
+        },
+        "threeYearLtv": {
+          "retentionAssumptions": "y1→y2: 80%, y2→y3: 80% (conservative for B2B catering)",
+          "yr2RevenuePerAccountUsd": 1152,
+          "yr3RevenuePerAccountUsd": 922,
+          "totalRevenuePerAccountUsd": 3514,
+          "totalMarginPerAccountUsd": 2108,
+          "ltvToCacRatio3yr": 21.1
+        },
+        "attributionModel": {
+          "_note": "How orders get attributed to the campaign in real Meta — for the simulator everything is direct.",
+          "directClickThrough": "30% — clicked ad → site → ordered same session",
+          "viewThrough": "40% — saw ad in last 7d → ordered later",
+          "brandedSearch": "20% — ad-driven brand awareness → typed URL or searched 'happycake sugar land'",
+          "phoneCall": "10% — geo-targeted ad → branded search → call (`gb_get_metrics.callsClicks` is the proxy)"
+        }
+      },
       "killThresholdsBlended": "Pause whole strategy after $250 cumulative spend if blended CTR < 0.8% AND CPL > $40 (mediocre row in sensitivity table). At that point switch to b2c-anchor-flywheel.",
       "scaleThresholdsBlended": "If cumulative ROAS > 4× by end of month 2, recommend owner double-up to $750 in month 3.",
       "ownerApprovalRequired": true
@@ -198,6 +337,40 @@
             "acquiredCustomers": 320,
             "activeReorderingCustomers": 110
           }
+        }
+      },
+      "unitEconomics": {
+        "month1": {
+          "adSpendUsd": 500,
+          "acquiredCustomers": 28,
+          "cacPerCustomerUsd": 17.86,
+          "industryBenchmarkCacUsd": "$38–40 (food/bev cold) — our $17.86 sits 2× below thanks to retargeting flywheel",
+          "avgFirstOrderUsd": 62,
+          "firstOrderMarginPct": 62,
+          "firstOrderMarginUsd": 38.44,
+          "paybackOrderCount": 0.46,
+          "paybackInterpretation": "Payback within first order"
+        },
+        "yearOneLtv": {
+          "reordersPerYear": 2.2,
+          "avgOrderUsd": 62,
+          "yr1RevenuePerCustomerUsd": 136,
+          "yr1MarginPerCustomerUsd": 84,
+          "ltvToCacRatioYr1": 4.7
+        },
+        "threeYearLtv": {
+          "retentionAssumptions": "y1→y2: 60%, y2→y3: 50% (B2C lower retention than B2B)",
+          "yr2RevenuePerCustomerUsd": 82,
+          "yr3RevenuePerCustomerUsd": 41,
+          "totalRevenuePerCustomerUsd": 259,
+          "totalMarginPerCustomerUsd": 161,
+          "ltvToCacRatio3yr": 9.0
+        },
+        "attributionModel": {
+          "directClickThrough": "45% — DPA retargeting often closes same session",
+          "viewThrough": "30%",
+          "brandedSearch": "20%",
+          "walkIn": "5% — geo-fenced impressions"
         }
       },
       "killThresholdsBlended": "Pause if month 1 cold CAC > $35 OR retargeting ROAS < 2× by end of m1. Pivot to b2b-catering-offensive.",
