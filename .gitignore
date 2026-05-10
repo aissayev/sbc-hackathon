@@ -5,9 +5,24 @@ web/out
 bun.lockb
 bun.lock
 .data/
+# All env files — never commit. .env.example (committed) is the schema.
 .env
-.env.local
-.env.*.local
+.env.*
+.envrc
+!.env.example
+
+# Cloud credentials — never commit. doctl auth lives in ~/.config/doctl,
+# AWS/S3 creds in ~/.aws — those are outside the repo, but defensive
+# ignores here catch anyone copying creds into the project tree.
+.aws/
+.s3cfg
+.doctlcfg
+*.pem
+*.key
+*credentials*
+*.token
+secrets/
+.do/local.yaml
 *.db
 *.db-journal
 .DS_Store

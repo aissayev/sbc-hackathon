@@ -40,6 +40,7 @@ import {
 } from './domain/tools.ts'
 import { getPolicies } from './domain/policies.ts'
 import { openApiSpec } from './web/openapi.ts'
+import { loadSpacesConfig, uploadToSpaces, buildUploadKey, UPLOAD_LIMITS } from './lib/spaces.ts'
 
 const app = new Hono()
 
@@ -208,6 +209,63 @@ app.post('/api/leads/:source', async (c) => {
   }
   const result = createLead(parsed.data)
   return c.json({ ...result, next_step: 'awaiting_owner_review' })
+})
+
+// ─── Uploads → DigitalOcean Spaces ───────────────────────────────────────
+//
+// Multipart endpoint for chat attachments + admin-uploaded photos. Files
+// land in `<bucket>/uploads/<scope>s/<scope_id>/<date>_<random>.<ext>` and
+// the response carries a public CDN URL the chat bubble can render via the
+// existing `[image: <url>]` markers.
+//
+// Auth: this endpoint is open to anonymous callers; the rate limit is the
+// 10 MB-per-file ceiling + the implicit "one request per UI click" cap on
+// the chat. If we ever ship admin-only uploads, gate them on the
+// X-Telegram-Init-Data header used by /api/admin/*.
+
+app.post('/api/uploads', async (c) => {
+  const cfg = loadSpacesConfig()
+  if (!cfg) {
+    return c.json(
+      { error: 'uploads_not_configured', reason: 'SPACES_* env vars are unset on the backend.' },
+      503,
+    )
+  }
+
+  let body: FormData
+  try {
+    body = await c.req.formData()
+  } catch {
+    return c.json({ error: 'expected multipart/form-data' }, 400)
+  }
+  const file = body.get('file')
+  if (!(file instanceof File)) {
+    return c.json({ error: 'missing file field' }, 400)
+  }
+  if (file.size > UPLOAD_LIMITS.maxBytes) {
+    return c.json({ error: 'file too large', max_bytes: UPLOAD_LIMITS.maxBytes }, 413)
+  }
+  const mime = file.type || 'application/octet-stream'
+  if (!UPLOAD_LIMITS.allowedMime.has(mime.toLowerCase())) {
+    return c.json({ error: 'unsupported file type', mime }, 415)
+  }
+
+  const scopeRaw = (body.get('scope') ?? 'thread').toString()
+  const scope: 'thread' | 'order' | 'admin' =
+    scopeRaw === 'order' ? 'order' : scopeRaw === 'admin' ? 'admin' : 'thread'
+  const scopeId = body.get('scope_id')?.toString()
+
+  const key = buildUploadKey({ scope, scopeId, mimeType: mime })
+  const buf = Buffer.from(await file.arrayBuffer())
+  try {
+    const result = await uploadToSpaces(cfg, { key, body: buf, mimeType: mime })
+    // `type` aliases `mime` so the chat-widget's typed response narrows
+    // cleanly without touching its existing client code.
+    return c.json({ ok: true, ...result, mime, type: mime })
+  } catch (err) {
+    console.error('[uploads] put failed', err)
+    return c.json({ error: 'upload_failed', reason: (err as Error).message }, 502)
+  }
 })
 
 app.get('/llms.txt', (c) =>

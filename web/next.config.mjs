@@ -5,12 +5,17 @@ const nextConfig = {
   experimental: {
     typedRoutes: false,
   },
-  // Brand assets live on the hackathon public CDN; allow next/image to
-  // optimize from there. See web/src/lib/brand.ts → CDN.
+  // next/image is allowed to optimize from:
+  //  - the hackathon CDN (current default)
+  //  - any DO Spaces region (so when NEXT_PUBLIC_CDN_BASE flips to your
+  //    bucket, images keep being optimized rather than served raw)
+  //  - any Spaces CDN edge (the *.cdn.digitaloceanspaces.com hostname)
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'www.steppebusinessclub.com', pathname: '/hackathon-assets/**' },
       { protocol: 'https', hostname: 'steppebusinessclub.com', pathname: '/hackathon-assets/**' },
+      { protocol: 'https', hostname: '*.digitaloceanspaces.com' },
+      { protocol: 'https', hostname: '*.cdn.digitaloceanspaces.com' },
     ],
   },
   async rewrites() {
@@ -22,6 +27,7 @@ const nextConfig = {
       { source: '/api/orders/draft', destination: `${backend}/api/orders/draft` },
       { source: '/api/orders/:id', destination: `${backend}/api/orders/:id` },
       { source: '/api/leads/:source', destination: `${backend}/api/leads/:source` },
+      { source: '/api/uploads', destination: `${backend}/api/uploads` },
       { source: '/api/admin/:path*', destination: `${backend}/api/admin/:path*` },
       { source: '/openapi.json', destination: `${backend}/openapi.json` },
     ]

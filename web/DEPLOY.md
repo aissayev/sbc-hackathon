@@ -230,17 +230,158 @@ clear. `Ctrl+C` and re-run `bun src/server.ts`.
 
 ---
 
-## Owner portrait + family photo (optional, recommended)
+## Image storage — DigitalOcean Spaces
 
-The `/about` page references two local images that are **not** on the
-public hackathon CDN:
+All photos and videos served by the website live on **DigitalOcean Spaces**
+(S3-compatible object storage with built-in CDN). The site reads them
+through `NEXT_PUBLIC_CDN_BASE`, which defaults to the hackathon CDN until
+you flip it to your own bucket.
 
-- `web/public/assets/team/owner-askhat.jpg` — about-page hero
-- `web/public/assets/team/family-couple.jpg` — values section (optional)
+### Bucket layout (mirrors `web/src/lib/brand.ts`)
 
-Drop the binaries into the repo before pushing to main. The `HeroImage`
-component falls back to a brand-pattern panel if the file 404s, so the
-page never breaks — but the real photo is much better.
+```
+happycake-assets/
+├── logo/
+│   ├── happy-cake-logo-256.png
+│   ├── happy-cake-logo-512.png
+│   └── happy-cake-logo-1024.png
+├── hero/
+│   ├── happy-cake-hero-01.webp
+│   └── ... (04 total)
+├── products/
+│   ├── happy-cake-product-01.webp
+│   └── ... (10 total)
+├── social/
+│   ├── happy-cake-social-01.webp
+│   └── ... (08 total)
+├── team/
+│   ├── owner-askhat.jpg
+│   └── family-couple.jpg
+└── uploads/                                ← runtime-uploaded content
+    ├── threads/<thread_id>/<date>_<id>.<ext>     chat attachments
+    ├── orders/<order_id>/<date>_<id>.<ext>       custom-cake / B2B refs
+    └── admin/<date>_<id>.<ext>                   owner-uploaded misc
+```
+
+### Step 1 — create the bucket
+
+```bash
+export DIGITALOCEAN_ACCESS_TOKEN="<your-PAT>"
+doctl spaces create happycake-assets --region nyc3
+# Move it under the owl project for tidiness:
+doctl projects resources assign <owl-project-id> --resource=do:space:happycake-assets
+```
+
+### Step 2 — generate Spaces access keys
+
+These are S3-style credentials, separate from the DO PAT.
+
+1. Go to https://cloud.digitalocean.com/account/api/spaces
+2. **Generate New Key** → name `happycake-backend`, scope to the
+   `happycake-assets` bucket only.
+3. Copy the **Access Key** and **Secret** (Secret shown once).
+
+### Step 3 — fill in `.env.local`
+
+```bash
+SPACES_REGION=nyc3
+SPACES_BUCKET=happycake-assets
+SPACES_ENDPOINT=https://nyc3.digitaloceanspaces.com
+SPACES_CDN_BASE=https://happycake-assets.nyc3.cdn.digitaloceanspaces.com
+SPACES_KEY=<the-access-key>
+SPACES_SECRET=<the-secret>
+```
+
+`.env.local` is gitignored. `.env.example` ships the schema with empty
+slots; never put real keys in `.env.example`.
+
+### Step 4 — migrate brand assets to your bucket
+
+The migration script pulls every file the site uses from the hackathon
+CDN, stages them locally, and pushes to your bucket with public-read ACL
++ immutable cache headers.
+
+```bash
+brew install s3cmd                                 # one-time
+bash scripts/migrate-images-to-spaces.sh           # safe to re-run
+```
+
+The script reads from `.env.local`, writes a one-shot `s3cmd` config to
+`/tmp` (deleted on exit, never on disk), and prints the final
+`NEXT_PUBLIC_CDN_BASE` value to set in App Platform.
+
+Pass `--force` to overwrite existing files; default is `--skip-existing`.
+
+### Step 5 — flip the website CDN
+
+In **App Platform → Settings → Env Variables**, add:
+
+```
+NEXT_PUBLIC_CDN_BASE=https://happycake-assets.nyc3.cdn.digitaloceanspaces.com
+```
+
+Scope: **BUILD_TIME** (Next inlines this at build).
+
+Save, App Platform redeploys, the site now serves images from your bucket.
+
+### Smoke check
+
+```bash
+curl -sI https://happycake-assets.nyc3.cdn.digitaloceanspaces.com/products/happy-cake-product-01.webp | head -3
+# → HTTP/2 200, content-type: image/webp
+
+curl -s https://happycake.flowleads.dev/ | grep -oE 'https://[^"]*product-01[^"]*' | head -1
+# → URL should now have your bucket host, not steppebusinessclub.com
+```
+
+---
+
+## Chat attachments — runtime uploads
+
+The chat widget (both the `/chat` page and the floating help-widget) lets
+customers attach a photo. The flow:
+
+```
+1. User picks a file in the chat widget
+2. Browser POSTs multipart/form-data to /api/uploads
+3. Backend (src/server.ts) receives, validates, signs to Spaces
+4. Spaces returns 200; backend echoes back the public CDN URL
+5. Chat widget appends "[image: <url>]" to the next message
+6. ChatBubble auto-renders the URL as a thumbnail (existing logic)
+7. The agent + the owner's TG bot see the message text including the URL
+```
+
+Limits (enforced both client-side and server-side, see
+[`src/lib/spaces.ts`](../src/lib/spaces.ts)):
+
+- 10 MB per file
+- Allowed MIMEs: `image/{jpeg,jpg,png,webp,gif,heic}`,
+  `video/{mp4,webm,quicktime}`
+- Files keyed `uploads/threads/<thread_id>/<date>_<random>.<ext>` —
+  per-thread directories make it easy to find every photo a customer
+  ever sent.
+
+**If the backend's `SPACES_*` env vars are unset**, the upload endpoint
+returns `503 { error: "uploads_not_configured" }` and the chat widget
+shows a friendly "uploads unavailable" message. Until you set keys,
+chat works normally for text — only attachments are gated.
+
+---
+
+## Owner portrait + family photo
+
+After running the migration script, these live on the bucket at:
+
+- `team/owner-askhat.jpg` — about-page hero
+- `team/family-couple.jpg` — values section (optional)
+
+If you haven't dropped the binaries into `web/public/assets/team/` yet,
+the script logs `MISSING` for them and the about page falls back to its
+brand-pattern panel. Once you have the photos:
+
+1. Save them to `web/public/assets/team/owner-askhat.jpg` (etc.)
+2. Re-run `bash scripts/migrate-images-to-spaces.sh`
+3. They land at `<bucket>/team/<name>.jpg` automatically.
 
 ---
 

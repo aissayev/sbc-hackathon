@@ -73,6 +73,36 @@ export function openApiSpec(): object {
           responses: { '200': { description: 'order status' }, '404': { description: 'not found' } },
         },
       },
+      '/api/uploads': {
+        post: {
+          summary: 'Upload an image or video to DigitalOcean Spaces; returns a public CDN URL',
+          description:
+            'multipart/form-data with `file` (≤ 10 MB), optional `scope` ∈ {thread, order, admin}, optional `scope_id`. ' +
+            'Allowed MIMEs: jpeg, png, webp, gif, heic, mp4, webm, quicktime. ' +
+            '503 if backend env (SPACES_*) is not configured.',
+          requestBody: {
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  required: ['file'],
+                  properties: {
+                    file: { type: 'string', format: 'binary' },
+                    scope: { type: 'string', enum: ['thread', 'order', 'admin'] },
+                    scope_id: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'upload succeeded — returns key + public url' },
+            '413': { description: 'file too large' },
+            '415': { description: 'unsupported file type' },
+            '503': { description: 'uploads not configured on this backend' },
+          },
+        },
+      },
       '/api/leads/{source}': {
         post: {
           summary: 'Capture a lead from the B2B or custom-cake funnel; queued for owner review',

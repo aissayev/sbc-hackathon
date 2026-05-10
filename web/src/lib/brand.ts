@@ -48,10 +48,23 @@ export const BRAND = {
   mapsUrl: 'https://www.google.com/maps/search/?api=1&query=350+Promenade+Way+Suite+500+Sugar+Land+TX+77478',
 } as const
 
-// Asset-pack paths — see docs/00-source/asset-pack.metadata.json.
-// All assets live on the hackathon public CDN; we proxy via next/image so we
-// keep automatic optimization + cache-busting. No binaries in the repo.
-const CDN = 'https://www.steppebusinessclub.com/hackathon-assets/happy-cake'
+// Asset CDN base. Default is the hackathon-provided public CDN; flip to your
+// own DO Spaces CDN by setting NEXT_PUBLIC_CDN_BASE in the App Platform env.
+//
+// Layout under the base must match the hackathon CDN's layout — that way the
+// migration script (scripts/migrate-images-to-spaces.sh) can upload files
+// keyed identically and we don't need to touch any code:
+//
+//   <CDN>/logo/happy-cake-logo-{256,512,1024}.png
+//   <CDN>/hero/happy-cake-hero-{01..04}.webp
+//   <CDN>/products/happy-cake-product-{01..10}.webp
+//   <CDN>/social/happy-cake-social-{01..08}.webp
+//   <CDN>/team/owner-askhat.jpg
+//   <CDN>/team/family-couple.jpg
+//
+// Falsy / unset → hackathon CDN. Trailing slash is stripped defensively.
+const CDN = (process.env.NEXT_PUBLIC_CDN_BASE?.replace(/\/$/, '')
+  ?? 'https://www.steppebusinessclub.com/hackathon-assets/happy-cake')
 
 export const ASSETS = {
   logo: {
@@ -67,10 +80,17 @@ export const ASSETS = {
   ],
   products: Array.from({ length: 10 }, (_, i) => `${CDN}/products/happy-cake-product-${String(i + 1).padStart(2, '0')}.webp`),
   social: Array.from({ length: 8 }, (_, i) => `${CDN}/social/happy-cake-social-${String(i + 1).padStart(2, '0')}.webp`),
-  // Owner + family portraits — local until the CDN bucket adds /team/ paths.
+  // Owner + family portraits. Once the migration script uploads them to the
+  // CDN under /team/, these paths become public CDN URLs. Until then, they
+  // resolve to local /public/assets/team/ files (HeroImage falls back to a
+  // brand-pattern panel if the file 404s, so the page never breaks).
   team: {
-    ownerPortrait: '/assets/team/owner-askhat.jpg',
-    family: '/assets/team/family-couple.jpg',
+    ownerPortrait: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/team/owner-askhat.jpg`
+      : '/assets/team/owner-askhat.jpg',
+    family: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/team/family-couple.jpg`
+      : '/assets/team/family-couple.jpg',
   },
 } as const
 
