@@ -15,6 +15,7 @@ export type AuditAction =
   | 'channel_register' | 'channel_test'
   | 'campaign_pause' | 'campaign_resume' | 'campaign_adjust'
   | 'order_approve' | 'order_reject'
+  | 'customer_notes_update' | 'customer_merge'
 
 export interface AuditEvent {
   id: string

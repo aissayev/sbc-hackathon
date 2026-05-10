@@ -102,6 +102,47 @@ export function findCustomerByThread(threadId: string): Customer | null {
   return getCustomerById(link.customer_id)
 }
 
+// Owner cockpit list view. Optional case-insensitive search across name,
+// phone, and email. Ordered by most-recently-active so the table reads
+// like a "who came in lately" feed. Caller paginates via limit + offset.
+export function listCustomers(opts: {
+  q?: string
+  limit?: number
+  offset?: number
+} = {}): { rows: Customer[]; total: number } {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200)
+  const offset = Math.max(opts.offset ?? 0, 0)
+
+  const filters: string[] = []
+  const params: Array<string | number> = []
+  if (opts.q && opts.q.trim()) {
+    const like = `%${opts.q.trim().toLowerCase()}%`
+    filters.push(`(LOWER(COALESCE(name, '')) LIKE ? OR LOWER(COALESCE(phone, '')) LIKE ? OR LOWER(COALESCE(email, '')) LIKE ?)`)
+    params.push(like, like, like)
+  }
+  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+
+  const db = getDb()
+  const total = (db.prepare(`SELECT COUNT(*) AS c FROM customers ${where}`).get(...params) as { c: number }).c
+  const rows = db
+    .prepare(`SELECT * FROM customers ${where} ORDER BY last_seen_at DESC LIMIT ? OFFSET ?`)
+    .all(...params, limit, offset) as Customer[]
+  return { rows, total }
+}
+
+// Update only the free-form owner notes field — name/phone/email are
+// auto-managed by upsertCustomer and shouldn't be hand-edited from the UI
+// (they'd drift from the order rows). Returns the updated customer or
+// null if id not found.
+export function updateCustomerNotes(id: string, notes: string | null): Customer | null {
+  const trimmed = notes?.trim() || null
+  const result = getDb()
+    .prepare('UPDATE customers SET notes = ?, updated_at = ? WHERE id = ?')
+    .run(trimmed, Date.now(), id)
+  if (result.changes === 0) return null
+  return getCustomerById(id)
+}
+
 // Recent orders for the /customer view + agent context. Capped because
 // the agent prompt has token budget; the owner view shows more.
 export function listCustomerOrders(

@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getOrder, type OrderStatus } from '@/lib/api'
+import { getOrder, getAdminCustomer, type OrderStatus } from '@/lib/api'
 import { fmtUsd, fmtRelativeDate, displayOrderId } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { OrderActions } from './actions'
-import { Sparkles, UtensilsCrossed, ShieldCheck } from 'lucide-react'
+import { Sparkles, UtensilsCrossed, ShieldCheck, Phone, Mail, Repeat, ArrowRight } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,11 +63,7 @@ export default async function AdminOrderDetailPage(props: { params: Params }) {
       </div>
 
       <aside className="space-y-4">
-        <div className="rounded-md border border-cocoa-700/15 bg-cream-100 p-5">
-          <p className="eyebrow">Customer</p>
-          <p className="mt-1 font-medium text-cocoa-900">{order.customer_name ?? '—'}</p>
-          <p className="mt-1 text-sm text-cocoa-900/70 capitalize">{order.pickup_or_delivery}</p>
-        </div>
+        <CustomerPanel order={order} />
         <div className="rounded-md border border-cocoa-700/15 bg-white p-5">
           <p className="eyebrow">Actions</p>
           <OrderActions orderId={order.id} status={order.status} />
@@ -79,6 +75,64 @@ export default async function AdminOrderDetailPage(props: { params: Params }) {
           </div>
         )}
       </aside>
+    </div>
+  )
+}
+
+// CRM panel — replaces the old name-only block. Two states:
+//
+//  - Order linked to a customer (customer_id present) → server-fetches the
+//    full record and shows lifetime + repeat badge + contact links + a
+//    deep-link to /admin/customers/[id] for full history.
+//  - Anonymous order (no customer_id) → falls back to the embedded
+//    customer_name from the order row, no lifetime stats.
+async function CustomerPanel({ order }: { order: OrderStatus }) {
+  const detail = order.customer_id ? await getAdminCustomer(order.customer_id) : null
+  const c = detail?.customer
+
+  return (
+    <div className="rounded-md border border-cocoa-700/15 bg-cream-100 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="eyebrow">Customer</p>
+        {c && (
+          <Link
+            href={`/admin/customers/${c.id}`}
+            className="inline-flex items-center gap-1 text-xs text-sky-700 hover:underline"
+          >
+            View record <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+      <p className="mt-2 font-medium text-cocoa-900">
+        {c?.name ?? order.customer_name ?? <span className="text-cocoa-900/55 italic">no name</span>}
+      </p>
+
+      {c ? (
+        <>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-sky-800 font-medium">
+            <Repeat className="h-3 w-3" />
+            {c.order_count <= 1
+              ? 'First-time customer'
+              : `${c.order_count}× orders · ${fmtUsd(c.total_spent_cents)} lifetime`}
+          </p>
+          <div className="mt-3 space-y-1.5 text-sm">
+            {c.phone && (
+              <a href={`tel:${c.phone}`} className="inline-flex items-center gap-2 text-cocoa-900 hover:text-sky-700">
+                <Phone className="h-3.5 w-3.5 text-cocoa-900/55" />
+                <span className="font-mono text-xs">{c.phone}</span>
+              </a>
+            )}
+            {c.email && (
+              <a href={`mailto:${c.email}`} className="block text-cocoa-900 hover:text-sky-700 inline-flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 text-cocoa-900/55" />
+                <span className="text-xs">{c.email}</span>
+              </a>
+            )}
+          </div>
+        </>
+      ) : null}
+
+      <p className="mt-3 text-xs text-cocoa-900/65 capitalize">{order.pickup_or_delivery}</p>
     </div>
   )
 }
