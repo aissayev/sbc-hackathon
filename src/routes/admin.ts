@@ -278,7 +278,7 @@ adminRoutes.post('/api/admin/approvals/:id/:decision', async (c) => {
   let body: { note?: string } = {}
   try { body = (await c.req.json()) as { note?: string } } catch {}
   const result = decision === 'approve'
-    ? approveApproval(id, body.note)
+    ? await approveApproval(id, body.note)
     : rejectApproval(id, body.note)
   recordAuditEvent({
     action: decision === 'approve' ? 'approval_approve' : 'approval_reject',
