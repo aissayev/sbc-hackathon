@@ -100,6 +100,17 @@ export const config = {
     // server-side admin reads ride open mode (see admin-auth middleware).
     backendSecret: envGet('WEB_BACKEND_SECRET'),
   },
+
+  elevenlabs: {
+    // Used for Telegram voice-message transcription. When unset, voice
+    // messages get a "voice transcription not configured" reply instead of
+    // being silently dropped.
+    apiKey: envGet('ELEVENLABS_API_KEY'),
+    // scribe_v2 (default) is newer + supports filler-word stripping.
+    // scribe_v1 is the older stable model. Both are multilingual (99 langs
+    // including Russian, English, Kazakh).
+    sttModel: envGet('ELEVENLABS_STT_MODEL') ?? 'scribe_v2',
+  },
 } as const
 
 export function configuredChannels(): string[] {
