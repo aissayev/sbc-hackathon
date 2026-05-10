@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { DELIVERY_CITIES, validateZipForDelivery } from '@/lib/delivery'
 import { AddressAutocomplete } from './address-autocomplete'
+import { DateTimePicker } from './date-time-picker'
 
 // Browser-side thread id reused across visits so admin can correlate web-form
 // orders with prior chat threads from the same browser. Persisted in
@@ -72,7 +73,7 @@ async function postJson<T>(
   if (!ct.toLowerCase().includes('application/json')) {
     return {
       ok: false,
-      reason: 'The kitchen system is offline right now. Try again in a minute, or message us on WhatsApp.',
+      reason: "Order system is taking a moment. Try again in a minute, or text us at (281) 979-8320.",
     }
   }
   let data: unknown
@@ -228,13 +229,6 @@ export function OrderForm({ products }: { products: Product[] }) {
   const [stepIdx, setStepIdx] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const formRef = React.useRef<HTMLFormElement>(null)
-
-  const minWhen = React.useMemo(() => {
-    const minDate = new Date(Date.now() + 60 * 60 * 1000)
-    minDate.setSeconds(0, 0)
-    return toLocalDatetimeValue(minDate)
-  }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -272,31 +266,22 @@ export function OrderForm({ products }: { products: Product[] }) {
     }, 0)
   }, [watchItems, products])
 
-  // Scroll the form (not the page) into view on step change so the user
-  // sees the new step header. Only do it when the form is below the
-  // viewport — on desktop the whole wizard fits on screen and snapping
-  // to the top causes a jarring "bounce" the user complained about.
-  function nudgeFormIntoView() {
-    const el = formRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    if (rect.top >= 0 && rect.top <= 80) return
-    el.scrollIntoView({ block: 'start', behavior: 'auto' })
-    // Account for the sticky header so the title isn't tucked behind it.
-    requestAnimationFrame(() => window.scrollBy({ top: -80, behavior: 'auto' }))
-  }
-
+  // No auto-scroll on step change. Earlier `nudgeFormIntoView()` snapped
+  // the page when the form's top moved off-screen by more than ~80px,
+  // which felt like a bounce the moment the user scrolled even slightly.
+  // The new step's content lives in the same form box anyway, so the
+  // visible viewport already reads the right thing. Validation errors
+  // still get focus via react-hook-form, so blocked steps focus the
+  // first invalid field automatically.
   async function onNext() {
     const fields = fieldsForStep(step.key, mode === 'delivery', watchItems.length)
     const ok = await form.trigger(fields as Parameters<typeof form.trigger>[0])
     if (!ok) return
     setStepIdx((i) => Math.min(STEPS.length - 1, i + 1))
-    requestAnimationFrame(nudgeFormIntoView)
   }
 
   function onBack() {
     setStepIdx((i) => Math.max(0, i - 1))
-    requestAnimationFrame(nudgeFormIntoView)
   }
 
   async function onSubmit(values: FormValues) {
@@ -341,11 +326,7 @@ export function OrderForm({ products }: { products: Product[] }) {
   const isLast = stepIdx === STEPS.length - 1
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={form.handleSubmit(onSubmit)}
-      className="grid gap-8 lg:grid-cols-[1fr_360px] scroll-mt-24"
-    >
+    <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-[1fr_360px]">
       <div>
         <ProgressRail stepIdx={stepIdx} />
 
@@ -366,7 +347,7 @@ export function OrderForm({ products }: { products: Product[] }) {
         )}
 
         {step.key === 'when' && (
-          <WhenStep form={form} minWhen={minWhen} maxLead={maxLead} mode={mode} />
+          <WhenStep form={form} maxLead={maxLead} mode={mode} />
         )}
 
         {step.key === 'contact' && (
@@ -400,10 +381,7 @@ export function OrderForm({ products }: { products: Product[] }) {
         mode={mode}
         total={total}
         stepIdx={stepIdx}
-        onAddMore={() => {
-          setStepIdx(0)
-          requestAnimationFrame(nudgeFormIntoView)
-        }}
+        onAddMore={() => setStepIdx(0)}
       />
     </form>
   )
@@ -579,67 +557,70 @@ function CakesStep({
 
 function WhenStep({
   form,
-  minWhen,
   maxLead,
   mode,
 }: {
   form: ReturnType<typeof useForm<FormValues>>
-  minWhen: string
   maxLead: number
   mode: 'pickup' | 'delivery'
 }) {
+  // Hour-aware date+time picker — same widget the home hero uses, so the
+  // /order step doesn't suddenly drop into the OS native datetime control.
+  // Round-trips a single ISO string via react-hook-form's setValue.
+  const scheduledAt = form.watch('scheduled_at_iso')
   return (
     <div className="mt-6">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <div>
           <Label htmlFor="scheduled_at_iso">Pickup / delivery time</Label>
-          <Input
-            id="scheduled_at_iso"
-            type="datetime-local"
-            min={minWhen}
-            {...form.register('scheduled_at_iso')}
-            className="mt-1"
-          />
+          <div className="mt-1.5">
+            <DateTimePicker
+              id="scheduled_at_iso"
+              value={scheduledAt}
+              onChange={(iso) => form.setValue('scheduled_at_iso', iso, { shouldValidate: true })}
+              minLeadHours={maxLead || undefined}
+            />
+          </div>
           {form.formState.errors.scheduled_at_iso && (
             <p className="mt-1 text-xs text-berry">
               {form.formState.errors.scheduled_at_iso.message}
             </p>
           )}
-          {maxLead > 0 && (
-            <p className="mt-1 text-xs text-cocoa-900/60">
-              Earliest possible: {leadTimeLabel(maxLead).toLowerCase()} from now.
-            </p>
-          )}
         </div>
         <div>
           <Label>How would you like it?</Label>
-          <div className="mt-1 grid grid-cols-2 gap-2">
+          <div className="mt-1.5 grid grid-cols-2 gap-2">
             {(
               [
-                { mode: 'pickup', label: 'Pickup', icon: Store },
-                { mode: 'delivery', label: 'Delivery', icon: Truck },
+                { mode: 'pickup', label: 'Pickup', icon: Store, hint: 'Free at our shop' },
+                { mode: 'delivery', label: 'Delivery', icon: Truck, hint: 'Greater Houston' },
               ] as const
-            ).map(({ mode: m, label, icon: Icon }) => {
+            ).map(({ mode: m, label, icon: Icon, hint }) => {
               const value = form.watch('pickup_or_delivery')
+              const active = value === m
               return (
                 <button
                   key={m}
                   type="button"
                   onClick={() => form.setValue('pickup_or_delivery', m)}
+                  aria-pressed={active}
                   className={cn(
-                    'h-11 rounded-md border text-sm font-medium transition-colors inline-flex items-center justify-center gap-2',
-                    value === m
-                      ? 'border-cocoa-700 bg-cocoa-700 text-cream-50'
-                      : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
+                    'h-auto py-3 px-4 rounded-xl border text-left transition-all duration-150',
+                    active
+                      ? 'border-sky bg-sky/10 text-cocoa-900 shadow-sm'
+                      : 'border-cocoa-700/15 bg-cream-50 text-cocoa-900 hover:border-cocoa-700/30',
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {label}
+                  <span className="flex items-center gap-2 font-medium text-sm">
+                    <Icon className={cn('h-4 w-4', active ? 'text-sky-700' : 'text-cocoa-700')} />
+                    {label}
+                  </span>
+                  <span className="block mt-0.5 text-[11px] text-cocoa-900/60">{hint}</span>
                 </button>
               )
             })}
           </div>
-          <p className="mt-1 text-xs text-cocoa-900/60">
+          <p className="mt-1.5 text-xs text-cocoa-900/60">
             {mode === 'delivery'
               ? 'Delivery in Sugar Land + Greater Houston only. Fee confirmed at order time.'
               : 'Pickup is free at our Promenade Way location.'}
@@ -741,6 +722,19 @@ function BasketAside({
     <aside className="lg:sticky lg:top-28 self-start rounded-lg bg-cream-100 border border-cocoa-700/15 p-6">
       <p className="eyebrow">Order summary</p>
       <h2 className="display-h3 mt-1">Your basket</h2>
+      {/* Surface the carried-over pickup/delivery choice prominently so the
+          customer sees the home-form selection persisted into the wizard. */}
+      <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white border border-cocoa-700/15 px-3 h-7 text-xs font-medium text-cocoa-900">
+        {mode === 'delivery' ? (
+          <>
+            <Truck className="h-3.5 w-3.5 text-sky-700" /> Delivery
+          </>
+        ) : (
+          <>
+            <Store className="h-3.5 w-3.5 text-sky-700" /> Pickup
+          </>
+        )}
+      </div>
       <ul className="mt-4 divide-y divide-cocoa-700/15">
         {watchItems.map((it, i) => {
           const p = products.find((x) => x.id === it.product_id)
