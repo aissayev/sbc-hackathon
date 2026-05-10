@@ -123,8 +123,8 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
           <div className="mt-1.5 grid grid-cols-2 gap-2" role="group" aria-label="Pickup or delivery">
             {(
               [
-                { value: 'pickup' as const, label: 'Pickup', icon: Store, hint: 'Free · Promenade Way' },
-                { value: 'delivery' as const, label: 'Delivery', icon: Truck, hint: 'Sugar Land + Houston' },
+                { value: 'pickup' as const, label: 'Pickup', icon: Store, hint: 'Free at our shop' },
+                { value: 'delivery' as const, label: 'Delivery', icon: Truck, hint: 'Greater Houston area' },
               ]
             ).map(({ value, label, icon: Icon, hint }) => {
               const active = mode === value
