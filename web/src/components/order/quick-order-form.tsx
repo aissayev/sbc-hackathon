@@ -367,7 +367,7 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
       <button
         type="submit"
         disabled={!canSubmit}
-        className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-cocoa-700 text-cream font-medium h-12 px-6 hover:bg-cocoa-900 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-sky text-white font-medium h-12 px-6 hover:bg-sky-700 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 shadow-sm"
       >
         {isCustom ? 'Start the design' : 'Continue to checkout'}
       </button>

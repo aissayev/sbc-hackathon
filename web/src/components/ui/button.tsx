@@ -3,17 +3,21 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
-// Pill-shaped buttons matching happycake.us café feel — chocolate filled,
-// sky outline, soft cream secondary. Default radius is full-pill; the
-// `square` variant brings back the rounded-md for in-form usage where
-// pills look out of place.
+// Pill-shaped buttons matching happycake.us café feel.
+// Primary CTA is brand sky (was cocoa) — owner preference for the lead
+// action across the site. Cocoa stays available via the explicit `cocoa`
+// variant for the rare cases where a dark filled button is the right call
+// (e.g. inside a sky-tinted band where sky-on-sky would disappear). The
+// `sky` name is preserved as an alias of default for backward compat
+// with existing call sites that asked for it explicitly.
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-cream disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        default: 'bg-cocoa-700 text-cream hover:bg-cocoa-900 hover:-translate-y-0.5',
+        default: 'bg-sky text-white hover:bg-sky-700 hover:-translate-y-0.5 shadow-sm',
         sky: 'bg-sky text-white hover:bg-sky-700 hover:-translate-y-0.5 shadow-sm',
+        cocoa: 'bg-cocoa-700 text-cream hover:bg-cocoa-900 hover:-translate-y-0.5',
         secondary: 'bg-cream-200 text-cocoa-900 hover:bg-cream-300 border border-cocoa-700/15',
         outline:
           'border border-cocoa-700/30 bg-transparent text-cocoa-900 hover:bg-cream-100',
