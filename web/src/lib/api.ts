@@ -76,6 +76,10 @@ export interface OrderStatus {
   // (Order received → In the kitchen → Ready) since the order auto-promotes;
   // when true we render the 4-step rail with the explicit "Approved" gate.
   requires_approval?: boolean
+  // Which categories triggered the approval requirement, e.g. ['custom']
+  // or ['catering', 'custom']. Empty when order auto-promoted. Used by the
+  // admin orders list to label each draft with the WHY at a glance.
+  approval_reasons?: string[]
 }
 
 export interface DailyReport {

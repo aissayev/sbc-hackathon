@@ -240,11 +240,25 @@ interface StoredItem {
  * Standard slices / whole cakes / pastries return false → auto-approve.
  */
 export function orderRequiresApproval(items: StoredItem[]): boolean {
+  return approvalReasons(items).length > 0
+}
+
+/**
+ * Returns the deduped, sorted list of categories that triggered the
+ * approval requirement (e.g. `['catering', 'custom']`). Empty array
+ * when nothing needs approval — order auto-promotes. Used by the cockpit
+ * UI to tell the owner WHY a draft is waiting on them, not just THAT it
+ * is, so they don't have to drill in to find out.
+ */
+export function approvalReasons(items: StoredItem[]): string[] {
+  const reasons = new Set<string>()
   for (const it of items) {
     const product = getProduct(it.sku)
-    if (product && APPROVAL_REQUIRED_CATEGORIES.has(product.category)) return true
+    if (product && APPROVAL_REQUIRED_CATEGORIES.has(product.category)) {
+      reasons.add(product.category)
+    }
   }
-  return false
+  return Array.from(reasons).sort()
 }
 
 function shapeOrderStatus(row: OrderRowFull) {
@@ -269,6 +283,11 @@ function shapeOrderStatus(row: OrderRowFull) {
     // (Order received → In the kitchen → Ready). Stable across status
     // transitions — depends only on the items, not the current status.
     requires_approval: orderRequiresApproval(items),
+    // Categories that triggered the approval requirement, e.g.
+    // ['custom'] or ['catering', 'custom']. Empty array when the
+    // order auto-promotes. Lets cockpit + tracker show the WHY without
+    // re-deriving from items.
+    approval_reasons: approvalReasons(items),
   }
 }
 
@@ -329,6 +348,7 @@ interface OrderListRow {
   customer_name: string | null
   scheduled_at: string | null
   created_at: number
+  items_json: string | null
 }
 
 interface ListedOrder {
@@ -339,9 +359,15 @@ interface ListedOrder {
   customer_name: string | null
   scheduled_at: string | null
   created_at: number
+  // Carried into list rows so the admin orders page can label each row
+  // with the WHY ("custom design", "catering") without a per-row
+  // round-trip to the detail endpoint.
+  approval_reasons: string[]
 }
 
 function shapeListed(row: OrderListRow): ListedOrder {
+  let items: StoredItem[] = []
+  try { items = row.items_json ? (JSON.parse(row.items_json) as StoredItem[]) : [] } catch {}
   return {
     id: row.id,
     friendly_id: friendlyOrderId(row.rowid),
@@ -350,6 +376,7 @@ function shapeListed(row: OrderListRow): ListedOrder {
     customer_name: row.customer_name,
     scheduled_at: row.scheduled_at,
     created_at: row.created_at,
+    approval_reasons: approvalReasons(items),
   }
 }
 
@@ -358,13 +385,13 @@ export function listOrders(filter?: { status?: string; limit?: number }): Listed
   const rows = filter?.status
     ? (getDb()
         .prepare(
-          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at, items_json FROM orders
            WHERE status = ? ORDER BY created_at DESC LIMIT ?`,
         )
         .all(filter.status, limit) as OrderListRow[])
     : (getDb()
         .prepare(
-          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at, items_json FROM orders
            ORDER BY created_at DESC LIMIT ?`,
         )
         .all(limit) as OrderListRow[])

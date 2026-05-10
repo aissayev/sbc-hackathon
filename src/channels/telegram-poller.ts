@@ -15,6 +15,7 @@ import {
   parseTelegramUpdate,
   sendChatAction,
   sendTelegram,
+  withTypingIndicator,
   type TelegramBotSpec,
   type TelegramUpdate,
 } from './telegram.ts'
@@ -258,7 +259,12 @@ async function pollOne(bot: TelegramBotSpec, onMessage: MessageHandler, onCallba
         })
         if (!resolved) continue
         for (const msg of parseTelegramUpdate(resolved, bot.role, bot.ownerChatIds)) {
-          await onMessage(msg).catch((err) =>
+          // Show "typing…" in the user's chat while the agent runs.
+          // Telegram's indicator auto-clears after ~5s; the heartbeat
+          // re-emits every 4s so it stays solid through long invocations.
+          await withTypingIndicator(bot.token, msg.threadId, () =>
+            onMessage(msg),
+          ).catch((err) =>
             console.error(`[telegram:${bot.role}] onMessage err:`, (err as Error).message),
           )
         }
