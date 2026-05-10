@@ -26,6 +26,42 @@
       "daily_capacity": 12
     },
     {
+      "id": "whole-pistachio-cake",
+      "name": "Whole Pistachio Cake",
+      "category": "whole-cakes",
+      "price_cents": 6500,
+      "lead_time_hours": 2,
+      "allergens": "eggs,dairy,gluten,nuts",
+      "description": "The full pistachio meringue roll — a long log of meringue, pistachio cream, and fresh raspberry. About 90 minutes to slice and pack. Serves 10–12.",
+      "photo_url": "https://www.steppebusinessclub.com/hackathon-assets/happy-cake/products/happy-cake-product-04.webp",
+      "in_stock": 1,
+      "daily_capacity": 8
+    },
+    {
+      "id": "whole-cloud-cake",
+      "name": "Whole Cloud Cake",
+      "category": "whole-cakes",
+      "price_cents": 6000,
+      "lead_time_hours": 2,
+      "allergens": "eggs,dairy,gluten",
+      "description": "The full cloud — airy meringue layers and vanilla cream, hand-decorated. Feeds about a dozen. About 90 minutes to finish and pack.",
+      "photo_url": "https://www.steppebusinessclub.com/hackathon-assets/happy-cake/products/happy-cake-product-09.webp",
+      "in_stock": 1,
+      "daily_capacity": 8
+    },
+    {
+      "id": "whole-tiramisu-cake",
+      "name": "Whole Tiramisu Cake",
+      "category": "whole-cakes",
+      "price_cents": 5800,
+      "lead_time_hours": 2,
+      "allergens": "eggs,dairy,gluten",
+      "description": "A full tray of tiramisu — espresso-soaked vanilla biscuit, milk-chocolate layers, mascarpone. Serves 10–12. Two hours notice.",
+      "photo_url": "https://www.steppebusinessclub.com/hackathon-assets/happy-cake/products/happy-cake-product-02.webp",
+      "in_stock": 1,
+      "daily_capacity": 6
+    },
+    {
       "id": "pistachio-roll",
       "name": "Pistachio Roll",
       "category": "slices",
