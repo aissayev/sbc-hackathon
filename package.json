@@ -11,6 +11,7 @@
     "setup:mcp": "bun src/scripts/setup-mcp.ts",
     "preflight": "bun src/scripts/preflight.ts",
     "smoke:agent": "bun src/scripts/smoke-agent.ts",
+    "demo:smoke": "bun src/scripts/demo-smoke.ts",
     "agent:concierge": "bun src/scripts/agent-cli.ts concierge",
     "agent:kitchen": "bun src/scripts/agent-cli.ts kitchen",
     "agent:marketing": "bun src/scripts/agent-cli.ts marketing",
