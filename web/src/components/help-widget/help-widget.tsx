@@ -141,11 +141,11 @@ export function HelpWidget() {
   if (shouldHide(pathname)) return null
 
   return (
-    <>
+    <div data-help-widget>
       <Launcher open={open} onClick={() => (open ? setOpen(false) : openWidget())} />
       {!open && popVisible && <AutoPop onOpen={() => openWidget('chat')} onDismiss={() => dismissPop(true)} />}
       {open && <Card view={view} setView={setView} onClose={() => setOpen(false)} />}
-    </>
+    </div>
   )
 }
 

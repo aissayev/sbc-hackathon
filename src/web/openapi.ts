@@ -73,6 +73,22 @@ export function openApiSpec(): object {
           responses: { '200': { description: 'order status' }, '404': { description: 'not found' } },
         },
       },
+      '/track/{code}': {
+        get: {
+          summary: 'Human-readable order tracking page (HTML, live-polling)',
+          parameters: [
+            { name: 'code', in: 'path', required: true, schema: { type: 'string' }, description: 'Order id (`ord_*`)' },
+            {
+              name: 'embed',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['1'] },
+              description: 'When `1`, hides site chrome so the page can be iframed as a widget.',
+            },
+          ],
+          responses: { '200': { description: 'HTML status page' }, '404': { description: 'order not found' } },
+        },
+      },
       '/api/uploads': {
         post: {
           summary: 'Upload an image or video to DigitalOcean Spaces; returns a public CDN URL',

@@ -5,7 +5,7 @@ import { Instagram, MapPin, Phone, Mail } from 'lucide-react'
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 bg-cocoa-900 text-cream">
+    <footer data-site-footer className="mt-24 bg-cocoa-900 text-cream">
       <div className="container py-14 grid gap-10 md:grid-cols-12">
         <div className="md:col-span-5">
           <Wordmark tone="cream" />
