@@ -94,6 +94,22 @@ duration: ~9s · cost: ~$0.40
 
 If you see `(empty)` and `Invalid MCP configuration`, re-run `bun run setup:mcp`.
 
+## Owner Day-1 walkthrough
+
+Five concrete moments a non-technical operator hits in their first hour. Each one runs end-to-end without code changes.
+
+1. **A customer drafts an order on the website.** The order lands in `@hc_owner_bot` as a card with **Approve** / **Reject** buttons. Standard catalog items (slices, whole cakes, pastries) auto-approve in the background — the card shows the result, no tap needed. Custom cakes and catering boxes wait for the operator's tap.
+
+2. **Operator taps Approve.** Deterministic orchestration runs in <2s: Square POS order created, kitchen ticket created, customer notified on their original channel (WhatsApp / Instagram / web). The operator sees `✓ Square: sq_… · Kitchen: tkt_…` posted as a follow-up message in TG. No LLM hop in this path — Approve is a button, not a prompt.
+
+3. **A 2-star Google Business review lands.** `@hc_owner_bot` pings unprompted: *"⭐⭐ — '...the box was bent and the message was misspelled.'"* with a **Draft reply** button. Tapping it generates a brand-voiced reply with Askhat's tone, ready to publish via `gb_simulate_reply` after a final review.
+
+4. **Operator types `/spend`.** Same bot answers in 200ms (DB-only, no `claude -p` spend) with budget MTD, leads generated, top-performing creative, and `?ref=` attribution rollup. Operator sees which campaign actually moved the needle.
+
+5. **Operator types free text — *"how's the kitchen tomorrow?"***. The bot's owner agent picks up, calls `kitchen_get_production_summary` and `kitchen_get_capacity`, and answers in TG with a streaming `🤔 thinking…` placeholder that edits in place as the agent's `claude -p` invocation makes its tool calls. Final message: *"Tomorrow: 5 active prep tickets, 47/420 minutes used. Custom Spider-Man cake is the heaviest — 90 min. Capacity for ~3 more standard whole-cake orders."*
+
+The whole loop — order intent, approval, customer notification, owner audit — fits inside Telegram. No browser tabs, no email, no admin login.
+
 ## Telegram bots
 
 One bot per role; each has its own token + system prompt. All bots share the same outbound API but route inbound to the right agent role.
@@ -226,7 +242,23 @@ data/catalog/                seed catalog (mirrored from sandbox at boot)
 
 ## Deploy
 
-Local + ngrok is the hackathon path and is fine for the brief's `~1 req/s` ceiling. For production, see [docs/05-deploy/PRODUCTION.md](./docs/05-deploy/PRODUCTION.md): named Cloudflare Tunnel, real WA/IG/Square credentials in place of the simulator MCP, SQLite → Postgres when sustained traffic crosses ~1 req/s.
+Three deploy paths — the hackathon brief explicitly approves the first two; Docker is the post-hackathon move.
+
+### 1. Laptop + ngrok (hackathon submission path)
+
+The brief: *"ngrok or Cloudflare Tunnel for inbound webhooks to local machine"* is allowed. This is the recommended demo path. `ngrok http 3000` exposes the backend, `bun run register-webhooks https://<your-ngrok>.ngrok-free.app` registers the URL with the sandbox so WA/IG inbound flows back home. Free-tier ngrok URLs change on restart and the tunnel sleeps after 8 hours — fine for a 24h hackathon, weak for production.
+
+**Limitation:** ngrok free-tier URLs expire when the tunnel restarts. For a stable demo URL, swap to Cloudflare Tunnel (`cloudflared tunnel run`) — same approval in the brief, durable name.
+
+### 2. Cloudflare Tunnel (stable demo)
+
+Five-minute setup, free, named tunnel persists across restarts. Pick this for any post-hackathon demo. Same `bun run register-webhooks` step, but with a stable URL.
+
+### 3. Docker + Caddy (production-grade)
+
+`Dockerfile` (backend), `web/Dockerfile` (Next.js standalone), `docker-compose.yml` (both services on one network). Add a Caddy reverse-proxy for auto-TLS. Detailed walkthrough including caveats (claude binary stays on host, SQLite-only persistence, single-tenant assumption): [docs/05-deploy/DOCKER.md](./docs/05-deploy/DOCKER.md).
+
+For Postgres migration when sustained traffic crosses ~1 req/s, real Square / Meta credentials in place of the simulator, and named Cloudflare Tunnel: [docs/05-deploy/PRODUCTION.md](./docs/05-deploy/PRODUCTION.md).
 
 ## Security
 
