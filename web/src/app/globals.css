@@ -77,24 +77,62 @@
       linear-gradient(165deg, #FFFBF3 0%, #FFF7EA 50%, #FBE9F0 100%);
   }
 
-  /* Layered home-hero backdrop — warm cream wash, sky + berry glows in the
-     corners, and a faint dot lattice. Used as a stack of three overlays so
-     the hero feels deeper than a flat gradient without being noisy. */
+  /* Layered home-hero backdrop — "Confetti Morning":
+     1. Warm cream base
+     2. Top-left butter / sun glow (morning light through bakery windows)
+     3. Top-right sky kiss (signature sky accent without overpowering)
+     4. Bottom-right blush bloom (sweetness)
+     5. Bottom warm cocoa wash (anchor)
+     6. Subtle vertical gradient (cream → blush) bleeding into the page
+     The radials use higher opacities than before so the warmth actually
+     reads — previously the wash was so faint it looked accidental. */
   .home-hero-bg {
     background-color: #FFFBF3;
     background-image:
-      radial-gradient(46% 46% at 12% 8%, rgba(0, 174, 234, 0.18) 0%, transparent 60%),
-      radial-gradient(40% 40% at 100% 12%, rgba(233, 75, 123, 0.10) 0%, transparent 60%),
-      radial-gradient(60% 60% at 50% 105%, rgba(107, 58, 30, 0.10) 0%, transparent 65%),
-      linear-gradient(180deg, #FFFBF3 0%, #FFF7EA 60%, #FBE9F0 100%);
+      radial-gradient(50% 55% at 8% 0%, rgba(255, 196, 102, 0.30) 0%, transparent 65%),
+      radial-gradient(42% 48% at 102% 6%, rgba(0, 174, 234, 0.22) 0%, transparent 65%),
+      radial-gradient(46% 50% at 96% 92%, rgba(233, 75, 123, 0.18) 0%, transparent 65%),
+      radial-gradient(55% 50% at 18% 110%, rgba(107, 58, 30, 0.12) 0%, transparent 65%),
+      linear-gradient(178deg, #FFF8EB 0%, #FFF3E0 55%, #FBE2EB 100%);
   }
+
+  /* Soft dot mesh — gentle, bakery-friendly, replaces the old linear grid
+     (which read more "grid software" than "small bakery"). Dots are warm
+     cocoa at very low opacity, masked to the centre so the corners stay
+     clean for the radial glows to shine. */
   .home-hero-grid {
     background-image:
-      linear-gradient(to right, rgba(107, 58, 30, 0.06) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(107, 58, 30, 0.06) 1px, transparent 1px);
-    background-size: 56px 56px;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 35%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 35%, transparent 80%);
+      radial-gradient(circle, rgba(107, 58, 30, 0.10) 1.1px, transparent 1.4px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 85%);
+  }
+
+  /* Paper grain — fractal-noise SVG tiled and overlaid in multiply mode.
+     Adds tactility (think risograph / brown-paper bag) without showing up
+     as visible noise. Opacity is intentionally tiny — the human eye reads
+     "texture" rather than "noise". */
+  .home-hero-grain {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 220px 220px;
+    opacity: 0.10;
+    mix-blend-mode: multiply;
+  }
+
+  /* Hero sparkle bobbing — subtle vertical drift, varied per element via
+     animation-delay (set inline). Respects prefers-reduced-motion. */
+  @keyframes hero-bob {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-6px) rotate(8deg); }
+  }
+  @keyframes hero-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.88); }
+  }
+  .hero-bob { animation: hero-bob 7s ease-in-out infinite; }
+  .hero-twinkle { animation: hero-twinkle 4.5s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-bob, .hero-twinkle { animation: none; }
   }
 
   /* Soft polka-dot polish for sections + dark hero overlays */

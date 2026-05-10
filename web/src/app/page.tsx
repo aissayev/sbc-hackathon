@@ -106,16 +106,19 @@ export default async function HomePage() {
 function Hero({ products }: { products: Product[] }) {
   return (
     <section className="relative overflow-hidden">
-      {/* Layered backdrop: warm cream wash + sky / berry corner glows + a faint
-          grid lattice masked to the centre. Pattern mirrors the websites
-          monorepo hero recipe (25_karada-u, 24_skymax). */}
+      {/* Layered "Confetti Morning" backdrop, back to front:
+          1. home-hero-bg     — warm cream + butter/sky/blush radial glows
+          2. home-hero-grid   — soft cocoa dot mesh, masked to the centre
+          3. home-hero-grain  — subtle paper grain (multiply blend) for tactility
+          4. soft-blur orbs   — extra atmospheric bloom in the corners
+          5. HeroDecor        — bunting, sparkles, sprinkle field, steam, frosting
+          Each layer is pointer-events-none and aria-hidden so the form
+          and copy on top stay fully accessible. */}
       <div className="absolute inset-0 home-hero-bg pointer-events-none" aria-hidden />
-      <div className="absolute inset-0 home-hero-grid pointer-events-none opacity-70" aria-hidden />
-      <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky/15 blur-3xl pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-40 -left-32 h-[28rem] w-[28rem] rounded-full bg-berry/10 blur-3xl pointer-events-none" aria-hidden />
-      {/* Friendly cake-themed line-art that floats behind the copy. Subtle on
-          purpose — sits at low opacity so it reads as wallpaper rather than
-          decoration. Hidden on small viewports. */}
+      <div className="absolute inset-0 home-hero-grid pointer-events-none opacity-60" aria-hidden />
+      <div className="absolute inset-0 home-hero-grain pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -right-32 h-[26rem] w-[26rem] rounded-full bg-amber-300/25 blur-3xl pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-44 -left-32 h-[30rem] w-[30rem] rounded-full bg-berry/15 blur-3xl pointer-events-none" aria-hidden />
       <HeroDecor />
 
       <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
