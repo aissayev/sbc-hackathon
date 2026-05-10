@@ -230,11 +230,25 @@ interface StoredItem {
  * Standard slices / whole cakes / pastries return false → auto-approve.
  */
 export function orderRequiresApproval(items: StoredItem[]): boolean {
+  return approvalReasons(items).length > 0
+}
+
+/**
+ * Returns the deduped, sorted list of categories that triggered the
+ * approval requirement (e.g. `['catering', 'custom']`). Empty array
+ * when nothing needs approval — order auto-promotes. Used by the cockpit
+ * UI to tell the owner WHY a draft is waiting on them, not just THAT it
+ * is, so they don't have to drill in to find out.
+ */
+export function approvalReasons(items: StoredItem[]): string[] {
+  const reasons = new Set<string>()
   for (const it of items) {
     const product = getProduct(it.sku)
-    if (product && APPROVAL_REQUIRED_CATEGORIES.has(product.category)) return true
+    if (product && APPROVAL_REQUIRED_CATEGORIES.has(product.category)) {
+      reasons.add(product.category)
+    }
   }
-  return false
+  return Array.from(reasons).sort()
 }
 
 function shapeOrderStatus(row: OrderRowFull) {
@@ -257,6 +271,11 @@ function shapeOrderStatus(row: OrderRowFull) {
     // (Order received → In the kitchen → Ready). Stable across status
     // transitions — depends only on the items, not the current status.
     requires_approval: orderRequiresApproval(items),
+    // Categories that triggered the approval requirement, e.g.
+    // ['custom'] or ['catering', 'custom']. Empty array when the
+    // order auto-promotes. Lets cockpit + tracker show the WHY without
+    // re-deriving from items.
+    approval_reasons: approvalReasons(items),
   }
 }
 
