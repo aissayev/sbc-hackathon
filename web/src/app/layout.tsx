@@ -3,6 +3,7 @@ import { Playfair_Display, Inter } from 'next/font/google'
 import { BRAND, ASSETS } from '@/lib/brand'
 import { SiteHeader } from '@/components/brand/header'
 import { SiteFooter } from '@/components/brand/footer'
+import { SiteChrome } from '@/components/brand/site-chrome'
 import { Providers } from '@/components/providers'
 import { HelpWidget } from '@/components/help-widget/help-widget'
 import './globals.css'
@@ -79,12 +80,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <Providers>
-          <SiteHeader />
+          {/* Public chrome only on customer-facing routes. /admin is the
+              owner cockpit — typically loaded inside a Telegram Mini App
+              webview where these surfaces just clutter a narrow viewport. */}
+          <SiteChrome>
+            <SiteHeader />
+          </SiteChrome>
           <main id="main" className="min-h-[60vh]">
             {children}
           </main>
-          <SiteFooter />
-          <HelpWidget />
+          <SiteChrome>
+            <SiteFooter />
+            <HelpWidget />
+          </SiteChrome>
         </Providers>
       </body>
     </html>
