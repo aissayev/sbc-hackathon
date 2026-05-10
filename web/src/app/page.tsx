@@ -8,6 +8,7 @@ import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
 import { QuickOrderForm } from '@/components/order/quick-order-form'
 import { EditorialTriptych } from '@/components/sections/editorial-triptych'
+import { SpotlightRow } from '@/components/sections/spotlight-row'
 import { PlaceToGather } from '@/components/sections/place-to-gather'
 import { Testimonials } from '@/components/sections/testimonials'
 import { NewsletterBand } from '@/components/sections/newsletter-band'
@@ -68,6 +69,7 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
       <Hero products={inStockProducts} />
+      <SpotlightRow />
       <EditorialTriptych />
 
       <ShowcaseRow products={products} />
