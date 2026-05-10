@@ -133,6 +133,30 @@ CREATE TABLE IF NOT EXISTS owner_approvals (
 );
 CREATE INDEX IF NOT EXISTS idx_approvals_status ON owner_approvals(status);
 
+-- Audit log: every owner-initiated action through the cockpit. The chat
+-- agents have their own log (agent_invocations); this is just for the
+-- human, so the trail of "what did the owner do, when, on what" is
+-- searchable from /admin/settings.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id          TEXT PRIMARY KEY,
+  -- 'approval_approve', 'approval_reject', 'thread_reply',
+  -- 'channel_register', 'channel_test', 'campaign_pause',
+  -- 'campaign_resume', 'campaign_adjust', 'order_approve', 'order_reject'
+  action      TEXT NOT NULL,
+  -- The thing acted on. e.g. 'aprv_…', 'ord_…', 'whatsapp', 'cmp_…'
+  target_id   TEXT,
+  -- Optional channel scope so the audit page can filter / colour rows.
+  channel     TEXT,
+  -- Free-form result summary ("approved", "rejected: out of season",
+  -- "registered + appId=fb_123"). Keep short — the cockpit shows it raw.
+  result      TEXT,
+  -- 'ok' | 'error' — separate from `result` so the UI can colour without parsing.
+  outcome     TEXT NOT NULL DEFAULT 'ok' CHECK (outcome IN ('ok', 'error')),
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS agent_invocations (
   id          TEXT PRIMARY KEY,
   role        TEXT NOT NULL,

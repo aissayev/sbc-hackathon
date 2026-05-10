@@ -40,6 +40,8 @@ import {
   approvalCounts,
   type ApprovalStatus,
 } from '../domain/approvals.ts'
+import { recordAuditEvent, listAuditEvents, auditCounts } from '../domain/audit.ts'
+import { getCockpitSettings } from '../domain/settings.ts'
 
 export const adminRoutes = new Hono()
 
@@ -65,6 +67,11 @@ adminRoutes.get('/api/admin/escalations', (c) => {
 adminRoutes.post('/api/admin/orders/:id/approve', async (c) => {
   const id = c.req.param('id')
   const result = await approveDraftAndPromote(id)
+  recordAuditEvent({
+    action: 'order_approve', targetId: id,
+    result: result.ok ? 'approved + promoted to kitchen' : (result.error ?? 'failed'),
+    outcome: result.ok ? 'ok' : 'error',
+  })
   return c.json(result, result.ok ? 200 : 400)
 })
 
@@ -76,6 +83,10 @@ adminRoutes.post('/api/admin/orders/:id/reject', async (c) => {
   } catch {}
   const reason = (body.reason ?? '').trim() || 'Owner declined via admin'
   const result = await rejectDraft(id, reason)
+  recordAuditEvent({
+    action: 'order_reject', targetId: id, result: reason,
+    outcome: result.ok ? 'ok' : 'error',
+  })
   return c.json(result, result.ok ? 200 : 400)
 })
 
@@ -113,12 +124,20 @@ adminRoutes.get('/api/admin/channels/:id', async (c) => {
 adminRoutes.post('/api/admin/channels/:id/register', async (c) => {
   const id = c.req.param('id') as ChannelId
   const result = await registerChannelWebhook(id)
+  recordAuditEvent({
+    action: 'channel_register', targetId: id, channel: id,
+    result: result.message, outcome: result.ok ? 'ok' : 'error',
+  })
   return c.json(result, result.ok ? 200 : 400)
 })
 
 adminRoutes.post('/api/admin/channels/:id/test', async (c) => {
   const id = c.req.param('id') as ChannelId
   const result = await sendTestInbound(id)
+  recordAuditEvent({
+    action: 'channel_test', targetId: id, channel: id,
+    result: result.message, outcome: result.ok ? 'ok' : 'error',
+  })
   return c.json(result, result.ok ? 200 : 400)
 })
 
@@ -140,6 +159,12 @@ adminRoutes.post('/api/admin/campaigns/:id/:action', async (c) => {
   let body: Record<string, unknown> = {}
   try { body = (await c.req.json()) as Record<string, unknown> } catch {}
   const result = await adjustCampaign(id, action, body)
+  recordAuditEvent({
+    action: ('campaign_' + action) as 'campaign_pause' | 'campaign_resume' | 'campaign_adjust',
+    targetId: id,
+    result: result.message + (Object.keys(body).length ? ` ${JSON.stringify(body)}` : ''),
+    outcome: result.ok ? 'ok' : 'error',
+  })
   return c.json(result, result.ok ? 200 : 400)
 })
 
@@ -166,7 +191,26 @@ adminRoutes.post('/api/admin/approvals/:id/:decision', async (c) => {
   const result = decision === 'approve'
     ? approveApproval(id, body.note)
     : rejectApproval(id, body.note)
+  recordAuditEvent({
+    action: decision === 'approve' ? 'approval_approve' : 'approval_reject',
+    targetId: id,
+    channel: result.approval?.channel ?? null,
+    result: result.approval?.summary
+      ? `${decision}: ${result.approval.summary}${body.note ? ` — "${body.note}"` : ''}`
+      : (result.error ?? decision),
+    outcome: result.ok ? 'ok' : 'error',
+  })
   return c.json(result, result.ok ? 200 : 400)
+})
+
+// ─── Settings + audit ─────────────────────────────────────────────────
+adminRoutes.get('/api/admin/settings', (c) => c.json(getCockpitSettings()))
+
+adminRoutes.get('/api/admin/audit', (c) => {
+  const limit = Number(c.req.query('limit') ?? 100)
+  const events = listAuditEvents({ limit })
+  const counts = auditCounts()
+  return c.json({ events, counts })
 })
 
 adminRoutes.post('/api/admin/threads/:channel/:id/reply', async (c) => {
@@ -179,5 +223,10 @@ adminRoutes.post('/api/admin/threads/:channel/:id/reply', async (c) => {
   const text = (body.text ?? '').trim()
   if (!text) return c.json({ ok: false, error: 'empty_message' }, 400)
   const result = await replyToInboxThread(channel, id, text)
+  recordAuditEvent({
+    action: 'thread_reply', targetId: id, channel,
+    result: text.length > 80 ? text.slice(0, 80) + '…' : text,
+    outcome: result.ok ? 'ok' : 'error',
+  })
   return c.json(result, result.ok ? 200 : 400)
 })

@@ -385,3 +385,53 @@ export async function listApprovals(status: ApprovalStatus | 'all' = 'pending'):
   }>(`${BACKEND}/api/admin/approvals?status=${status}`)
   return data ?? { approvals: [], counts: { pending: 0, approved: 0, rejected: 0 } }
 }
+
+// ─── Settings + audit ──────────────────────────────────────────────────
+
+export interface CockpitSettings {
+  env: {
+    publicUrl: string | null
+    sandboxMcpUrl: string | null
+    sandboxTeamToken: 'set' | 'unset'
+    ownerBotToken: 'set' | 'unset'
+    whatsappToken: 'set' | 'unset'
+    whatsappPhoneNumberId: string | null
+    instagramToken: 'set' | 'unset'
+    webBackendSecret: 'set' | 'unset'
+    nodeEnv: string
+  }
+  webhooks: Array<{ channel: string; url: string | null; reachable: boolean }>
+  db: { path: string; tables: Array<{ name: string; rows: number }> }
+}
+
+export type AuditAction =
+  | 'approval_approve' | 'approval_reject'
+  | 'thread_reply'
+  | 'channel_register' | 'channel_test'
+  | 'campaign_pause' | 'campaign_resume' | 'campaign_adjust'
+  | 'order_approve' | 'order_reject'
+
+export interface AuditEvent {
+  id: string
+  action: AuditAction
+  targetId: string | null
+  channel: string | null
+  result: string | null
+  outcome: 'ok' | 'error'
+  createdAt: number
+}
+
+export async function getCockpitSettings(): Promise<CockpitSettings | null> {
+  return safeFetch<CockpitSettings>(`${BACKEND}/api/admin/settings`)
+}
+
+export async function listAuditEvents(limit = 100): Promise<{
+  events: AuditEvent[]
+  counts: { total: number; today: number; errors: number }
+}> {
+  const data = await safeFetch<{
+    events: AuditEvent[]
+    counts: { total: number; today: number; errors: number }
+  }>(`${BACKEND}/api/admin/audit?limit=${limit}`)
+  return data ?? { events: [], counts: { total: 0, today: 0, errors: 0 } }
+}
