@@ -100,6 +100,8 @@ export function B2BInquireForm() {
     setSubmitting(true)
     setError(null)
     try {
+      const { getReferral } = await import('@/lib/referral')
+      const ref = getReferral()
       const payload = {
         contact: values.contact_email || values.contact_phone || values.contact_name,
         meta: {
@@ -115,6 +117,8 @@ export function B2BInquireForm() {
           inquiry_type: values.type,
           notes: values.notes,
           formatted: formatB2BSpec(values),
+          // First-touch attribution captured by ReferralCapture in providers.tsx.
+          ...(ref ? { referral_source: ref } : {}),
         },
       }
       const res = await fetch('/api/leads/b2b', {

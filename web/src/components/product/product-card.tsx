@@ -3,23 +3,28 @@ import { ArrowUpRight } from 'lucide-react'
 import type { Product } from '@/lib/api'
 import { fmtUsd } from '@/lib/format'
 import { CATEGORY_LABELS } from '@/lib/brand'
-import { KIND_LABELS, type ProductKind } from '@/lib/catalog'
+import { KIND_LABELS, TRADITION_LABELS, type ProductKind } from '@/lib/catalog'
 import { CakePhoto } from './cake-photo'
 import { cn } from '@/lib/utils'
 
-// Three card variants:
+// Four card variants:
 //   default    — square photo on top, full info card. Used in /menu grids.
 //   featured   — taller photo with the title overlaid. Use sparingly: home
 //                hero specialty, "today's pick", first item in a kind row.
 //   compact    — horizontal row (photo left, name + price right). Used in
 //                related-products lists and the order-confirmation summary.
+//   showcase   — Pokémon-style collectible: tradition chip, hero photo,
+//                title, flavor stack ("honey biscuit · custard · walnuts"),
+//                evocative tagline, status pill + CTA. Themed accent colour
+//                from the cake's `tradition`. Used on the home `One of each`
+//                row so each cake reads as genuinely unique.
 //
 // `showKindPill` is opt-out for surfaces where the section header already
 // names the kind (e.g. /menu's "By the slice" heading sits above 4 cards
 // each labelled "Slice" — pure noise). Defaults to true so home + /chat
 // pickers, where cards mix kinds, keep the affordance.
 
-type Variant = 'default' | 'featured' | 'compact'
+type Variant = 'default' | 'featured' | 'compact' | 'showcase'
 
 export function ProductCard({
   product,
@@ -34,7 +39,53 @@ export function ProductCard({
 }) {
   if (variant === 'compact') return <CompactCard product={product} className={className} />
   if (variant === 'featured') return <FeaturedCard product={product} className={className} />
+  if (variant === 'showcase') return <ShowcaseCard product={product} className={className} />
   return <DefaultCard product={product} showKindPill={showKindPill} className={className} />
+}
+
+// Per-tradition accent: a cream-side card surface, a coloured chip, and a
+// faint top-edge stripe so each card carries its family's identity without
+// shouting. Kept subtle (low opacity) so the row still reads as a coherent
+// set rather than a clown parade of colours.
+const TRADITION_THEME: Record<
+  NonNullable<Product['tradition']>,
+  { chip: string; stripe: string; bgTint: string }
+> = {
+  'kazakh-european-honey': {
+    chip: 'bg-amber-100 text-amber-900 ring-amber-300/60',
+    stripe: 'from-amber-300/70 via-amber-200/50 to-cream',
+    bgTint: 'from-amber-50/40',
+  },
+  'central-asian': {
+    chip: 'bg-orange-100 text-orange-900 ring-orange-300/60',
+    stripe: 'from-orange-300/70 via-orange-200/50 to-cream',
+    bgTint: 'from-orange-50/40',
+  },
+  'italian-classic': {
+    chip: 'bg-cocoa-700/15 text-cocoa-900 ring-cocoa-700/25',
+    stripe: 'from-cocoa-700/35 via-cocoa-700/15 to-cream',
+    bgTint: 'from-cocoa-700/5',
+  },
+  'modern-meringue': {
+    chip: 'bg-sky/15 text-sky-800 ring-sky-300/60',
+    stripe: 'from-sky/40 via-sky/15 to-cream',
+    bgTint: 'from-sky-50/50',
+  },
+  'french-chocolate': {
+    chip: 'bg-cocoa-900/15 text-cocoa-900 ring-cocoa-900/25',
+    stripe: 'from-cocoa-900/45 via-cocoa-900/20 to-cream',
+    bgTint: 'from-cocoa-900/5',
+  },
+  'celebration': {
+    chip: 'bg-berry/15 text-berry ring-berry/30',
+    stripe: 'from-berry/35 via-berry/15 to-cream',
+    bgTint: 'from-berry/5',
+  },
+  'catering': {
+    chip: 'bg-sage/30 text-emerald-800 ring-emerald-700/30',
+    stripe: 'from-sage/50 via-sage/20 to-cream',
+    bgTint: 'from-sage/10',
+  },
 }
 
 // Translates lead-time + kind into a single customer-facing status. The
@@ -249,6 +300,86 @@ function CompactCard({ product, className }: { product: Product; className?: str
         </div>
       </div>
       <span className="text-sm font-semibold text-sky-700 shrink-0">{fmtUsd(product.price_cents)}</span>
+    </Link>
+  )
+}
+
+// Showcase: Pokémon-card style. Tradition chip → hero photo → name → flavor
+// stack → tagline → status pill + CTA. Equal-height grid friendly: photo is
+// fixed-aspect, body grows but the bottom rail stays anchored, so any 3 or
+// 4 cards in a row align cleanly.
+function ShowcaseCard({ product, className }: { product: Product; className?: string }) {
+  const status = statusFor(product)
+  const tradition = product.tradition ?? 'kazakh-european-honey'
+  const theme = TRADITION_THEME[tradition]
+  const traditionLabel = TRADITION_LABELS[tradition].short
+  const kindLabel = kindLabelOf(product)
+  const tagline = product.tagline ?? product.description ?? ''
+  return (
+    <Link
+      href={`/menu/${product.id}`}
+      className={cn(
+        'group relative flex flex-col overflow-hidden rounded-3xl bg-cream border border-cocoa-700/10 shadow-sm',
+        'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99]',
+        className,
+      )}
+    >
+      {/* Tradition stripe — a one-pixel hint of the cake's family across the
+          top edge. Cleaner than a full border colour, still felt. */}
+      <span
+        aria-hidden
+        className={cn('h-1.5 w-full bg-gradient-to-r', theme.stripe)}
+      />
+      {/* Subtle background wash so each card carries its accent without
+          competing with the photo. Renders behind everything. */}
+      <span aria-hidden className={cn('absolute inset-0 bg-gradient-to-b to-transparent pointer-events-none', theme.bgTint)} />
+
+      <div className="relative px-5 pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ring-1',
+              theme.chip,
+            )}
+          >
+            {traditionLabel}
+          </span>
+          <span className="text-sm font-medium text-cocoa-900/80 tabular-nums">
+            {fmtUsd(product.price_cents)}
+          </span>
+        </div>
+      </div>
+
+      <div className="relative mt-4 mx-5">
+        <CakePhoto
+          productId={product.id}
+          name={`${product.name} — ${kindLabel} from Happy Cake`}
+          src={product.photo_url}
+          aspect="square"
+          className="!rounded-2xl"
+        />
+      </div>
+
+      <div className="relative px-5 pt-5 pb-5 flex flex-col gap-3 flex-1">
+        <h3 className="font-display text-2xl leading-tight text-cocoa-900 group-hover:text-sky-700 transition-colors [text-wrap:balance]">
+          {product.name}
+        </h3>
+        {product.flavor_notes && (
+          <p className="text-[11px] uppercase tracking-[0.14em] text-cocoa-900/60 leading-relaxed">
+            {product.flavor_notes}
+          </p>
+        )}
+        {tagline && (
+          <p className="text-sm text-cocoa-900/75 leading-relaxed line-clamp-2">{tagline}</p>
+        )}
+        <div className="mt-auto pt-3 flex items-center justify-between gap-3 border-t border-cocoa-700/10">
+          <StatusPill status={status} />
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-cocoa-900/60 group-hover:text-sky-700 transition-colors">
+            See details
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
+      </div>
     </Link>
   )
 }

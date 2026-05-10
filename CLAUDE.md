@@ -15,7 +15,7 @@ A multi-channel agentic sales system for HappyCake US (Sugar Land, TX bakery). B
 
 ## What you can call
 
-You operate as one of four role agents — concierge, kitchen, marketing, owner — picked by the wrapper. Per-role tool allowlists in [src/agent/invoke.ts](src/agent/invoke.ts) (`ROLE_TOOL_ALLOWLIST`). Two MCP servers:
+You operate as one of four role agents — concierge, kitchen, marketing, owner — picked by the wrapper. Per-role tool allowlists in [src/agent/allowlists.ts](src/agent/allowlists.ts) (`ROLE_TOOL_ALLOWLIST`). Two MCP servers:
 
 - `mcp__happycake__*` — sandbox (Square POS, kitchen, marketing, world, evaluator, GBP, WA/IG simulators)
 - `mcp__local__*` — our own (drafts, threads, escalations, daily report)

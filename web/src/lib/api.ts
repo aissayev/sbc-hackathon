@@ -28,7 +28,25 @@ export interface Product {
   photo_url: string | null
   in_stock: number
   daily_capacity: number | null
+  // ─── Collectible-card data (local catalog only) ────────────────────────
+  // The "showcase" card variant treats each cake like a Pokémon-style
+  // collectible: a tradition (where it comes from / what family it sits in),
+  // a flavor stack (short ingredient breakdown), and a one-line tagline are
+  // optional metadata only the local catalog populates. Backend signals
+  // (in_stock, daily_capacity) don't carry these, so they stay optional.
+  tradition?: ProductTradition
+  flavor_notes?: string
+  tagline?: string
 }
+
+export type ProductTradition =
+  | 'kazakh-european-honey'
+  | 'central-asian'
+  | 'italian-classic'
+  | 'modern-meringue'
+  | 'french-chocolate'
+  | 'celebration'
+  | 'catering'
 
 export interface OrderItem {
   sku: string
