@@ -315,3 +315,39 @@ CREATE TABLE IF NOT EXISTS digital_presence_snapshots (
   payload_json    TEXT NOT NULL,
   built_at        INTEGER NOT NULL
 );
+
+-- ─── Careers / job applications ────────────────────────────────────────
+-- Inbound applications submitted via /careers#apply on the website. Owner
+-- gets a TG card on each submission; CRM-style admin page lists + transitions
+-- through status. Resume/portfolio kept as a free-form URL field — we don't
+-- accept file uploads on this surface (out of scope for the hackathon build).
+CREATE TABLE IF NOT EXISTS applications (
+  id            TEXT PRIMARY KEY,         -- "app_<ms>_<6char>"
+  -- Role slug from web/src/lib/careers.ts (counter, baker, driver, other).
+  -- "other" = "Don't see your role?" path; carries a free-text role hint.
+  role          TEXT NOT NULL,
+  role_hint     TEXT,                     -- only when role='other'
+  name          TEXT NOT NULL,
+  email         TEXT NOT NULL,
+  phone         TEXT,
+  -- Free-text "why" + optional portfolio/resume link. Both capped client-side.
+  pitch         TEXT NOT NULL,
+  portfolio_url TEXT,
+  -- Where we found them — referral channel, hourly availability — captured
+  -- as a small JSON blob so we can extend without a migration.
+  meta_json     TEXT,
+  -- new → first time seen, owner gets the TG card
+  -- reviewing → owner tapped "review" or marked from cockpit
+  -- interview → scheduled / in conversation
+  -- hired / rejected → terminal
+  status        TEXT NOT NULL DEFAULT 'new'
+                CHECK (status IN ('new','reviewing','interview','hired','rejected')),
+  -- Free-text owner annotations from the cockpit. Markdown allowed.
+  notes         TEXT,
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
+CREATE INDEX IF NOT EXISTS idx_applications_role ON applications(role);
+CREATE INDEX IF NOT EXISTS idx_applications_created ON applications(created_at DESC);

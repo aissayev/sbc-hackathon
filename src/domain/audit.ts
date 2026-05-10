@@ -16,6 +16,7 @@ export type AuditAction =
   | 'campaign_pause' | 'campaign_resume' | 'campaign_adjust'
   | 'order_approve' | 'order_reject'
   | 'customer_notes_update' | 'customer_merge'
+  | 'application_update'
 
 export interface AuditEvent {
   id: string

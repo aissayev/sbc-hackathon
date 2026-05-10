@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Youtube, Mic, ExternalLink, Mail, Newspaper } from 'lucide-react'
+import { Youtube, Mail } from 'lucide-react'
 import { BRAND } from '@/lib/brand'
-import { APPEARANCES, type Appearance } from '@/lib/press'
+import { APPEARANCES } from '@/lib/press'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
+import { PressCardGrid } from '@/components/sections/press-card-grid'
 
 export const revalidate = 600
 
@@ -13,18 +14,6 @@ export const metadata: Metadata = {
   description:
     'Press, podcasts, and YouTube appearances by Askhat — owner of HappyCake Sugar Land. Family-owned bakery in Sugar Land, TX.',
   alternates: { canonical: '/press' },
-}
-
-const ICON: Record<Appearance['type'], React.ComponentType<{ className?: string }>> = {
-  youtube: Youtube,
-  podcast: Mic,
-  press: Newspaper,
-}
-
-const TYPE_LABEL: Record<Appearance['type'], string> = {
-  youtube: 'YouTube',
-  podcast: 'Podcast',
-  press: 'Press',
 }
 
 export default function PressPage() {
@@ -93,42 +82,7 @@ export default function PressPage() {
         <section className="container pb-12">
           <Eyebrow>Watch</Eyebrow>
           <h2 className="display-h2 mt-2 mb-6">Behind the counter</h2>
-          <div className="grid gap-6 md:grid-cols-2">
-            {videos.map((v) => (
-              <article key={v.title} className="bakery-card overflow-hidden">
-                <div className="relative aspect-video bg-cocoa-900">
-                  <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${v.youtube_id}`}
-                    title={v.title}
-                    loading="lazy"
-                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="absolute inset-0 h-full w-full"
-                  />
-                </div>
-                <div className="p-5">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-cocoa-900/55">
-                    <Youtube className="h-3.5 w-3.5" />
-                    <span>{v.outlet}</span>
-                    <span aria-hidden>·</span>
-                    <span>{new Date(v.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
-                  </div>
-                  <h3 className="display-h3 mt-2 [text-wrap:balance]">{v.title}</h3>
-                  <p className="mt-2 text-sm text-cocoa-900/75 leading-relaxed">{v.description}</p>
-                  {v.url && (
-                    <a
-                      href={v.url}
-                      target="_blank"
-                      rel="noopener"
-                      className="mt-3 inline-flex items-center gap-1 text-sm text-sky-700 hover:text-sky"
-                    >
-                      Watch on YouTube <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
+          <PressCardGrid items={videos} />
         </section>
       )}
 
@@ -136,37 +90,7 @@ export default function PressPage() {
         <section className="container pb-16">
           <Eyebrow>Read</Eyebrow>
           <h2 className="display-h2 mt-2 mb-6">In the press</h2>
-          <ul className="grid gap-5">
-            {press.map((a) => {
-              const Icon = ICON[a.type]
-              const Wrapper = a.url ? 'a' : 'div'
-              const linkProps = a.url ? { href: a.url, target: '_blank', rel: 'noopener' } : {}
-              return (
-                <li key={a.title}>
-                  <Wrapper
-                    {...linkProps}
-                    className="bakery-card flex items-start gap-5 p-5 md:p-6 hover:bg-cream-100 transition-colors"
-                  >
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-sky/10 text-sky-700 shrink-0">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-cocoa-900/55 flex-wrap">
-                        <span>{TYPE_LABEL[a.type]}</span>
-                        <span aria-hidden>·</span>
-                        <span>{a.outlet}</span>
-                        <span aria-hidden>·</span>
-                        <span>{new Date(a.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
-                      </div>
-                      <h2 className="display-h3 mt-1 [text-wrap:balance]">{a.title}</h2>
-                      <p className="mt-2 text-cocoa-900/75 leading-relaxed">{a.description}</p>
-                    </div>
-                    {a.url && <ExternalLink className="h-5 w-5 text-cocoa-900/40 shrink-0" aria-hidden />}
-                  </Wrapper>
-                </li>
-              )
-            })}
-          </ul>
+          <PressCardGrid items={press} compact />
         </section>
       )}
 

@@ -7,7 +7,12 @@ export {
   sendOwnerReply,
 } from './commands.ts'
 export { handleOwnerCallback, tryHandlePendingRefundDenial } from './callbacks.ts'
-export { postDraftOrderCard, postEscalationCard, postRefundRequestCard } from './cards.ts'
+export {
+  postDraftOrderCard,
+  postEscalationCard,
+  postRefundRequestCard,
+  postApplicationCard,
+} from './cards.ts'
 export { sendOwnerThinking, finalizeOwnerThinking, makeOwnerStreamSink } from './live.ts'
 export {
   logToOwner,

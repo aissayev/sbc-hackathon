@@ -290,6 +290,58 @@ export async function getAdminCustomer(id: string): Promise<AdminCustomerDetail 
   return safeFetch<AdminCustomerDetail>(`${BACKEND}/api/admin/customers/${encodeURIComponent(id)}`)
 }
 
+// ─── Career applications ─────────────────────────────────────────────
+export type AdminApplicationStatus = 'new' | 'reviewing' | 'interview' | 'hired' | 'rejected'
+export type AdminApplicationRole = 'counter' | 'baker' | 'driver' | 'other'
+
+export interface AdminApplication {
+  id: string
+  role: AdminApplicationRole
+  role_hint: string | null
+  name: string
+  email: string
+  phone: string | null
+  pitch: string
+  portfolio_url: string | null
+  meta_json: string | null
+  status: AdminApplicationStatus
+  notes: string | null
+  created_at: number
+  updated_at: number
+}
+
+export interface AdminApplicationsResponse {
+  applications: AdminApplication[]
+  counts: Record<AdminApplicationStatus | 'total', number>
+}
+
+export async function listAdminApplications(opts: {
+  status?: AdminApplicationStatus | 'all'
+  role?: AdminApplicationRole | 'all'
+  limit?: number
+} = {}): Promise<AdminApplicationsResponse> {
+  const params = new URLSearchParams()
+  if (opts.status) params.set('status', opts.status)
+  if (opts.role) params.set('role', opts.role)
+  if (opts.limit) params.set('limit', String(opts.limit))
+  const qs = params.toString()
+  const data = await safeFetch<AdminApplicationsResponse>(
+    `${BACKEND}/api/admin/applications${qs ? `?${qs}` : ''}`,
+  )
+  return (
+    data ?? {
+      applications: [],
+      counts: { new: 0, reviewing: 0, interview: 0, hired: 0, rejected: 0, total: 0 },
+    }
+  )
+}
+
+export async function getAdminApplication(id: string): Promise<AdminApplication | null> {
+  return safeFetch<AdminApplication>(
+    `${BACKEND}/api/admin/applications/${encodeURIComponent(id)}`,
+  )
+}
+
 export async function listAdminOrders(): Promise<OrderStatus[]> {
   const data = await safeFetch<{ orders: OrderStatus[] }>(`${BACKEND}/api/admin/orders`)
   return data?.orders ?? []

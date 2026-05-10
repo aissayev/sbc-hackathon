@@ -49,6 +49,15 @@ import {
   updateCustomerNotes,
   mergeCustomers,
 } from '../domain/customers.ts'
+import {
+  listApplications,
+  getApplication,
+  applicationCounts,
+  updateApplication,
+  updateApplicationSchema,
+  type ApplicationRole,
+  type ApplicationStatus,
+} from '../domain/applications.ts'
 
 export const adminRoutes = new Hono()
 
@@ -288,4 +297,49 @@ adminRoutes.post('/api/admin/threads/:channel/:id/reply', async (c) => {
     outcome: result.ok ? 'ok' : 'error',
   })
   return c.json(result, result.ok ? 200 : 400)
+})
+
+// ─── Applications (careers) ─────────────────────────────────────────────
+// List + status transitions + counts. Submission is a public endpoint
+// (src/routes/careers.ts); these admin endpoints are owner-only.
+
+adminRoutes.get('/api/admin/applications', (c) => {
+  const statusQ = c.req.query('status') as ApplicationStatus | 'all' | undefined
+  const roleQ = c.req.query('role') as ApplicationRole | 'all' | undefined
+  const limitQ = c.req.query('limit')
+  const limit = limitQ ? Math.max(1, Math.min(500, Number.parseInt(limitQ, 10))) : 100
+  return c.json({
+    applications: listApplications({ status: statusQ, role: roleQ, limit }),
+    counts: applicationCounts(),
+  })
+})
+
+adminRoutes.get('/api/admin/applications/:id', (c) => {
+  const app = getApplication(c.req.param('id'))
+  if (!app) return c.json({ ok: false, reason: 'not_found' }, 404)
+  return c.json(app)
+})
+
+adminRoutes.patch('/api/admin/applications/:id', async (c) => {
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ ok: false, reason: 'invalid json' }, 400)
+  }
+  const merged = { ...(body as object), application_id: c.req.param('id') }
+  const parsed = updateApplicationSchema.safeParse(merged)
+  if (!parsed.success) {
+    return c.json({ ok: false, reason: 'validation failed', issues: parsed.error.issues }, 400)
+  }
+  const result = updateApplication(parsed.data)
+  if (!result.ok) {
+    recordAuditEvent({ action: 'application_update', targetId: c.req.param('id'), outcome: 'error', result: result.reason ?? '' })
+    return c.json(result, 400)
+  }
+  recordAuditEvent({
+    action: 'application_update', targetId: c.req.param('id'), outcome: 'ok',
+    result: parsed.data.status ? `status=${parsed.data.status}` : 'notes',
+  })
+  return c.json({ ok: true })
 })

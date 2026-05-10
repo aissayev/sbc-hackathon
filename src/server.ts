@@ -18,6 +18,7 @@ import { catalogRoutes } from './routes/catalog.ts'
 import { orderRoutes } from './routes/orders.ts'
 import { adminRoutes } from './routes/admin.ts'
 import { leadRoutes } from './routes/leads.ts'
+import { careerRoutes } from './routes/careers.ts'
 import { uploadRoutes } from './routes/uploads.ts'
 import { metaRoutes } from './routes/meta.ts'
 import { createTestRoutes } from './routes/test.ts'
@@ -186,6 +187,7 @@ app.route('/', metaRoutes)
 app.route('/', catalogRoutes)
 app.route('/', orderRoutes)
 app.route('/', leadRoutes)
+app.route('/', careerRoutes)
 app.route('/', uploadRoutes)
 app.route('/', adminRoutes)
 app.route('/', createWebhookRoutes(onMessage))

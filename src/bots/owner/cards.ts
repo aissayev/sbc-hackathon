@@ -13,6 +13,7 @@ import { config } from '../../config.ts'
 import { getOrderStatus } from '../../domain/tools.ts'
 import { readRefundForCard } from '../../domain/refunds.ts'
 import { getCustomerById } from '../../domain/customers.ts'
+import { getApplication, APPLICATION_ROLE_LABEL } from '../../domain/applications.ts'
 import { fmtMoney, shortId, ordinal } from './format.ts'
 import { scoreLead, fmtStars } from './scoring.ts'
 
@@ -131,4 +132,42 @@ export async function postEscalationCard(
     ],
   )
   return true
+}
+
+/**
+ * Post a "new application" card to the owner. The buttons are stub
+ * callbacks for now — the cockpit at /admin/careers is the primary surface
+ * for status transitions; the TG card just routes the owner there with one
+ * tap.
+ */
+export async function postApplicationCard(applicationId: string): Promise<boolean> {
+  const token = config.telegram.owner.token
+  const chatId = config.telegram.owner.chatId
+  if (!token || !chatId) return false
+
+  const app = getApplication(applicationId)
+  if (!app) return false
+
+  const roleLabel = APPLICATION_ROLE_LABEL[app.role] ?? app.role
+  const lines: string[] = [
+    `📥 New application — ${roleLabel}`,
+    app.role === 'other' && app.role_hint ? `   Looking for: ${app.role_hint}` : '',
+    `   ${app.name} · ${app.email}${app.phone ? ' · ' + app.phone : ''}`,
+    '',
+    truncate(app.pitch, 280),
+  ]
+  if (app.portfolio_url) lines.push('', `Portfolio: ${app.portfolio_url}`)
+  // Compose message preserving non-empty lines.
+  await sendTelegram(token, chatId, lines.filter(Boolean).join('\n'), [
+    [
+      { text: '🔍 Open in cockpit', data: `view_app:${applicationId}` },
+      { text: '✓ Mark reviewing', data: `app_reviewing:${applicationId}` },
+    ],
+  ])
+  return true
+}
+
+function truncate(s: string, n: number): string {
+  if (s.length <= n) return s
+  return s.slice(0, n - 1) + '…'
 }

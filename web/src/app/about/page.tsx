@@ -6,15 +6,13 @@ import { Button } from '@/components/ui/button'
 import { HeroImage } from '@/components/brand/hero-image'
 import { BRAND, ASSETS } from '@/lib/brand'
 import { APPEARANCES } from '@/lib/press'
+import { PressCardGrid } from '@/components/sections/press-card-grid'
 import {
   Heart,
   Users,
   Sparkles,
   Home as HomeIcon,
-  Newspaper,
-  Youtube,
   ArrowRight,
-  ExternalLink,
   Plane,
 } from 'lucide-react'
 
@@ -393,49 +391,7 @@ function PressBand() {
           </Link>
         </Button>
       </div>
-      <ul className="grid gap-5 md:grid-cols-3">
-        {featured.map((a) => {
-          const Icon = a.type === 'youtube' ? Youtube : Newspaper
-          const tone = a.type === 'youtube' ? 'bg-berry/10 text-berry' : 'bg-sky/10 text-sky-700'
-          const href = a.url ?? '/press'
-          const external = Boolean(a.url)
-          return (
-            <li key={a.title}>
-              <a
-                href={href}
-                target={external ? '_blank' : undefined}
-                rel={external ? 'noopener' : undefined}
-                className="group bakery-card flex flex-col h-full p-5 hover:-translate-y-0.5 transition-transform"
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`h-10 w-10 rounded-full inline-flex items-center justify-center shrink-0 ${tone}`}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-cocoa-900/55 truncate">
-                      {a.outlet}
-                    </div>
-                    <div className="text-xs text-cocoa-900/55">
-                      {new Date(a.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                    </div>
-                  </div>
-                </div>
-                <h3 className="display-h3 mt-4 text-lg group-hover:text-sky-700 transition-colors [text-wrap:balance]">
-                  {a.title}
-                </h3>
-                <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed line-clamp-3">
-                  {a.description}
-                </p>
-                {external && (
-                  <span className="mt-3 inline-flex items-center gap-1 text-xs text-sky-700">
-                    Open <ExternalLink className="h-3 w-3" />
-                  </span>
-                )}
-              </a>
-            </li>
-          )
-        })}
-      </ul>
+      <PressCardGrid items={featured} compact />
     </section>
   )
 }
