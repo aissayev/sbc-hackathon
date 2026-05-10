@@ -5,6 +5,7 @@ import { tryCallSandboxTool } from '../../lib/sandbox-mcp.ts'
 import type { BotReply } from './commands.ts'
 import type { IncomingMessage } from '../../channels/types.ts'
 import { shortId } from './format.ts'
+import { scoreReply } from './score.ts'
 
 interface ThreadRow { threadId?: string; id?: string; from?: string; customerHandle?: string; customer_handle?: string; lastMessage?: string; last_message?: string }
 interface ReviewRow { id?: string; reviewId?: string; rating?: number; stars?: number; text?: string; body?: string; authorName?: string; author?: string; hasReply?: boolean; replied?: boolean }
@@ -99,6 +100,7 @@ export async function handleOwnerAsyncCommand(msg: IncomingMessage): Promise<Bot
     case '/reviews': return await reviewsReply()
     case '/spend': return await spendReply()
     case '/gb': return await gbReply()
+    case '/score': return await scoreReply()
     default: return null
   }
 }
