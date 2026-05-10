@@ -1,17 +1,18 @@
 # $500 → $5,000 — HappyCake US marketing hypothesis
 
-**For:** the owner reviewing in Telegram + an AI agent reading cold.
-**Companion files:** [plans.json](../../data/campaigns/plans.json) (machine-readable plan) · [MARKETING-BRIEF.md](MARKETING-BRIEF.md) (live MCP brief, regen with `bun run marketing:brief`).
+A marketing plan for a $500/month ad budget targeting $5,000/month in attributable revenue. Designed to be reviewed by the owner from Telegram and executed by the agent system without further translation.
+
+Companion files: [plans.json](../../data/campaigns/plans.json) (machine-readable plan) · [MARKETING-BRIEF.md](MARKETING-BRIEF.md) (live MCP data brief, refreshed by `bun run marketing:brief`).
 
 ---
 
-## At a glance (60-second read)
+## At a glance
 
-- **The bet:** $500/mo ad spend returns $5,000/mo attributable revenue (10× ROAS).
-- **The rule:** $500 deploys to **ONE strategy**, not split across 5 channels. Splitting = $100/channel = below every channel's learning threshold.
-- **The pick:** **B2B Catering Offensive.** $100 CAC, $144 first-order margin → **payback within the first order**, **8.6× LTV:CAC at year-1**, **21× at year-3**. Other strategies don't clear the bar.
-- **The risk:** if month-1 CTR < 1.0% AND CPL > $40 across the strategy, kill and switch to B2C Anchor.
-- **The asset:** organic + newsletter + GBP run alongside (zero $, 8–12 hr/wk effort) — by month 6 they deliver ~$5k/yr more revenue at zero ad cost.
+- **The bet.** $500/mo ad spend returns $5,000/mo in attributable revenue — a 10× ROAS challenge.
+- **The deployment rule.** The full $500 goes to a single strategy. Splitting it five ways yields ~$100/channel, which sits below every channel's learning threshold and produces no signal.
+- **The recommendation.** B2B Catering Offensive — $100 CAC against $144 first-order margin means payback inside the first order, 8.6× LTV:CAC at year one, 21× at year three. The other strategies don't clear the bar.
+- **The downside.** If month-1 CTR drops below 1.0% and CPL exceeds $40 across the strategy, pause and pivot to B2C Anchor.
+- **The compounding asset.** Organic content, newsletter, and Google Business Profile run alongside the paid strategy (no ad spend, ~10 hr/wk of effort). By month six they contribute roughly $5k/yr at zero acquisition cost.
 
 | Strategy | $/mo | Yr-1 cumulative ROAS | Pick? |
 |---|---|---|---|
@@ -23,20 +24,22 @@
 
 ---
 
-## How to read every number in this doc
+## Reading the numbers
+
+Every figure in this document carries one of four provenance tags:
 
 | Tag | Meaning | Example |
 |---|---|---|
-| **LIVE** | Pulled from sandbox MCP at last brief run. Source tool listed in [§Data sources](#data-sources). | LIVE: 60% margin |
-| **INDUSTRY** | Public benchmark (May 2026). Source cited in [plans.json](../../data/campaigns/plans.json) → `industryBenchmarks`. | INDUSTRY: 1.4% CTR |
-| **OUR EST.** | Our hypothesis built from LIVE + INDUSTRY. Validated only after first $50 of real spend. | OUR EST.: 5 first orders |
-| **OUR PROPOSAL** | Something we suggest creating that doesn't exist in the live catalog yet. | OUR PROPOSAL: Sampler Box $48 |
+| **LIVE** | Pulled from the sandbox MCP at the last brief refresh. Origin tool listed under [Data sources](#data-sources). | LIVE: 60% margin |
+| **INDUSTRY** | Public benchmark (May 2026). Citations in [plans.json](../../data/campaigns/plans.json) → `industryBenchmarks`. | INDUSTRY: 1.4% CTR |
+| **OUR EST.** | A modeled estimate built on LIVE and INDUSTRY inputs. Confirmed only after the first $50 of real spend. | OUR EST.: 5 first orders |
+| **OUR PROPOSAL** | A new SKU or program proposed for the campaign and not yet in the live catalog. | OUR PROPOSAL: Sampler Box $48 |
 
 ---
 
-## What HappyCake has today (LIVE)
+## Existing catalog (LIVE)
 
-These 5 SKUs are what the sandbox actually models (`marketing_get_margin_by_product` + `kitchen_get_menu_constraints`). The website seed has 5 more (cloud-cake-slice, tiramisu, chak-chak, truffle-bites, morning-pastry-mix) that render on /menu but the simulator doesn't score.
+Five SKUs are modeled by the sandbox via `marketing_get_margin_by_product` and `kitchen_get_menu_constraints`. The website seed includes five additional items (cloud-cake-slice, tiramisu, chak-chak, truffle-bites, morning-pastry-mix) that render on /menu but are not scored by the simulator and are excluded from this analysis.
 
 | SKU | Price | Margin% | Margin$ | Prep min | Cap/day | Daily ceiling | Min/$margin |
 |---|---|---|---|---|---|---|---|
@@ -46,15 +49,15 @@ These 5 SKUs are what the sandbox actually models (`marketing_get_margin_by_prod
 | `custom-birthday-cake` | $95 | 58% | $55 | 90 | 4 | $220 | 1.63 |
 | `pistachio-roll` | $9.50 | 64% | $6 | 8 | 30 | $182 | 1.32 |
 
-**Kitchen constraint (LIVE):** 420 min/day total. The per-SKU caps are individual MAXes, not additive — at full caps the kitchen would need 1,500 min. So real allocation must fit inside 420.
+**Kitchen capacity (LIVE):** 420 production minutes per day. Per-SKU caps are individual maxima rather than additive — running every SKU at its individual cap would require 1,500 minutes — so the active campaign mix must fit inside the 420-minute envelope.
 
-**Read:** `office-dessert-box` and `honey-cake-slice` are the most kitchen-minute-efficient (lowest min/$margin). The catering offensive is built on this.
+**Highest-leverage SKUs:** `office-dessert-box` and `honey-cake-slice` show the lowest minutes-per-margin-dollar. The recommended catering offensive is anchored on this efficiency.
 
 ---
 
-## What we suggest creating (OUR PROPOSAL)
+## Proposed new SKUs (OUR PROPOSAL)
 
-A single $120 entry point is a high commitment for a first-time B2B buyer. We suggest a **tiered ladder** of 4 new SKUs built on the existing 5. None of these exist in the live catalog yet — they're our proposal for the campaign.
+A single $120 entry point is a high commitment for a first-time B2B buyer. The recommendation is to introduce a **tiered offer ladder** — four new SKUs composed from existing inventory items — to broaden the funnel and capture both trial-stage and high-LTV demand. None of the four currently exist in the live catalog.
 
 | SKU (new unless tagged) | Tier | Retail | Composition (built on existing) | Margin% | Margin$ | Role |
 |---|---|---|---|---|---|---|
@@ -64,29 +67,29 @@ A single $120 entry point is a high commitment for a first-time B2B buyer. We su
 | **Hotel Welcome Set** | ICP-specific | **$95** | 8 slices in branded packaging | 55% | $52 | Hotel concierge / in-room amenity |
 | **Weekly Corp. Subscription** | Highest LTV | **$108/wk** | Office Box × 0.9 (sub discount) | 56% | $60/wk | Recurring — converts one-off to ~$5,200/yr/account |
 
-**Pricing build-up logic** (so the owner can sanity-check):
-- Sampler Box: 6 slices × $8.50 = $51 raw → $48 retail (small bundle nudge to drive trial)
-- Big Day Box: $51 (slices) + $51 (more slices) + $55 (whole) + $7 (chak) + $7.50 (truffles) = $171.50 raw → $185 retail (premium positioning + branded box)
-- Hotel Welcome: 8 × $8.50 = $68 + $10 packaging cost = $78 raw → $95 retail (concierge-grade premium)
-- Subscription: $120 × 0.9 × 4 wk = $432/mo recurring per subscriber
+**Pricing build-up:**
+- Sampler Box: 6 slices × $8.50 = $51 cost-equivalent → $48 retail (slight bundle discount to drive trial)
+- Big Day Box: 12 slices ($102) + cake "Honey" ($55) + chak-chak ($7) + truffles ($7.50) = $171.50 → $185 retail (premium positioning, branded packaging)
+- Hotel Welcome Set: 8 slices ($68) + branded packaging cost ($10) = $78 → $95 retail (concierge-grade presentation)
+- Subscription: $120 × 0.9 × 4 weeks = $432/mo recurring per subscriber
 
-**Capacity check** (we don't oversell what the kitchen can deliver):
-- Sampler Box: ~10/day (limited by slice availability)
-- Big Day Box: 4/day (limited by 12/day whole-cake cap)
+**Capacity headroom** (sized to fit inside the existing 420-minute kitchen budget):
+- Sampler Box: ~10/day, limited by slice availability
+- Big Day Box: 4/day, limited by the 12/day whole-cake cap
 - Hotel Welcome Set: 8/day baseline
-- Subscription: caps at ~6 active subs (each consumes 1 Office Box slot/wk; 8 slots × 5 days / 4 wk = 10 max, reserve buffer for one-offs)
+- Subscription: caps at roughly six active subscribers (each consumes one Office Box slot per week; 8 slots × 5 days ÷ 4 weeks ≈ 10 max with buffer for one-off catering)
 
-**Why this matters for $500 → $5,000:** the subscription alone, at 6 active accounts × $432/mo = $2,592/mo recurring revenue, gets us 50%+ of the way to the target with zero new acquisition.
+**Revenue implication:** at six active subscribers × $432/mo, the subscription tier alone delivers $2,592/mo of recurring revenue — roughly half the $5,000 target before any new acquisition.
 
-> **Owner action required before launch:** these 4 new SKUs need to be created in Square POS + added to `/api/products` (the website surface). The campaign creative leads with the Sampler/Office tiers as the entry CTA.
+> **Implementation prerequisite:** the four new SKUs must be created in Square POS and surfaced on `/api/products` before the campaign goes live. Campaign creative leads with the Sampler and Office tiers as the entry CTA, with Big Day Box positioned for upsell.
 
 ---
 
-## The recommended strategy: B2B Catering Offensive
+## Recommended strategy — B2B Catering Offensive
 
-**Full $500/mo deploys here.** No splitting.
+The full $500/mo concentrates here. No split allocation across other channels.
 
-### Allocation
+### Budget allocation by month
 
 | Sub-channel | M1 | M2 | M3 | M6 |
 |---|---|---|---|---|
@@ -96,13 +99,13 @@ A single $120 entry point is a high commitment for a first-time B2B buyer. We su
 | Meta retargeting (warm pool) | — | $100 | $150 | $200 |
 | Google Local — catering intent | $100 | $100 | $100 | $100 |
 
-### ICP (5 segments)
+### Ideal customer profiles (5 segments)
 
-1. Office managers / EAs · 30–300 person Sugar Land + Energy Corridor offices · ~85k matched in Meta
-2. Boutique hotels & extended-stay (welcome amenity, in-room gifting)
-3. Independent coffee shops (wholesale slice supply)
-4. Event planners + realtors (closing gifts, milestone events)
-5. Medical / dental offices (patient appreciation)
+1. Office managers and executive assistants at 30–300 person offices in Sugar Land and the Energy Corridor (~85k matched profiles in Meta).
+2. Boutique hotels and extended-stay properties — welcome amenity and in-room gifting use cases.
+3. Independent coffee shops — wholesale slice supply.
+4. Event planners and realtors — closing gifts and milestone events.
+5. Medical and dental offices — patient appreciation and referral gifts.
 
 ### CAC / LTV / payback math
 
@@ -124,9 +127,11 @@ A single $120 entry point is a high commitment for a first-time B2B buyer. We su
 | 3-yr margin/account | $2,108 | × 60% |
 | **LTV:CAC (3-yr)** | **21×** | $2,108 / $100 |
 
-> **Industry rule of thumb:** "Excellent" SaaS-style is 5:1 LTV:CAC. We project 8.6:1 on year-1 alone — strong even before retention compounds.
+> A 5:1 LTV:CAC ratio is the standard "excellent" benchmark across subscription and DTC categories. The projected 8.6:1 on year-1 alone clears that comfortably before any retention compounding is factored in.
 
-### Attribution model (cake-industry standard)
+### Attribution model
+
+Standard local-food attribution mix. The simulator collapses everything to direct attribution; production performance distributes across the four channels below.
 
 | Channel | Share | What it captures |
 |---|---|---|
@@ -150,7 +155,7 @@ A single $120 entry point is a high commitment for a first-time B2B buyer. We su
 - **Scale ad set:** CPL < $20 AND SQL rate > 25% over 50 leads → +50% daily budget
 - **Pivot strategy:** if blended CTR < 0.8% AND CPL > $40 after $250 cumulative → switch to B2C Anchor
 
-### Sensitivity (what breaks the bet)
+### Sensitivity
 
 | Scenario | M1 first orders | Yr-1 rev/account cohort | Verdict |
 |---|---|---|---|
@@ -160,23 +165,23 @@ A single $120 entry point is a high commitment for a first-time B2B buyer. We su
 | CPL doubled | 2 | $2,640 | Misses |
 | Both halved | 0.6 | $725 | Catastrophic — kill |
 
-**Break-even spend:** $235/mo on Meta B2B is the minimum that returns $5k yr-1 at expected case → $15 of headroom on the $400 Meta allocation.
+**Break-even spend:** $235/mo on Meta B2B is the minimum monthly spend that returns the $5k year-1 target at the expected case — leaving $15 of headroom on the $400 Meta allocation.
 
 ---
 
-## Alternatives — when to pick instead
+## Alternative strategies
 
-**B2C Anchor + Retargeting Flywheel** ($500/mo) — pick if catering proves saturated, or before a major seasonal window (Mother's, Valentine's). CAC $17.86 (industry $38–40), payback in first order, 4.7× yr-1 LTV:CAC, **6.3× cumulative ROAS by month 6**. Kill if m1 cold CAC > $35.
+**B2C Anchor + Retargeting Flywheel ($500/mo)** — appropriate if catering demand proves saturated, or ahead of a major seasonal window (Mother's Day, Valentine's). CAC $17.86 against an industry baseline of $38–40, payback inside the first order, 4.7× LTV:CAC at year one, **6.3× cumulative ROAS by month six**. Pause if month-1 cold CAC exceeds $35.
 
-**Local Awareness Walk-in** — flagged for completeness; **don't pick** until rev_003 ("waited 25 min for one slice") FOH-speed issue is fixed. Surging walk-ins makes that worse.
+**Local Awareness Walk-in** — included for completeness but not recommended in current conditions. Review `rev_003` flagged a 25-minute counter wait; surging walk-in volume amplifies that operational risk before it has been addressed.
 
-**Custom Cakes Premium** — capacity is binding (4/day × 90 min/cake). Caps at 2.5× ROAS. **Don't pick.**
+**Custom Cakes Premium** — capacity-bound (4/day × 90 min per cake). Plateaus at ~2.5× ROAS regardless of spend efficiency. Not a fit for a $5k/mo target.
 
 ---
 
-## Always-on Organic ($0 ads, 8–12 hr/wk effort)
+## Always-on organic track
 
-Runs in parallel with whichever paid strategy is picked. Lowers blended CAC every month it runs.
+Operates in parallel with the paid strategy. No advertising budget; requires roughly 8–12 hours per week of consistent content and on-page work. The asset compounds over time and lowers blended CAC every month it runs.
 
 - **Local SEO:** 8 evergreen pages in m1–m2 (catering FAQ, delivery zones, allergen guide, birthday-cake size guide, hotel amenity menu, honey origin story, gluten-aware options, custom-cake pricing). Add `LocalBusiness`, `Bakery`, `Menu` schema.
 - **Newsletter:** 3.5% site-capture + counter QR. Birthday-club ("free first slice on your birthday"). By m6: ~600 subs → 18% yr-1 conversion → ~$5,200/yr earned revenue at $0 spend.
@@ -190,34 +195,34 @@ Runs in parallel with whichever paid strategy is picked. Lowers blended CAC ever
 
 ---
 
-## Live MCP signals that justify the bet
+## Supporting evidence from live MCP data
 
-These four signals — none of them speculative — are why B2B catering wins.
+Four observed signals support the catering recommendation over alternatives:
 
-1. **Margin × repeat × first-order value (LIVE):** Only catering needs ~5 wins to clear $5k yr-1. Every other SKU needs 35–95 wins.
-2. **Real review validates the ICP (LIVE `gb_list_reviews`):** rev_004 — *"We've been ordering from HappyCake for our office birthdays for months. Never disappointed."* — A real customer is already doing the use-case at high cadence.
-3. **Local-search demand is real (LIVE `gb_get_metrics`, 30d):** 87 direction requests + 41 calls = ~128 high-intent local actions/mo. Sizes the $100 Google Local sub-allocation correctly.
-4. **Delivery is undermarketed (LIVE `gb_list_reviews`):** rev_002 — *"Wish you delivered."* — Customers don't know we deliver. Every B2B creative leads with **"free first delivery within 5 mi."**
+1. **Unit economics asymmetry (LIVE).** Catering requires roughly 5 acquired accounts to clear the $5k year-1 target. Every other SKU requires between 35 and 95.
+2. **Customer voice already validates the ICP (LIVE `gb_list_reviews`).** Review rev_004: *"We've been ordering from HappyCake for our office birthdays for months. Never disappointed."* The corporate-catering use case is already producing high-cadence repeat behavior organically.
+3. **Local-search demand is measurable (LIVE `gb_get_metrics`, 30 days).** 87 direction requests and 41 calls — ~128 high-intent local actions per month — size the $100 Google Local sub-allocation against observed demand rather than estimate.
+4. **Delivery capability is undermarketed (LIVE `gb_list_reviews`).** Review rev_002: *"Wish you delivered."* Delivery exists but customer awareness is low. All B2B creative leads with "free first delivery within 5 mi" to convert this latent demand.
 
 ---
 
-## Risks that invalidate this plan
+## Risks that would invalidate the plan
 
-| Risk | Signal | Action |
+| Risk | Signal | Response |
 |---|---|---|
-| B2B SQL rate < 15% | Strategy 1 m1 leads convert poorly | Pivot to B2C Anchor |
-| Catering capacity binding | `kitchen_get_production_summary` shows 8/8 daily | Cap budget; route overflow to month-out |
-| FOH still slow | New 1–2★ reviews on wait time | Don't run Local Awareness even if owner asks |
-| Margin lower than LIVE | Office Box drops below 50% | Re-run yr-1 math |
-| Subscription doesn't sell | < 1 sub by m3 | Drop subscription tier; keep one-off catering |
+| B2B SQL rate below 15% | Month-1 leads converting poorly through the consultation funnel | Pivot to B2C Anchor strategy |
+| Catering capacity becomes binding | `kitchen_get_production_summary` shows 8/8 daily slots filled | Cap budget; route overflow to next-week pickup |
+| Front-of-house speed still slow | New 1–2★ reviews mentioning wait time | Hold Local Awareness; address operations first |
+| Margin compresses below LIVE values | Office Box margin drops below 50% | Re-run year-1 economics with new inputs |
+| Subscription tier underperforms | Fewer than 1 active subscriber by month 3 | Retire subscription; retain one-off catering |
 
 ---
 
-## Honesty about what we don't know
+## Confidence and limitations
 
-Until the chosen strategy spends $50 in market, every CTR/CPL/CVR is OUR EST. anchored on LIVE + INDUSTRY. The first $50 buys data, not bookings.
+Until the chosen strategy has spent $50 in market, every CTR / CPL / CVR figure carries an OUR EST. tag and is anchored on LIVE plus INDUSTRY inputs. The first $50 of spend should be treated as the data-acquisition phase, not the booking phase.
 
-The simulator's `marketing_get_campaign_metrics` returns flat 4.20% CTR / $42 avg order regardless of SKU/channel — that's a sandbox artifact. In production, expect variance and the median row of the sensitivity table. The point of this plan is **structural confidence** (B2B math closes the bet at expected case; alternatives are explicit) — not pretend precision.
+The sandbox simulator returns a flat ~4.20% CTR and ~$42 average order across all campaigns regardless of SKU or channel — useful as a "loop completes" check, not as a production forecast. Live performance will show variance, and the median row of the sensitivity table is a more realistic operating expectation than the simulator output. The plan's value is structural: the catering strategy clears the target at the expected case, and the alternatives are explicit when conditions change.
 
 ---
 
@@ -238,17 +243,17 @@ The simulator's `marketing_get_campaign_metrics` returns flat 4.20% CTR / $42 av
 | Retention assumptions (80/80, 60/50) | OUR EST., conservative against industry |
 | New SKU prices (Sampler/Big Day/Hotel/Subscription) | OUR PROPOSAL — built up from LIVE existing-SKU prices, see [plans.json](../../data/campaigns/plans.json) `suggestedNewSkus` |
 
-Refresh all LIVE numbers: `bun run marketing:brief` (calls 14 sandbox tools in one pass).
+All LIVE figures refresh via `bun run marketing:brief`, which calls 14 sandbox tools in one pass.
 
 ---
 
-## How the system runs this
+## Operational flow
 
-| What | Where |
+| Action | Surface |
 |---|---|
-| Pick a strategy (owner) | Telegram `/campaigns` → ⭐ B2B Catering tap → "Approve & Launch" |
-| Pick from CLI | `bun run marketing:run --strategy b2b-catering-offensive` |
-| Refresh live data | `bun run marketing:brief` (writes [MARKETING-BRIEF.md](MARKETING-BRIEF.md), gitignored) |
-| See live metrics | Telegram `/brief` (reads cached baseline) or `/campaigns` → strategy → "Read metrics" |
-| Loop closure (weekly) | `marketing_get_campaign_metrics` → compare to expected-case row → `marketing_adjust_campaign` → `marketing_report_to_owner` |
-| Single-strategy enforcement | Telegram refuses double-launch with explanation |
+| Owner reviews and selects a strategy | Telegram `/campaigns` → recommended strategy → **Approve & Launch** |
+| Launch from CLI | `bun run marketing:run --strategy b2b-catering-offensive` |
+| Refresh live MCP data | `bun run marketing:brief` (writes [MARKETING-BRIEF.md](MARKETING-BRIEF.md), gitignored) |
+| Inspect live metrics | Telegram `/brief` (cached baseline) or `/campaigns` → strategy → **Read metrics** |
+| Weekly loop closure | `marketing_get_campaign_metrics` → compare against expected-case row → `marketing_adjust_campaign` → `marketing_report_to_owner` |
+| Single-strategy enforcement | Telegram blocks a second launch and explains the deployment rule |
