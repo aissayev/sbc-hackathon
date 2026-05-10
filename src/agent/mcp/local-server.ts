@@ -45,6 +45,7 @@ import {
   findCustomerByThread,
   getCustomerById,
   listCustomerOrders,
+  mergeCustomers,
   normalizePhone,
 } from '../../domain/customers.ts'
 import {
@@ -469,6 +470,22 @@ server.registerTool(
       last_seen_at: customer.last_seen_at,
       recent_orders: listCustomerOrders(customer_id, limit ?? 5),
     })
+  },
+)
+
+server.registerTool(
+  'merge_customers',
+  {
+    description:
+      'Owner-only. Merge a duplicate customer record. SOURCE merges into TARGET — target survives, source is deleted, all orders/threads re-pointed at target, counters summed, missing fields filled. Use when two customer records exist for the same person (typically because phone was missing on one). Returns counts of moved rows, or {ok:false} with a reason if phone numbers conflict.',
+    inputSchema: { source_customer_id: z.string(), target_customer_id: z.string() },
+  },
+  async (args) => {
+    const { source_customer_id, target_customer_id } = args as {
+      source_customer_id: string
+      target_customer_id: string
+    }
+    return ok(mergeCustomers(source_customer_id, target_customer_id))
   },
 )
 
