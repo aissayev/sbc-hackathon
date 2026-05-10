@@ -49,10 +49,16 @@ export function ChatBubble({
   message,
   size = 'default',
   onTypingComplete,
+  // When the previous message in the log was from the SAME role (and
+  // close in time), the parent passes stacked=true so this bubble
+  // skips the avatar + label + timestamp row. Reads like a real
+  // chat thread instead of a series of business cards.
+  stacked = false,
 }: {
   message: ChatMessage
   size?: 'default' | 'compact'
   onTypingComplete?: (id: string) => void
+  stacked?: boolean
 }) {
   const isUser = message.role === 'user'
   const padX = size === 'compact' ? 'px-3' : 'px-4'
@@ -132,24 +138,42 @@ export function ChatBubble({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streaming, body, message.id])
 
+  // Stacked bubbles tighten gap above and align to the bubble
+  // (matching the indentation that the avatar + label would have
+  // pushed the bubble to). On the assistant side we add a
+  // ml-7 / ml-6 inset so consecutive bubbles line up with the first
+  // bubble's text, not the avatar.
   return (
-    <div className={cn('flex flex-col gap-1 animate-fade-in', isUser ? 'items-end' : 'items-start')}>
-      <div className="flex items-center gap-2 px-1">
-        {!isUser && <AssistantAvatar size={size} />}
-        {/* Brand book §2: never render the wordmark in all-caps. We keep
-            the eyebrow tracking + small size for visual rhythm but drop
-            `uppercase` so "HappyCake" reads as the wordmark, not "HAPPYCAKE". */}
-        <span className={cn('text-[10px] tracking-[0.14em] font-medium', isUser ? 'text-cocoa-900/55 uppercase' : 'text-sky-700')}>
-          {labelText}
-        </span>
-        <span className="text-[10px] text-cocoa-900/40">{time}</span>
-      </div>
+    <div
+      className={cn(
+        'flex flex-col gap-1 animate-fade-in',
+        isUser ? 'items-end' : 'items-start',
+        stacked && '-mt-1.5',
+      )}
+    >
+      {!stacked && (
+        <div className="flex items-center gap-2 px-1">
+          {!isUser && <AssistantAvatar size={size} />}
+          {/* Brand book §2: never render the wordmark in all-caps. We keep
+              the eyebrow tracking + small size for visual rhythm but drop
+              `uppercase` so "HappyCake" reads as the wordmark, not "HAPPYCAKE". */}
+          <span className={cn('text-[10px] tracking-[0.14em] font-medium', isUser ? 'text-cocoa-900/55 uppercase' : 'text-sky-700')}>
+            {labelText}
+          </span>
+          <span className="text-[10px] text-cocoa-900/40">{time}</span>
+        </div>
+      )}
       <div
         className={cn(
           'max-w-[88%] rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm',
           padX,
           padY,
           text,
+          // Stacked assistant bubbles indent so their left edge lines up
+          // with the first bubble's text — not under the avatar.
+          // ml-7 in default size (avatar h-5 + gap-2 + label-row pad-1).
+          // ml-6 in compact size (avatar h-4 + gap-2).
+          stacked && !isUser && (size === 'compact' ? 'ml-6' : 'ml-7'),
           isUser
             ? 'bg-cocoa-700 text-cream rounded-br-sm'
             : 'bg-cream-100 text-cocoa-900 rounded-bl-sm border border-cocoa-700/8',

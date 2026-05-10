@@ -5,32 +5,39 @@
 
 import { z } from 'zod'
 
+// Icon is a Lucide name (resolved by the form) rather than an OS emoji.
+// The brand book's icon vocabulary is "single-stroke", so consistent
+// line icons read cleaner on cream than the platform-rendered emoji
+// (which look like Apple stickers on Apple, Microsoft Fluent on
+// Windows, etc.).
 export const INQUIRY_TYPES = [
   {
     value: 'office',
     label: 'Office breaks',
-    icon: '☕',
+    icon: 'coffee',
     body: 'Daily or weekly assortments for your team — slices, pastries, coffee on the side.',
   },
   {
     value: 'event',
     label: 'One-time event',
-    icon: '🎉',
+    icon: 'sparkles',
     body: 'Birthdays, milestones, conference catering, holiday parties, off-sites.',
   },
   {
     value: 'gifting',
     label: 'Corporate gifting',
-    icon: '🎁',
+    icon: 'gift',
     body: 'Welcome boxes for new hires, client gifts, year-end appreciation drops.',
   },
   {
     value: 'custom',
     label: 'Standing program',
-    icon: '🤝',
+    icon: 'repeat',
     body: 'Quarterly cadence, recurring deliveries, wholesale resale — let\'s talk.',
   },
 ] as const
+
+export type InquiryIcon = (typeof INQUIRY_TYPES)[number]['icon']
 
 export const HEADCOUNTS = [
   { value: '5-15', label: '5 – 15' },

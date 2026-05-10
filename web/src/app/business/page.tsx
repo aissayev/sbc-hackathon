@@ -112,9 +112,14 @@ export default function BusinessLanding() {
             </p>
           </div>
           <div className="lg:col-span-5">
+            {/* Real shopfront over a stylized cake-slice photo: a B2B
+                buyer is choosing a vendor, not a dessert — they want to
+                see "this is a real, established café with a brand" first.
+                The neon-over-the-table shot shows the storefront, the
+                blue-chair table, and the brand mark in one frame. */}
             <HeroImage
-              src={ASSETS.hero[2] ?? ASSETS.hero[0]}
-              alt="Curated office dessert box from HappyCake — assorted slices, rolls, and mini cakes for a Houston-area office break"
+              src={ASSETS.store.signOverTable}
+              alt="Inside HappyCake on Promenade Way — the long communal table under the brand neon"
               className="aspect-[4/5]"
             />
           </div>
