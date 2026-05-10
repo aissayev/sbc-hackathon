@@ -45,7 +45,9 @@ export const BRAND = {
     { dayOfWeek: ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], opens: '11:00', closes: '19:00' },
     { dayOfWeek: ['Sunday'], opens: '12:00', closes: '18:00' },
   ],
-  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=350+Promenade+Way+Suite+500+Sugar+Land+TX+77478',
+  // Short Google Maps app link — opens the actual storefront pin (with photos +
+  // hours + reviews) instead of a generic address-search results page.
+  mapsUrl: 'https://maps.app.goo.gl/5y1XZuBPYtY9oCJ58',
 } as const
 
 // Asset CDN base. Default is the hackathon-provided public CDN; flip to your
