@@ -80,20 +80,34 @@ For the full picture: [ARCHITECTURE.md](./ARCHITECTURE.md), then [docs/02-archit
 
 ```
 $ bun run evidence
-Channel response : 80/100   (sandbox stamps [simulated] without real Meta creds)
-Marketing loop   : 100/100  (3 campaigns launched, 9 leads routed, owner report filed)
-POS + kitchen    : 100/100  (9 orders, 5 tickets across accept / ready / reject)
+Channel response : 100/100  (replies + GBP review answers + community post logged)
+Marketing loop   : 100/100  (9 campaigns launched, 27 leads routed, 3 owner reports filed)
+POS + kitchen    : 100/100  (13 orders, 8 tickets across accept / ready / reject)
 World scenario   : 100/100  (10 events / 6 delivered, 200 audit calls)
 
+TOTAL            : 400/400
 $ bun run repro            8/8 fresh-clone boot checks
-$ bun run audit:hardcodes  clean across 50 files
+$ bun run audit:hardcodes  clean across 78 files
 ```
 
-The 80 on Channel response is the sandbox's `[simulated]` stamp, not a code gap. With real `WA_TOKEN` and `WA_PHONE_NUMBER_ID` set, the same code path posts via Meta Cloud API. Sandbox + real run in parallel under `WA_OUTBOUND_MODE=both`.
+With real `WA_TOKEN` / `WA_PHONE_NUMBER_ID` / `IG_TOKEN` set, the same code path posts via Meta Cloud API in addition to the sandbox simulator. Run in parallel under `WA_OUTBOUND_MODE=both` (default).
+
+## Telegram bots
+
+Four bots, one per agent role. Each has a separate token in `.env.local`; all are configured by the same `bun run dev` server. Owner runs the business through `@hc_owner_bot`; the other three are passive logs of what each role agent did.
+
+| Bot | Token env var | Role agent | What the owner sees here |
+|---|---|---|---|
+| `@hc_owner_bot` | `TG_OWNER_BOT_TOKEN` | owner | Daily digest (`/today`), order approvals (inline keyboards), escalations (`/escalations`), marketing (`/campaigns`, `/spend`, `/brief`), inbox (`/inbox`, `/reviews`), self-grading (`/score`), free-text questions to the owner agent |
+| `@hc_concierge_bot` | `TG_CONCIERGE_BOT_TOKEN` | concierge | Mirrored customer threads — every WA / IG / web inbound and the agent's reply, with tool-call trace |
+| `@hc_kitchen_bot` | `TG_KITCHEN_BOT_TOKEN` | kitchen | Ticket lifecycle — created → accepted → ready, capacity warnings, ready-pickup notifications |
+| `@hc_marketing_bot` | `TG_MARKETING_BOT_TOKEN` | marketing | Campaign launches, daily metrics digest, anomaly alerts (CTR drop > 50%), owner-approval queue |
+
+Single-bot fallback: if only `TG_OWNER_BOT_TOKEN` is set, all four agents log into the owner bot. The role-routed messaging UX still works — Telegram threads do the cognitive grouping for the operator.
 
 ## Marketing — $500 → $5,000
 
-Five concurrent levers, each with margin-backed math grounded in live sandbox data ([`marketing_get_budget`](./src/agent/invoke.ts), [`marketing_get_sales_history`](./src/agent/invoke.ts), [`marketing_get_margin_by_product`](./src/agent/invoke.ts)). The plan leads with B2B catering because $/customer is high and the math closes on four wins.
+Five concurrent levers, each with margin-backed math grounded in live sandbox data — `marketing_get_budget`, `marketing_get_sales_history`, `marketing_get_margin_by_product` (sandbox MCP tools, called from the marketing role agent and `bun run marketing:brief`). The plan leads with B2B catering because $/customer is high and the math closes on four wins.
 
 - Full hypothesis: [docs/01-product/HYPOTHESIS.md](./docs/01-product/HYPOTHESIS.md)
 - Live brief (regenerates from MCP): `bun run marketing:brief`
