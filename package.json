@@ -11,6 +11,7 @@
     "setup:mcp": "bun src/scripts/setup-mcp.ts",
     "preflight": "bun src/scripts/preflight.ts",
     "smoke:agent": "bun src/scripts/smoke-agent.ts",
+    "smoke:stream": "bun src/scripts/smoke-stream.ts",
     "smoke:transcribe": "bun src/scripts/smoke-transcribe.ts",
     "demo:smoke": "bun src/scripts/demo-smoke.ts",
     "agent:concierge": "bun src/scripts/agent-cli.ts concierge",

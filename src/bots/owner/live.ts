@@ -4,14 +4,16 @@
 // feedback the chat looks dead. We:
 //   1. Post a "🤔 thinking…" placeholder + typing indicator immediately.
 //   2. Stream subsequent agent steps into that same message via throttled
-//      editMessageText (≤ 1/800ms — Telegram's per-chat soft limit is 1/sec).
+//      editMessageText (≤ 1/EDIT_THROTTLE_MS).
 //   3. On done, replace with the final reply + a one-line tool/cost footer.
 //
-// This is the "Streaming Text for Bots" UX from Telegram's May 2026 update —
-// the API is the same `editMessageText` we already use; the smoothness is the
-// client's. claude -p stream-json grain is one event per assistant turn or
-// tool round-trip, not per token, so we update step-by-step (which feels
-// natural in chat anyway).
+// This is the "Streaming Text for Bots" UX from Telegram's May 2026 update.
+// claude -p emits per-token text_delta events when invoked with
+// `--include-partial-messages` (see src/agent/invoke.ts), so we now get
+// the same word-by-word grain that Telegram's demo shows. The throttle
+// coalesces these deltas into ~2 edits/sec — fast enough for the
+// "smoothly growing message" feel, slow enough to never trip Telegram's
+// per-message rate limit.
 
 import { sendTelegram, editTelegramMessage, sendChatAction } from '../../channels/telegram.ts'
 import { config } from '../../config.ts'
@@ -84,7 +86,10 @@ export async function finalizeOwnerThinking(
 
 // ─── streaming controller ───────────────────────────────────────────────
 
-const EDIT_THROTTLE_MS = 800 // TG soft limit: ~1 same-chat edit/sec
+// 500ms = ~2 edits/sec, comfortably under Telegram's per-message tolerance
+// (~3/sec before flood-control kicks in) and snappy enough that per-token
+// claude -p deltas feel like live typing instead of step-stutter.
+const EDIT_THROTTLE_MS = 500
 const TG_MAX_LEN = 4000 // Real cap is 4096; leave room for footer.
 
 function clip(s: string, n = TG_MAX_LEN): string {
