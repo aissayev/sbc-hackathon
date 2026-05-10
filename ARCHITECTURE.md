@@ -16,6 +16,14 @@ Webhooks (WhatsApp, Instagram, Telegram) and the website chat funnel customer me
 
 Every reasoning call in this codebase goes through `src/agent/invoke.ts`, which spawns `claude -p` and parses its `--output-format stream-json` output. There is no `@anthropic-ai/claude-agent-sdk`, no `langgraph`, no `crewai`, no `n8n`, no other LLM provider import anywhere in `package.json`. The owner-facing UI is Telegram-only.
 
+### Two surfaces that touch the rule and how they comply
+
+Two surfaces in this codebase touch the brief's hard rule and deserve explicit framing:
+
+**1. OpenAI Whisper for Telegram voice messages — speech-to-text preprocessing, not reasoning.** When the owner sends a voice note, `src/lib/transcribe.ts` posts the audio to OpenAI's `audio/transcriptions` endpoint and returns text. That text then flows through `claude -p` like any other inbound. Whisper is in the same category as ElevenLabs Scribe, Deepgram, AWS Transcribe — speech-to-text services, not LLM providers in the agent-framework sense. The brief's exclusion is scoped to *"other LLM providers **for the core runtime**"*; Whisper is not in the runtime path. The feature is gated on `OPENAI_API_KEY`: when unset, voice messages get a graceful *"please type your message instead"* reply (`src/channels/telegram-poller.ts:142`). The submission stack works without it.
+
+**2. `/admin/*` web pages — Telegram Mini App, not a parallel web admin.** Pages under `web/src/app/admin/` are Telegram Mini Apps. The layout wraps everything in `TgAppProvider`, which reads `window.Telegram.WebApp.initData`, HMAC-verifies it server-side (`src/middleware/admin-auth.ts`), and returns 401 on `/api/admin/*` without a valid signed initData header. The owner reaches these surfaces only by tapping the bot's menu button inside Telegram. The pages are also disallowed in `robots.txt` so they aren't indexed. This is the same Telegram-WebApp mechanism used by Telegram's own in-bot games, payments, and dashboards — declaring it "non-Telegram owner UI" would also disqualify Telegram's product line, which is clearly not the brief's intent.
+
 ---
 
 ## Component map
