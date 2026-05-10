@@ -1,4 +1,6 @@
-# Build plan — T+0 → T+22h freeze
+# Build plan — T+0 → T+22h freeze (historical)
+
+> **Status: post-execution.** This is the original 24-hour critical path written at T+0. It was executed and is preserved here as a record of the planned phasing. For the current submission state, see [CHECKLIST.md](CHECKLIST.md) and [docs/04-test/EVIDENCE.md](../04-test/EVIDENCE.md). For what's actually wired, see [docs/01-product/FEATURES.md](../01-product/FEATURES.md).
 
 Submission deadline: **May 10, 10:00 CT.** Started: **May 9, 10:00 CT.** Internal freeze at T+22h leaves a 2h buffer before submission.
 
@@ -17,7 +19,7 @@ Goal: end-to-end customer flow on the website + WhatsApp + owner approval. **50 
 | P1.1 | Wire WhatsApp inbound (HMAC verify, normalize, ack 200 in <5s) | A | `src/routes/webhooks.ts` `src/channels/whatsapp.ts` | `whatsapp_inject_inbound` produces an `agent_invocations` row |
 | P1.2 | Wire WhatsApp outbound via `whatsapp_send` MCP | A | concierge agent reply path | Reply lands in simulator thread |
 | P1.3 | `bun run register-webhooks` script | A | `src/scripts/register-webhooks.ts` | Calls both register tools with `$PUBLIC_URL` |
-| P1.4 | Owner Telegram bot: `/today`, `/orders`, `/help`, callback_query for approvals | O | `src/bots/owner.ts` | Inline `[Approve]/[Reject]` buttons fire local MCP `approve_order`/`reject_order` |
+| P1.4 | Owner Telegram bot: `/today`, `/orders`, `/help`, callback_query for approvals | O | `src/bots/owner/` (split: commands/callbacks/cards/live/log/format) | Inline `[Approve]/[Reject]` buttons fire `approveDraftAndPromote` (deterministic, no LLM) |
 | P1.5 | Local MCP: `escalate_to_owner` posts to `@hc_owner_bot` directly | A | `src/agent/mcp/local-server.ts` | Escalation appears in owner bot within 5s |
 | P1.6 | Concierge agent: custom-cake intake creates draft + escalates | C | `src/agent/prompts/concierge.md` + scenario test | "I want a Spider-Man cake for Saturday" → draft + escalation visible |
 | P1.7 | Smoke run: customer (web) → draft → owner approves → kitchen ticket → ready | A+O | `bun run smoke:agent` + manual TG | All 4 steps succeed, audit trail clean |
