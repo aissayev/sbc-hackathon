@@ -184,9 +184,32 @@
    web) these rules don't fire and the cockpit looks identical to before.
    ────────────────────────────────────────────────────────────────────── */
 .is-tg-mini-app body {
-  /* Telegram supplies its own header + back button — no need for the
-     extra cream "Owner console" band that wastes the top 140px. */
-  background-color: var(--tg-bg-color, #FFF7EA);
+  /* Force HappyCake cream regardless of the user's Telegram theme.
+     Reason: Telegram desktop with a dark theme passes a dark
+     `--tg-bg-color` (e.g. #17212B) — the admin pages were originally
+     using `var(--tg-bg-color, #FFF7EA)` which painted the body dark
+     and left our cocoa/happy-blue text invisible against it. Mobile
+     Telegram clients didn't expose the same `bg_color` so the cream
+     fallback worked there. The cards inside the admin shell are
+     explicitly white, so we need the body to be cream too — anything
+     else breaks the brand and contrast in one stroke.
+     Brand consistency over Telegram-theme-mirroring. */
+  background-color: #FFF7EA !important;
+  color: #1A1816;
+}
+/* Make sure the page wrapper (Next.js root <main>) doesn't get tinted
+   by any inherited dark theme tokens either. */
+.is-tg-mini-app main,
+.is-tg-mini-app [data-admin-shell] {
+  background-color: transparent;
+  color: inherit;
+}
+/* Defensive: the dark-scheme attribute set by TgAppProvider ought not
+   to bleed any system-dark CSS into the admin chrome. Anchor body
+   colors on this branch too. */
+.is-tg-mini-app[data-tg-scheme='dark'] body {
+  background-color: #FFF7EA !important;
+  color: #1A1816 !important;
 }
 .is-tg-mini-app [data-admin-shell] {
   padding-top: 0.5rem !important;
