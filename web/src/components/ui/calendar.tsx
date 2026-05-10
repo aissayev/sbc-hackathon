@@ -11,13 +11,16 @@ import { cn } from '@/lib/utils'
 // day, cream for surface). The container imports the library's base
 // stylesheet first so our overrides win.
 //
-// Touch-target fix: react-day-picker renders the prev/next chevrons as
-// large oversized SVGs that visually extend past the button's bounding
-// box. The `[&_svg]` rules constrain the chevron and the wrapper button
-// is sized 44×44 (Apple HIG / WCAG min touch target). The default-class
-// reset (classNames="") was also needed because the library ships its
-// own .rdp-button class with absolute positioning that the user-supplied
-// classNames *augment*, they don't replace.
+// Layout: in v10 the `nav` element renders as a sibling of `month_caption`
+// inside `month`, NOT as a child of caption. Earlier versions of these
+// classNames placed the prev/next buttons with `position: absolute`,
+// which positioned them against the wrong ancestor (the whole month, not
+// the caption row) and made them overlap the date grid below.
+//
+// Now: `nav` is a 44px-tall flex row above the caption, prev/next render
+// inline. No absolute positioning, no overlap. Touch targets stay 36×36
+// (still above the WCAG 24×24 minimum) — generous without crowding the
+// caption text on small screens.
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -28,18 +31,18 @@ export function Calendar({ className, classNames, showOutsideDays = true, ...pro
       className={cn('rdp-hc p-2', className)}
       classNames={{
         months: 'flex flex-col gap-3',
-        month: 'space-y-3',
+        month: 'space-y-2',
         month_caption:
-          'flex justify-center pt-1 pb-1 relative items-center text-sm font-medium text-cocoa-900 h-11',
+          'flex justify-center items-center text-sm font-medium text-cocoa-900 h-8',
         caption_label: 'text-sm font-medium',
-        nav: 'flex items-center gap-1',
-        // 44x44 touch target with a tightly-sized chevron inside (16x16
-        // via [&>svg] override). The whole pill is now clickable, not just
-        // the corner where the oversized SVG used to sit.
+        // Prev/next sit on their own row above the month label, taking
+        // the full width with `justify-between` so the chevrons land at
+        // the corners and never collide with the date grid.
+        nav: 'flex items-center justify-between px-1 pt-1',
         button_previous:
-          'absolute left-1 top-1/2 -translate-y-1/2 h-11 w-11 inline-flex items-center justify-center rounded-full text-cocoa-900 hover:bg-cream-100 active:bg-cream-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky/40 [&>svg]:h-4 [&>svg]:w-4',
+          'h-9 w-9 inline-flex items-center justify-center rounded-full text-cocoa-900 hover:bg-cream-100 active:bg-cream-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky/40 [&>svg]:h-4 [&>svg]:w-4',
         button_next:
-          'absolute right-1 top-1/2 -translate-y-1/2 h-11 w-11 inline-flex items-center justify-center rounded-full text-cocoa-900 hover:bg-cream-100 active:bg-cream-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky/40 [&>svg]:h-4 [&>svg]:w-4',
+          'h-9 w-9 inline-flex items-center justify-center rounded-full text-cocoa-900 hover:bg-cream-100 active:bg-cream-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky/40 [&>svg]:h-4 [&>svg]:w-4',
         month_grid: 'w-full border-collapse',
         weekdays: 'flex',
         weekday: 'text-cocoa-900/55 w-9 h-9 inline-flex items-center justify-center text-[11px] uppercase tracking-wider',
