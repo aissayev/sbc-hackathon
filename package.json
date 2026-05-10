@@ -30,6 +30,8 @@
     "webhooks:status": "bun src/scripts/webhooks-status.ts",
     "world:tick": "bun src/scripts/world-tick.ts",
     "evidence": "bun src/scripts/evidence.ts",
+    "self-eval": "bun src/scripts/self-eval.ts",
+    "marketing:digest": "bun src/scripts/marketing-digest.ts",
     "wa:followup": "bun src/scripts/wa-followup.ts"
   },
   "dependencies": {
