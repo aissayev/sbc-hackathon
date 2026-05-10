@@ -8,7 +8,7 @@ import {
   createDraftOrderSchema,
   getOrderStatus,
 } from '../domain/tools.ts'
-import { postDraftOrderCard } from '../bots/owner.ts'
+import { postDraftOrderCard } from '../bots/owner/index.ts'
 
 export const orderRoutes = new Hono()
 

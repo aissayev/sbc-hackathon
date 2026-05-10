@@ -1,10 +1,4 @@
-// Owner-bot barrel.
-//
-// Existing import sites use `from '../bots/owner.ts'` — the legacy single
-// file `src/bots/owner.ts` re-exports from this folder so nothing breaks
-// during the split. Once the parallel-agent storm settles, importers can
-// migrate to `from '../bots/owner/index.ts'` (or just `from '../bots/owner'`)
-// and the legacy `owner.ts` file can be deleted.
+// Owner-bot barrel. Re-exports the split modules under owner/.
 
 export type { BotReply } from './commands.ts'
 export {

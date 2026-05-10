@@ -13,7 +13,7 @@ import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import { config } from '../config.ts'
 import { listProducts, escalate } from '../domain/tools.ts'
-import { postEscalationCard } from '../bots/owner.ts'
+import { postEscalationCard } from '../bots/owner/index.ts'
 import { invokeAgent } from '../agent/invoke.ts'
 
 const BASE = `http://localhost:${config.port}`

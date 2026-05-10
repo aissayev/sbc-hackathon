@@ -10,7 +10,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { tryCallSandboxTool } from '../lib/sandbox-mcp.ts'
-import { logToOwner } from '../bots/owner.ts'
+import { logToOwner } from '../bots/owner/index.ts'
 
 interface CampaignRow {
   id?: string; campaignId?: string

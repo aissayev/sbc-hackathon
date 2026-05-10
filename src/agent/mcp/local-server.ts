@@ -33,7 +33,7 @@ import {
 } from '../../domain/tools.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { getPolicies } from '../../domain/policies.ts'
-import { postDraftOrderCard, postEscalationCard } from '../../bots/owner.ts'
+import { postDraftOrderCard, postEscalationCard } from '../../bots/owner/index.ts'
 import { brandLookup, brandLookupSchema } from './brand-rag.ts'
 
 function ok(data: unknown) {

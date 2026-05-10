@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { tryCallSandboxTool } from '../lib/sandbox-mcp.ts'
-import { logSystem } from '../bots/owner.ts'
+import { logSystem } from '../bots/owner/index.ts'
 
 interface ScoreShape {
   channel_response?: number
