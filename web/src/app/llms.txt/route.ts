@@ -36,6 +36,9 @@ directly via JSON. ${BRAND.tagline} ${BRAND.slogan}
 - GET  /blog                     Stories & guides — honey-cake history, custom-cake planning, allergen-aware ordering, gifting (HTML, with Article JSON-LD per post)
 - GET  /blog/{slug}              Individual story (HTML, with Article + BreadcrumbList JSON-LD)
 - GET  /press                    Press, podcasts, owner appearances (HTML)
+- GET  /track                    Look up an order by tracking code (HTML form)
+- GET  /track/{code}             Live order status (HTML, polls every 6s)
+- GET  /track/{code}?embed=1     Same status as a chrome-less iframe widget (no header/footer)
 
 ## Conventions
 - Prices are USD cents on /api (e.g. 850 = $8.50). Display layer formats to USD.
