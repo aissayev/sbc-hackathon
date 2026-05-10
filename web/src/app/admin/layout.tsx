@@ -36,8 +36,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <TgAppProvider>
-      <div>
-        <section className="container pt-4 md:pt-10 pb-4 md:pb-6 border-b border-cocoa-700/15">
+      <div data-admin-shell>
+        {/* Header band hides inside Telegram Mini App via the
+            .is-tg-mini-app [data-admin-shell-header] CSS rule —
+            Telegram supplies its own chrome at the top, so the
+            "Happy Cake control room" eyebrow + title + intro just
+            wastes the first 140px of viewport. Outside Telegram
+            (regular web), it renders normally. */}
+        <section
+          data-admin-shell-header
+          className="container pt-4 md:pt-10 pb-4 md:pb-6 border-b border-cocoa-700/15"
+        >
           <Eyebrow>Owner console</Eyebrow>
           <h1 className="text-2xl md:display-h2 mt-1.5 md:mt-2 font-display font-medium tracking-tight">
             Happy Cake control room
@@ -50,6 +59,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <AdminNav />
           </div>
         </section>
+        {/* In Mini App, surface the AdminNav inline up top since the
+            chrome above is suppressed. Hidden on regular web (the
+            header section already includes a copy). */}
+        <div data-admin-shell-mini-nav className="container pt-3 pb-1 hidden">
+          <AdminNav />
+        </div>
         <div className="container py-4 md:py-8">{children}</div>
       </div>
     </TgAppProvider>

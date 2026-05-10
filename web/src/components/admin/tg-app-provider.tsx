@@ -50,6 +50,25 @@ export function TgAppProvider({ children }: { children: React.ReactNode }) {
         tg.expand()
       } catch {}
 
+      // Tag the document so CSS can switch to Mini-App-aware density.
+      // Components subscribe via the `.is-tg-mini-app` ancestor selector
+      // (e.g. tighter padding, larger touch targets, no sticky header
+      // since Telegram already supplies one). Set + persisted; cleared
+      // on next reload outside Telegram.
+      document.documentElement.classList.add('is-tg-mini-app')
+      if (tg.colorScheme) {
+        document.documentElement.dataset.tgScheme = tg.colorScheme
+      }
+      if (tg.themeParams) {
+        // Mirror Telegram's themeParams onto CSS variables so admin
+        // components can opt into the user's dark/light Telegram theme
+        // without us reverse-engineering it.
+        const root = document.documentElement.style
+        for (const [k, v] of Object.entries(tg.themeParams)) {
+          root.setProperty(`--tg-${k.replace(/_/g, '-')}`, v)
+        }
+      }
+
       // Patch fetch ONCE per page. We tag the patched function so HMR /
       // re-mounts don't stack interceptors. We assign the wrapped fn back
       // onto the original so static helpers (`fetch.preconnect`) are
