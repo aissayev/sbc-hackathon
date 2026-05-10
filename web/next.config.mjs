@@ -50,6 +50,15 @@ const nextConfig = {
       // Never serve it from the Next.js side; always proxy to the agent runtime.
       { source: '/test/incoming', destination: `${backend}/test/incoming` },
       { source: '/openapi.json', destination: `${backend}/openapi.json` },
+      // WhatsApp + Instagram webhooks. Sandbox MCP (and Meta Cloud API in
+      // prod) push customer-side events to these paths; the backend's
+      // src/routes/webhooks.ts handler reads HMAC sigs + dispatches to the
+      // agent. Without these rewrites the public URL the operator
+      // registered (e.g. `bun run register-webhooks https://happycake…`)
+      // 404s and the inbox stays silent. Both paths are unauth-but-signed,
+      // so passing them straight through is safe.
+      { source: '/webhooks/whatsapp', destination: `${backend}/webhooks/whatsapp` },
+      { source: '/webhooks/instagram', destination: `${backend}/webhooks/instagram` },
     ]
   },
 }
