@@ -32,6 +32,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[0],
     in_stock: 1,
     daily_capacity: 80,
+    tradition: 'kazakh-european-honey',
+    flavor_notes: 'honey biscuit · soft custard · walnuts',
+    tagline: 'Six layers, one recipe, since the day we opened.',
   },
   {
     id: 'whole-honey-cake',
@@ -46,6 +49,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[6],
     in_stock: 1,
     daily_capacity: 12,
+    tradition: 'kazakh-european-honey',
+    flavor_notes: 'six honey layers · custard · walnut crown',
+    tagline: 'The whole honey cake — feeds a table of twelve.',
   },
   {
     id: 'pistachio-roll',
@@ -60,6 +66,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[3],
     in_stock: 1,
     daily_capacity: 30,
+    tradition: 'modern-meringue',
+    flavor_notes: 'meringue roll · pistachio cream · fresh raspberry',
+    tagline: 'Pistachio meringue, raspberry sharp — light enough for two slices.',
   },
   {
     id: 'cloud-cake-slice',
@@ -74,6 +83,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[8],
     in_stock: 1,
     daily_capacity: 25,
+    tradition: 'modern-meringue',
+    flavor_notes: 'meringue layers · vanilla cream · airy crumb',
+    tagline: 'Eats like dessert and breakfast at once.',
   },
   {
     id: 'tiramisu-slice',
@@ -88,6 +100,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[1],
     in_stock: 1,
     daily_capacity: 24,
+    tradition: 'italian-classic',
+    flavor_notes: 'espresso biscuit · mascarpone · milk chocolate',
+    tagline: 'A classic for the afternoon slow-down.',
   },
   {
     id: 'chak-chak',
@@ -102,6 +117,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[4],
     in_stock: 1,
     daily_capacity: 40,
+    tradition: 'central-asian',
+    flavor_notes: 'fried-dough nuggets · honey bind · cluster',
+    tagline: 'Steppe-honey crunch — a Kazakh classic, perfect with tea.',
   },
   {
     id: 'truffle-bites',
@@ -116,6 +134,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[5],
     in_stock: 1,
     daily_capacity: 60,
+    tradition: 'french-chocolate',
+    flavor_notes: 'dark cocoa · espresso · hazelnut crunch',
+    tagline: 'Small, rich, dangerously poppable.',
   },
   {
     id: 'custom-birthday-cake',
@@ -130,6 +151,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[7],
     in_stock: 1,
     daily_capacity: 4,
+    tradition: 'celebration',
+    flavor_notes: 'your flavors · your decoration · your inscription',
+    tagline: 'Designed with you. Quoted by Askhat.',
   },
   {
     id: 'office-dessert-box',
@@ -144,6 +168,9 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[9],
     in_stock: 1,
     daily_capacity: 8,
+    tradition: 'catering',
+    flavor_notes: 'curated assortment · slices · rolls · minis',
+    tagline: 'One box, the whole greatest-hits, for the table.',
   },
   {
     id: 'morning-pastry-mix',
@@ -158,11 +185,28 @@ export const CATALOG: Product[] = [
     photo_url: ASSETS.products[2],
     in_stock: 1,
     daily_capacity: 6,
+    tradition: 'catering',
+    flavor_notes: 'mini pastries · bite-size cakes · 10-person serve',
+    tagline: 'The right number of choices to keep a meeting happy.',
   },
 ]
 
 export function findCatalogProduct(id: string): Product | null {
   return CATALOG.find((p) => p.id === id) ?? null
+}
+
+// "Tradition" → human label + theme. Drives the showcase-card chip and the
+// subtle accent gradient. Each cake stays unique on the market because it
+// belongs to a clearly named family ("Kazakh-European honey-cake tradition")
+// — the chip is the first thing you read on the card.
+export const TRADITION_LABELS: Record<NonNullable<Product['tradition']>, { label: string; short: string }> = {
+  'kazakh-european-honey': { label: 'Kazakh-European honey cake', short: 'Honey tradition' },
+  'central-asian':         { label: 'Central-Asian classic',       short: 'Central Asian' },
+  'italian-classic':       { label: 'Italian café classic',         short: 'Italian classic' },
+  'modern-meringue':       { label: 'Modern meringue',              short: 'Meringue' },
+  'french-chocolate':      { label: 'French chocolate',             short: 'French chocolate' },
+  'celebration':           { label: 'Celebration cake',             short: 'Celebration' },
+  'catering':              { label: 'Catering assortment',          short: 'Catering' },
 }
 
 // Display order for the menu sections. "Most popular first" so the case
