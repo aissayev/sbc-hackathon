@@ -92,7 +92,17 @@ export const createDraftOrderSchema = z.object({
   notes: z.string().optional(),
 })
 
-export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>) {
+export type CreateDraftOrderResult =
+  | { ok: false; reason: string }
+  | {
+      ok: true
+      order_id: string
+      total_cents: number
+      items: Array<{ sku: string; qty: number; unit_cents: number; line_total_cents: number; name: string }>
+      status: 'draft'
+    }
+
+export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): CreateDraftOrderResult {
   let total = 0
   const itemsResolved: Array<{ sku: string; qty: number; unit_cents: number; line_total_cents: number; name: string }> = []
   for (const it of args.items) {
@@ -219,14 +229,31 @@ export const escalateSchema = z.object({
   severity: z.enum(['low', 'medium', 'high']).default('low'),
 })
 
+// Within this window, a duplicate escalation for the same (thread_id, reason)
+// returns the existing id instead of creating a new row. Stops a retry-happy
+// agent from flooding the owner inbox with the same hand-off after a tool
+// hiccup, while still letting genuinely new escalations through.
+const ESCALATION_DEDUP_WINDOW_MS = 60_000
+
 export function escalate(args: z.infer<typeof escalateSchema>) {
-  const id = `esc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const now = Date.now()
+  const existing = getDb()
+    .prepare(
+      `SELECT id FROM escalations
+       WHERE thread_id = ? AND reason = ? AND status = 'open' AND created_at >= ?
+       ORDER BY created_at DESC LIMIT 1`,
+    )
+    .get(args.thread_id, args.reason, now - ESCALATION_DEDUP_WINDOW_MS) as { id: string } | undefined
+  if (existing) {
+    return { ok: true, escalation_id: existing.id, deduplicated: true as const }
+  }
+  const id = `esc_${now}_${Math.random().toString(36).slice(2, 8)}`
   getDb()
     .prepare(
       `INSERT INTO escalations (id, thread_id, channel, reason, severity, context_json, status, created_at)
        VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
     )
-    .run(id, args.thread_id, args.channel, args.reason, args.severity, args.context ?? null, Date.now())
+    .run(id, args.thread_id, args.channel, args.reason, args.severity, args.context ?? null, now)
   return { ok: true, escalation_id: id }
 }
 

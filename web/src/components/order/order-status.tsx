@@ -13,6 +13,7 @@ const STATUS_LABEL: Record<string, { label: string; tone: 'default' | 'blue' | '
   in_kitchen: { label: 'Baking', tone: 'blue' },
   ready: { label: 'Ready for pickup', tone: 'sage' },
   out_for_delivery: { label: 'On the way', tone: 'sage' },
+  picked_up: { label: 'Picked up', tone: 'sage' },
   completed: { label: 'Completed', tone: 'sage' },
   rejected: { label: 'Cannot fulfill', tone: 'coral' },
   cancelled: { label: 'Cancelled', tone: 'coral' },
@@ -25,7 +26,15 @@ const STEPS: Array<{ key: string; label: string; icon: React.ComponentType<{ cla
   { key: 'ready', label: 'Ready', icon: Package },
 ]
 
-const STEP_INDEX: Record<string, number> = { draft: 0, approved: 1, in_kitchen: 2, ready: 3, completed: 3, out_for_delivery: 3 }
+const STEP_INDEX: Record<string, number> = {
+  draft: 0,
+  approved: 1,
+  in_kitchen: 2,
+  ready: 3,
+  out_for_delivery: 3,
+  picked_up: 3,
+  completed: 3,
+}
 
 export function OrderStatusView({ initial }: { initial: OrderStatus }) {
   const [order, setOrder] = React.useState(initial)
@@ -39,7 +48,7 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
         if (!res.ok) return
         const next = (await res.json()) as OrderStatus
         if (next.status !== order.status) setOrder(next)
-        if (['completed', 'rejected', 'cancelled'].includes(next.status)) setPolling(false)
+        if (['completed', 'picked_up', 'rejected', 'cancelled'].includes(next.status)) setPolling(false)
       } catch {}
     }, 6000)
     return () => clearInterval(id)

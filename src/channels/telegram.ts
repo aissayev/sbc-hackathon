@@ -12,9 +12,11 @@ const TG_API = 'https://api.telegram.org'
 export interface TelegramBotSpec {
   role: AgentRole
   token: string
-  // For owner-side bots, restrict inbound to this chat id (defends against
-  // strangers messaging the owner bot).
-  ownerChatId?: string
+  // For owner-side bots, restrict inbound to these chat ids (defends against
+  // strangers messaging the owner bot). Empty array = open mode: any chat
+  // accepted. Open mode is a HACKATHON convenience — production deploys MUST
+  // populate the whitelist (see config.telegram.owner.chatIds in src/config.ts).
+  ownerChatIds?: string[]
 }
 
 interface SendMessageResponse {
@@ -151,13 +153,20 @@ export interface TelegramUpdate {
   callback_query?: TgCallbackQuery
 }
 
-export function parseTelegramUpdate(update: TelegramUpdate, role: AgentRole, ownerChatId?: string): IncomingMessage[] {
+export function parseTelegramUpdate(
+  update: TelegramUpdate,
+  role: AgentRole,
+  ownerChatIds?: string[],
+): IncomingMessage[] {
   const m = update.message ?? update.edited_message
   if (!m || typeof m.text !== 'string') return []
-  // Owner-side bots only listen to the configured owner chat.
-  if (ownerChatId && String(m.chat.id) !== ownerChatId) {
-    console.warn(`[telegram:${role}] ignoring message from non-owner chat ${m.chat.id}`)
-    return []
+  // Owner-side bots only listen to whitelisted chat ids when the list is
+  // populated. Empty list = open mode (HACKATHON ONLY — see TelegramBotSpec).
+  if (ownerChatIds && ownerChatIds.length > 0) {
+    if (!ownerChatIds.includes(String(m.chat.id))) {
+      console.warn(`[telegram:${role}] ignoring message from non-owner chat ${m.chat.id}`)
+      return []
+    }
   }
   return [
     {
@@ -175,18 +184,21 @@ export function parseTelegramUpdate(update: TelegramUpdate, role: AgentRole, own
 
 export function configuredBots(): TelegramBotSpec[] {
   const out: TelegramBotSpec[] = []
+  // Same whitelist applies to every operator-side bot — kitchen, marketing,
+  // concierge, owner. Customers don't talk to these; the team does.
+  const ownerChatIds = config.telegram.owner.chatIds
   if (config.telegram.owner.token) {
-    out.push({ role: 'owner', token: config.telegram.owner.token, ownerChatId: config.telegram.owner.chatId })
+    out.push({ role: 'owner', token: config.telegram.owner.token, ownerChatIds })
   }
   if (config.telegram.kitchen.token) {
-    out.push({ role: 'kitchen', token: config.telegram.kitchen.token, ownerChatId: config.telegram.owner.chatId })
+    out.push({ role: 'kitchen', token: config.telegram.kitchen.token, ownerChatIds })
   }
   if (config.telegram.marketing.token) {
-    out.push({ role: 'marketing', token: config.telegram.marketing.token, ownerChatId: config.telegram.owner.chatId })
+    out.push({ role: 'marketing', token: config.telegram.marketing.token, ownerChatIds })
   }
   if (config.telegram.concierge.token) {
     // Concierge bot is a *log* bot — not for customers; for the team to watch.
-    out.push({ role: 'concierge', token: config.telegram.concierge.token, ownerChatId: config.telegram.owner.chatId })
+    out.push({ role: 'concierge', token: config.telegram.concierge.token, ownerChatIds })
   }
   return out
 }

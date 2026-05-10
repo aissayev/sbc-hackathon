@@ -22,7 +22,7 @@ async function fetchOrder(id: string): Promise<OrderStatus | null> {
   return res.json()
 }
 
-const TERMINAL = ['completed', 'rejected', 'cancelled']
+const TERMINAL = ['completed', 'picked_up', 'rejected', 'cancelled']
 
 export function TrackOrder() {
   const [orderId, setOrderId] = React.useState(() => {

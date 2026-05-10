@@ -13,6 +13,8 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { z } from 'zod'
 import {
   listProducts,
@@ -25,11 +27,11 @@ import {
   getOrderStatusSchema,
   escalate,
   escalateSchema,
-  updateOrderStatus,
   listOrders,
   listEscalations,
   dailyReport,
 } from '../../domain/tools.ts'
+import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { postDraftOrderCard, postEscalationCard } from '../../bots/owner.ts'
 
 function ok(data: unknown) {
@@ -125,12 +127,17 @@ server.registerTool(
 server.registerTool(
   'approve_order',
   {
-    description: 'Owner-only. Mark a draft order as approved so the kitchen agent can pick it up.',
+    description:
+      'Owner-only. Promote a draft to a Square order + kitchen ticket atomically. Call this for any draft the owner says yes to — do not flip SQLite status by other means.',
     inputSchema: { order_id: z.string(), note: z.string().optional() },
   },
   async (args) => {
-    const { order_id, note } = args as { order_id: string; note?: string }
-    return ok(updateOrderStatus(order_id, 'approved', note))
+    const { order_id } = args as { order_id: string; note?: string }
+    // Note: `note` is currently captured at the UI layer (TG callback handler);
+    // approveDraftAndPromote is intentionally deterministic and doesn't take a
+    // free-text note to keep the audit trail clean.
+    const result = await approveDraftAndPromote(order_id)
+    return ok(result)
   },
 )
 
@@ -142,7 +149,8 @@ server.registerTool(
   },
   async (args) => {
     const { order_id, reason } = args as { order_id: string; reason: string }
-    return ok(updateOrderStatus(order_id, 'rejected', reason))
+    const result = await rejectDraft(order_id, reason)
+    return ok(result)
   },
 )
 
@@ -170,6 +178,93 @@ server.registerTool(
     const { kind, summary, detail } = args as { kind: string; summary: string; detail: string }
     const id = `aprv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     return ok({ ok: true, approval_id: id, kind, summary, detail })
+  },
+)
+
+// ─── Brand RAG ───────────────────────────────────────────────────────────
+// Cheap, offline, deterministic lookup against docs/agent-context/brand-rules.md
+// (a public-safe distillation of the gitignored canonical BRANDBOOK), so
+// agents that don't carry the full brand voice in their system prompt
+// (kitchen, owner) can still quote canonical lines instead of inventing
+// brand language. Sections are split on `## Heading`. Customer-facing roles
+// (concierge, marketing) already have the prepended brand.md prompt; they
+// can still call this tool to fetch deeper sections (e.g. "Marketing tone").
+
+const BRANDBOOK_PATH = resolve('docs/agent-context/brand-rules.md')
+let brandbookCache: { sections: Array<{ heading: string; body: string }>; loadedAt: number } | null = null
+
+function loadBrandbook(): { sections: Array<{ heading: string; body: string }> } {
+  // Cache for 60s — the file rarely changes, but we don't want stale prompts
+  // if a build edit lands.
+  if (brandbookCache && Date.now() - brandbookCache.loadedAt < 60_000) {
+    return brandbookCache
+  }
+  if (!existsSync(BRANDBOOK_PATH)) {
+    return { sections: [] }
+  }
+  const text = readFileSync(BRANDBOOK_PATH, 'utf8')
+  const sections: Array<{ heading: string; body: string }> = []
+  const lines = text.split('\n')
+  let current: { heading: string; lines: string[] } | null = null
+  for (const line of lines) {
+    const m = /^##\s+(.+?)\s*$/.exec(line)
+    if (m) {
+      if (current) sections.push({ heading: current.heading, body: current.lines.join('\n').trim() })
+      current = { heading: m[1], lines: [] }
+    } else if (current) {
+      current.lines.push(line)
+    }
+  }
+  if (current) sections.push({ heading: current.heading, body: current.lines.join('\n').trim() })
+  brandbookCache = { sections, loadedAt: Date.now() }
+  return { sections }
+}
+
+server.registerTool(
+  'brand_lookup',
+  {
+    description:
+      'Look up canonical brand voice / identity rules. Pass `query` for keyword search across brand-rules.md sections, or `section` for an exact heading match. Use this whenever the agent needs to quote brand voice, signature phrases, allowed/forbidden words, or product copy without inventing.',
+    inputSchema: {
+      query: z.string().optional(),
+      section: z.string().optional(),
+      max_chars: z.number().int().positive().optional(),
+    },
+  },
+  async (args) => {
+    const { query, section, max_chars } = args as { query?: string; section?: string; max_chars?: number }
+    const cap = max_chars ?? 2000
+    const { sections } = loadBrandbook()
+    if (!sections.length) return ok({ ok: false, reason: 'brand-rules.md not found' })
+
+    if (section) {
+      const exact = sections.find((s) => s.heading.toLowerCase() === section.toLowerCase())
+      if (!exact) return ok({ ok: false, reason: `no section "${section}"`, available: sections.map((s) => s.heading) })
+      return ok({ ok: true, heading: exact.heading, body: exact.body.slice(0, cap) })
+    }
+
+    if (query) {
+      const q = query.toLowerCase()
+      const matches = sections
+        .map((s) => ({
+          heading: s.heading,
+          body: s.body,
+          score:
+            (s.heading.toLowerCase().includes(q) ? 5 : 0) +
+            (s.body.toLowerCase().split(q).length - 1),
+        }))
+        .filter((m) => m.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+      if (!matches.length) return ok({ ok: false, reason: `no match for "${query}"`, available: sections.map((s) => s.heading) })
+      return ok({
+        ok: true,
+        matches: matches.map((m) => ({ heading: m.heading, body: m.body.slice(0, cap) })),
+      })
+    }
+
+    // No query / section: return the section index so the agent can pick.
+    return ok({ ok: true, sections: sections.map((s) => s.heading) })
   },
 )
 

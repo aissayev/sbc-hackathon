@@ -39,7 +39,14 @@ CREATE TABLE IF NOT EXISTS orders (
   id            TEXT PRIMARY KEY,
   thread_id     TEXT NOT NULL,
   channel       TEXT NOT NULL,
-  status        TEXT NOT NULL CHECK (status IN ('draft','approved','rejected','in_kitchen','ready','picked_up','cancelled')),
+  -- State machine:
+  --   draft → approved → in_kitchen → ready → out_for_delivery? → picked_up | completed
+  --                  ↘ rejected
+  --                  ↘ cancelled
+  -- `out_for_delivery` is only used for delivery orders; pickup goes
+  -- ready → picked_up. `completed` is the terminal "done" status used by
+  -- both delivery and pickup once the customer has the cake.
+  status        TEXT NOT NULL CHECK (status IN ('draft','approved','rejected','in_kitchen','ready','out_for_delivery','picked_up','completed','cancelled')),
   customer_name TEXT,
   customer_phone TEXT,
   -- JSON array of {sku, qty, unit_cents, line_total_cents, modifiers}

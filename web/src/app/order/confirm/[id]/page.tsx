@@ -31,6 +31,15 @@ export default async function OrderConfirmPage(props: { params: Params }) {
         <OrderStatusView initial={order} />
       </div>
 
+      <p className="mt-6 text-sm text-cocoa-900/70">
+        Want to share the live status with someone?{' '}
+        <Link href={`/track/${id}`} className="underline hover:text-cocoa-900">
+          Use this short link
+        </Link>{' '}
+        — it shows the same tracker without the rest of the site, so it's easy to drop into a
+        message.
+      </p>
+
       <div className="mt-8 flex flex-wrap gap-3">
         <Button asChild variant="secondary">
           <Link href="/menu">Back to the menu</Link>

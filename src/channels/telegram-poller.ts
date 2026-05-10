@@ -42,7 +42,7 @@ async function pollOne(bot: TelegramBotSpec, onMessage: MessageHandler, onCallba
           )
           continue
         }
-        for (const msg of parseTelegramUpdate(update, bot.role, bot.ownerChatId)) {
+        for (const msg of parseTelegramUpdate(update, bot.role, bot.ownerChatIds)) {
           await onMessage(msg).catch((err) =>
             console.error(`[telegram:${bot.role}] onMessage err:`, (err as Error).message),
           )

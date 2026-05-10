@@ -81,10 +81,17 @@ async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> 
 //   2. If the backend is offline, fall back to the local catalog so the menu
 //      still renders. Either way the typed `kind` axis comes from the local
 //      catalog — backend doesn't carry it (yet).
+// Prefer /api/catalog (the live MCP-mirrored snapshot from the backend's
+// SQLite) and fall back to /api/products if /api/catalog isn't deployed yet.
+// In both cases the website overlays the brand catalog's `kind` so menu
+// grouping (slice / whole / pastry / custom / catering) stays stable.
 async function fetchBackendProducts(): Promise<Product[] | null> {
-  const res = await safeFetch<{ products: Array<Omit<Product, 'kind'>> }>(`${BACKEND}/api/products`)
-  if (!res?.products?.length) return null
-  return res.products.map((p) => {
+  const live = await safeFetch<{ products: Array<Omit<Product, 'kind'>> }>(`${BACKEND}/api/catalog`)
+  const products = live?.products?.length
+    ? live.products
+    : (await safeFetch<{ products: Array<Omit<Product, 'kind'>> }>(`${BACKEND}/api/products`))?.products
+  if (!products?.length) return null
+  return products.map((p) => {
     const local = findCatalogProduct(p.id)
     return { ...p, kind: local?.kind ?? 'slice' } as Product
   })

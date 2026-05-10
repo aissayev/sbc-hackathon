@@ -9,8 +9,10 @@ export function pickRole(msg: IncomingMessage): AgentRole {
   if (msg.roleHint) return msg.roleHint
 
   if (msg.channel === 'telegram') {
-    // Owner chat-id check — owner channel wins over slash command parsing.
-    if (config.telegram.owner.chatId && msg.threadId === config.telegram.owner.chatId) {
+    // Multi-owner: any chat id in the whitelist wins over slash-command
+    // parsing. When the whitelist is empty (open mode) this branch never
+    // fires, so messages fall through to slash-command + concierge default.
+    if (config.telegram.owner.chatIds.includes(msg.threadId)) {
       return 'owner'
     }
     // Slash-prefixed commands: /kitchen, /marketing — others fall to concierge.
