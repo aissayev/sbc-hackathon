@@ -85,7 +85,7 @@ export function SiteHeader() {
             </a>
             <Link
               href="/order"
-              className="inline-flex items-center rounded-full bg-cocoa-700 text-cream text-sm font-medium px-5 h-10 hover:bg-cocoa-900 transition-colors shrink-0"
+              className="inline-flex items-center rounded-full bg-sky text-white text-sm font-medium px-5 h-10 hover:bg-sky-700 transition-colors shrink-0 shadow-sm"
             >
               Order a cake
             </Link>
@@ -165,7 +165,7 @@ export function SiteHeader() {
           <div className="grid gap-3">
             <Link
               href="/order"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-cocoa-700 text-cream text-base font-medium px-5 h-12 hover:bg-cocoa-900"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-sky text-white text-base font-medium px-5 h-12 hover:bg-sky-700 shadow-sm"
             >
               <ShoppingBag className="h-4 w-4" />
               Order a cake
