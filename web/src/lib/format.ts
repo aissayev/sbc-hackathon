@@ -59,23 +59,32 @@ export function brandCakeName(name: string): string {
 
 // Single source of truth for how an order id is shown in the UI.
 //
-// The full id is `ord_<13-digit-ms>_<6-char-base36>` — 24 chars. Showing
-// just the trailing slice (e.g. `#4_UG4G4J`) used to seem prettier, but
-// caused customers to paste truncated values into chat / track that the
-// backend's strict `WHERE id = ?` lookup couldn't match. The backend is
-// now suffix-tolerant (src/domain/tools.ts:getOrderStatus), but the
-// long-term fix is: SHOW THE FULL ID anywhere a customer might copy it.
+// The canonical id is `ord_<13-digit-ms>_<6-char-base36>` — 24 chars —
+// and that's what the backend uses internally (paired with `square_order_id`
+// for Square reconciliation). The friendly alias `HC-1042` is a customer-
+// facing label derived from SQLite ROWID; we now prefer it anywhere a
+// human would read the id back. The backend's lookup accepts both forms.
 //
 // Variants:
-//   `full`   — entire `ord_<ms>_<rand>` string. Use anywhere a customer
-//              might copy the value to look it up later (confirmation
-//              page, tracker, chat-widget order card, B2B inquiry sent).
-//   `short`  — `…<last 6>` for owner-only table compactness (admin
-//              tables / lists). The leading `…` makes truncation
+//   `full`   — entire `ord_<ms>_<rand>` string. Use only where the value
+//              must round-trip to a system that doesn't accept the
+//              friendly alias (rare).
+//   `short`  — `…<last 6>` for owner-only table compactness when no
+//              friendly id is available. The leading `…` makes truncation
 //              obvious so nobody mistakes it for a complete id.
 export function formatOrderId(id: string, variant: 'full' | 'short' = 'full'): string {
   if (variant === 'full') return id
-  // Tail of the random suffix only — owner already has the full id in the
-  // row's anchor URL, so this is purely a visual handle.
   return `…${id.slice(-6)}`
+}
+
+// Customer-facing display label. Prefers the friendly alias (`HC-1042`);
+// falls back to the long id formatter for older payloads or admin
+// contexts where the alias isn't populated. Always pass the whole
+// order-like object so the helper can pick the best label.
+export function displayOrderId(
+  order: { id: string; friendly_id?: string | null },
+  fallbackVariant: 'full' | 'short' = 'full',
+): string {
+  if (order.friendly_id) return order.friendly_id
+  return formatOrderId(order.id, fallbackVariant)
 }

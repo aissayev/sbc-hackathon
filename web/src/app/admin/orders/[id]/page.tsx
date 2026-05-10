@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getOrder } from '@/lib/api'
-import { fmtUsd, fmtRelativeDate, formatOrderId } from '@/lib/format'
+import { fmtUsd, fmtRelativeDate, displayOrderId } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { OrderActions } from './actions'
 
@@ -20,7 +20,14 @@ export default async function AdminOrderDetailPage(props: { params: Params }) {
         <Link href="/admin/orders" className="text-sm text-cocoa-700 hover:underline">
           ← All orders
         </Link>
-        <h2 className="display-h2 mt-2 break-all">Order {formatOrderId(order.id)}</h2>
+        <h2 className="display-h2 mt-2 break-all">
+          Order {displayOrderId(order)}
+          {order.friendly_id && (
+            <span className="ml-3 text-base font-normal text-cocoa-900/55 font-mono break-all">
+              · {order.id}
+            </span>
+          )}
+        </h2>
         <div className="mt-2 flex items-center gap-3">
           <Badge variant={order.status === 'draft' ? 'blue' : 'default'}>{order.status}</Badge>
           {order.scheduled_at && (
