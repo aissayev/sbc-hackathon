@@ -1,7 +1,7 @@
 # $500 → $5,000 marketing hypothesis
 
 > Live-generated from sandbox `marketing_get_sales_history` + `marketing_get_margin_by_product`.
-> Last refreshed: 2026-05-09T20:11:59Z
+> Last refreshed: 2026-05-10T00:46:13Z
 
 ## The constraint
 
@@ -25,11 +25,11 @@
 
 | SKU | category | price | margin% | margin$ |
 |---|---|---|---|---|
-| honey-cake-slice | — | $8.50 | ?% | $? |
-| whole-honey-cake | — | $55.00 | ?% | $? |
-| pistachio-roll | — | $9.50 | ?% | $? |
-| custom-birthday-cake | — | $95.00 | ?% | $? |
-| office-dessert-box | — | $120.00 | ?% | $? |
+| honey-cake-slice | slices | $8.50 | 68% | $5.78 |
+| whole-honey-cake | whole-cakes | $55.00 | 62% | $34.10 |
+| pistachio-roll | slices | $9.50 | 64% | $6.08 |
+| custom-birthday-cake | custom | $95.00 | 58% | $55.10 |
+| office-dessert-box | catering | $120.00 | 60% | $72.00 |
 
 ## Allocation
 
@@ -83,6 +83,6 @@ Weekly `marketing_report_to_owner` summarizes outcomes.
 ---
 
 **Campaigns launched in this run:**
-- `mkt_1778357516608` — Office dessert boxes — Sugar Land businesses
-- `mkt_1778357517480` — Whole honey cake — birthday + anniversary
-- `mkt_1778357518442` — Honey cake slice — daily walk-in upsell
+- `mkt_1778373970704` — Office dessert boxes — Sugar Land businesses
+- `mkt_1778373971736` — Whole honey cake — birthday + anniversary
+- `mkt_1778373972753` — Honey cake slice — daily walk-in upsell

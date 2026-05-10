@@ -28,6 +28,22 @@ interface SalesMonth {
   avgTicketUsd: number
 }
 
+// Sandbox shape (verified live, May 2026): the margin endpoint returns
+// `estimatedMarginPct` and `priceUsd`, with no `category`. We pull category
+// from `square_list_catalog` (which carries it under `category`) and merge.
+interface MarginItemRaw {
+  productId: string
+  name?: string
+  priceUsd?: number
+  estimatedMarginPct?: number
+}
+
+interface CatalogItem {
+  kitchenProductId?: string
+  productId?: string
+  category?: string
+}
+
 interface MarginItem {
   productId: string
   name?: string
@@ -39,9 +55,27 @@ interface MarginItem {
 console.log('[marketing] reading budget + sales + margins...')
 const budget = await callSandboxTool<BudgetResp>('marketing_get_budget', {})
 const sales = await callSandboxTool<SalesMonth[]>('marketing_get_sales_history', {})
-const margins = await callSandboxTool<MarginItem[] | { items?: MarginItem[] }>('marketing_get_margin_by_product', {})
+const marginsRaw = await callSandboxTool<MarginItemRaw[] | { items?: MarginItemRaw[] }>('marketing_get_margin_by_product', {})
+const catalogResp = await tryCallSandboxTool<{ catalog?: CatalogItem[] } | CatalogItem[]>('square_list_catalog', {})
 
-const marginItems = Array.isArray(margins) ? margins : (margins.items ?? [])
+const rawMargins: MarginItemRaw[] = Array.isArray(marginsRaw) ? marginsRaw : (marginsRaw.items ?? [])
+const catalogList: CatalogItem[] = Array.isArray(catalogResp)
+  ? catalogResp
+  : (catalogResp?.catalog ?? [])
+const categoryByProduct = new Map<string, string>()
+for (const c of catalogList) {
+  const id = c.kitchenProductId ?? c.productId
+  if (id && c.category) categoryByProduct.set(id, c.category)
+}
+
+// Normalize: rename estimatedMarginPct → marginPct, attach category.
+const marginItems: MarginItem[] = rawMargins.map((m) => ({
+  productId: m.productId,
+  name: m.name,
+  priceUsd: m.priceUsd,
+  marginPct: m.estimatedMarginPct,
+  category: categoryByProduct.get(m.productId),
+}))
 const avgRev = sales.reduce((a, s) => a + s.revenueUsd, 0) / Math.max(sales.length, 1)
 const avgOrders = sales.reduce((a, s) => a + s.orders, 0) / Math.max(sales.length, 1)
 console.log(`  budget=$${budget.monthlyBudgetUsd}/mo target=$${budget.targetEffectUsd} (${budget.challenge ?? '10× ROAS'})`)
