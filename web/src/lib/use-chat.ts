@@ -70,9 +70,39 @@ export function useChat({ greeting, resetOnMount }: UseChatOptions = {}): UseCha
     let saved: string | null = null
     try { saved = localStorage.getItem(THREAD_KEY) } catch {}
     if (saved && !resetOnMount) setThreadId(saved)
-    if (greeting) {
-      setMessages([{ id: uid(), role: 'assistant', text: greeting, ts: Date.now() }])
+
+    // Hydrate the visible conversation from server history, so opening
+    // the help-widget after using /chat (or vice-versa) shows ONE thread,
+    // not a fresh greeting + an invisible backend memory. Greeting falls
+    // through when there's no saved thread or hydration returns empty.
+    let cancelled = false
+    async function hydrate() {
+      if (saved && !resetOnMount) {
+        try {
+          const r = await fetch(`/api/chat/history?thread_id=${encodeURIComponent(saved)}`)
+          if (r.ok) {
+            const data = (await r.json()) as { messages?: Array<{ id?: string; role: 'user' | 'assistant'; text: string; ts: number }> }
+            const restored = (data.messages ?? []).map((m, i) => ({
+              id: m.id ?? `h_${i}`,
+              role: m.role,
+              text: m.text,
+              ts: m.ts,
+            }))
+            if (!cancelled && restored.length > 0) {
+              setMessages(restored)
+              return
+            }
+          }
+        } catch {
+          // Backend unreachable — fall through to greeting.
+        }
+      }
+      if (!cancelled && greeting) {
+        setMessages([{ id: uid(), role: 'assistant', text: greeting, ts: Date.now() }])
+      }
     }
+    void hydrate()
+    return () => { cancelled = true }
     // Run once per mount; greeting/resetOnMount changes shouldn't replay.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

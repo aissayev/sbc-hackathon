@@ -1,8 +1,11 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { formatChatText, formatChatTime, type ChatMessage } from '@/lib/use-chat'
+import { findProductMentions } from '@/lib/auto-link-products'
+import { fmtUsd } from '@/lib/format'
 
 // Single chat bubble — used by both the /chat page and the help-widget mini
 // chat. Sender label + bubble + timestamp. Auto-formats links and **bold**
@@ -58,6 +61,14 @@ export function ChatBubble({
   const labelText = isUser ? 'You' : 'Happy Cake'
   const time = formatChatTime(message.ts)
   const { body, urls } = extractImages(message.text)
+  // Cake photo cards: when the agent mentions a product, attach a small
+  // strip of cards beneath the bubble so the customer SEES the cake
+  // we're talking about. Only on assistant messages, only when not
+  // streaming (avoids cards flashing in mid-typewriter), only when the
+  // typewriter has caught up to a sentence boundary in `body`.
+  const mentions = !isUser && !message.pending
+    ? findProductMentions(body)
+    : []
 
   // Typewriter state. When `streaming` is true we step `revealedCount` up
   // to body.length on a timer; once equal we notify the hook and the bubble
@@ -191,6 +202,35 @@ export function ChatBubble({
           </>
         )}
       </div>
+      {mentions.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-1.5 max-w-[88%]">
+          {mentions.map((m) => (
+            <Link
+              key={m.id}
+              href={m.href}
+              className="group inline-flex items-center gap-2 rounded-xl bg-white border border-cocoa-700/12 hover:border-sky/45 hover:shadow-md transition-all p-1.5 pr-3 max-w-[230px]"
+            >
+              {m.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={m.photo_url}
+                  alt={m.name}
+                  className="h-10 w-10 rounded-lg object-cover shrink-0"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-lg bg-cream-100 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium text-cocoa-900 truncate group-hover:text-sky-700 transition-colors">
+                  {m.name}
+                </div>
+                <div className="text-[11px] text-cocoa-900/55">{fmtUsd(m.price_cents)}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
