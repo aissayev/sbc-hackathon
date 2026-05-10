@@ -186,6 +186,25 @@ export default function AboutPage() {
         </p>
       </section>
 
+      {/* Owner portrait — Askhat and his wife. The page hero is a stylised
+          composite (chef-with-cake) per design; this section reintroduces
+          the real-people photo that anchors the family-owned story. The
+          stylised hero stays as the cover; this is the human under the
+          apron. The asset resolves to the bundled local file when the CDN
+          isn't configured (see ASSETS.team in lib/brand.ts). */}
+      <section className="container mt-16 max-w-3xl">
+        <figure className="mx-auto max-w-md">
+          <HeroImage
+            src={ASSETS.team.ownerPortrait}
+            alt="Askhat and his wife — owners of HappyCake — at a community event in traditional Kazakh dress"
+            className="aspect-[4/5]"
+          />
+          <figcaption className="mt-3 text-sm text-cocoa-900/65 text-center">
+            Askhat and his wife — owners and every-day operators.
+          </figcaption>
+        </figure>
+      </section>
+
       <section className="container mt-20 max-w-5xl">
         <Eyebrow>What we believe</Eyebrow>
         <h2 className="display-h2 mt-3">A small list of small commitments</h2>
