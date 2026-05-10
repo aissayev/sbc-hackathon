@@ -110,6 +110,53 @@ CREATE TABLE IF NOT EXISTS campaigns (
   updated_at  INTEGER NOT NULL
 );
 
+-- Owner approval queue. Anything the marketing or concierge agent wants
+-- the owner to OK before going out (a draft post, a budget change, a
+-- creative tweak) lands here. The cockpit `/admin/posts` page reads
+-- this; the owner's Telegram bot already has approve/reject callbacks.
+CREATE TABLE IF NOT EXISTS owner_approvals (
+  id          TEXT PRIMARY KEY,
+  -- 'campaign'      — proposed campaign launch
+  -- 'creative'      — IG/GBP post draft, WA broadcast copy
+  -- 'budget_change' — adjust an existing campaign's budget
+  -- 'reply'         — proposed reply to a sensitive thread
+  kind        TEXT NOT NULL,
+  summary     TEXT NOT NULL,
+  detail      TEXT NOT NULL,
+  -- 'instagram', 'whatsapp', 'gbp', 'web', 'telegram', or null when not channel-specific
+  channel     TEXT,
+  status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  -- Free-text reason captured at decision time (e.g. owner's note in TG).
+  decision_note TEXT,
+  created_at  INTEGER NOT NULL,
+  decided_at  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_approvals_status ON owner_approvals(status);
+
+-- Audit log: every owner-initiated action through the cockpit. The chat
+-- agents have their own log (agent_invocations); this is just for the
+-- human, so the trail of "what did the owner do, when, on what" is
+-- searchable from /admin/settings.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id          TEXT PRIMARY KEY,
+  -- 'approval_approve', 'approval_reject', 'thread_reply',
+  -- 'channel_register', 'channel_test', 'campaign_pause',
+  -- 'campaign_resume', 'campaign_adjust', 'order_approve', 'order_reject'
+  action      TEXT NOT NULL,
+  -- The thing acted on. e.g. 'aprv_…', 'ord_…', 'whatsapp', 'cmp_…'
+  target_id   TEXT,
+  -- Optional channel scope so the audit page can filter / colour rows.
+  channel     TEXT,
+  -- Free-form result summary ("approved", "rejected: out of season",
+  -- "registered + appId=fb_123"). Keep short — the cockpit shows it raw.
+  result      TEXT,
+  -- 'ok' | 'error' — separate from `result` so the UI can colour without parsing.
+  outcome     TEXT NOT NULL DEFAULT 'ok' CHECK (outcome IN ('ok', 'error')),
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS agent_invocations (
   id          TEXT PRIMARY KEY,
   role        TEXT NOT NULL,

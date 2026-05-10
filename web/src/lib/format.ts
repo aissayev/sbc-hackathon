@@ -14,6 +14,25 @@ export function leadTimeLabel(hours: number): string {
   return `${days} day${days > 1 ? 's' : ''} notice`
 }
 
+// Tighter than fmtRelativeDate — for inbox rows where "3m ago" is more
+// useful than "within the hour". Falls through to a date for anything
+// older than a week.
+export function fmtRelativeTime(input: string | number | Date): string {
+  const t = new Date(input).getTime()
+  if (!Number.isFinite(t) || t === 0) return '—'
+  const diffMs = Date.now() - t
+  const sec = Math.round(diffMs / 1000)
+  if (sec < 30) return 'just now'
+  if (sec < 60) return `${sec}s ago`
+  const min = Math.round(sec / 60)
+  if (min < 60) return `${min}m ago`
+  const hr = Math.round(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.round(hr / 24)
+  if (day < 7) return `${day}d ago`
+  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 export function fmtRelativeDate(iso: string | number | Date): string {
   const d = new Date(iso)
   const now = new Date()

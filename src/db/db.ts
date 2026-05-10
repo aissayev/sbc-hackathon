@@ -13,9 +13,12 @@ export function getDb(): Database {
   _db = new Database(config.db.path)
   _db.exec('PRAGMA journal_mode = WAL')
   _db.exec('PRAGMA foreign_keys = ON')
+  // Migrations run BEFORE schema.exec because schema.sql may reference
+  // columns added by migration (e.g. CREATE INDEX on referral_source). On
+  // a fresh DB the migration is a no-op (the table doesn't exist yet).
+  applyMigrations(_db)
   const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8')
   _db.exec(schema)
-  applyMigrations(_db)
   return _db
 }
 
@@ -24,7 +27,12 @@ export function getDb(): Database {
 // a guarded ALTER TABLE here. SQLite raises "duplicate column name" if it
 // already exists — we swallow that one specific error.
 function applyMigrations(db: Database) {
+  const tableExists = (name: string): boolean => {
+    const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name)
+    return !!row
+  }
   const addColumn = (table: string, column: string, type: string) => {
+    if (!tableExists(table)) return  // schema.exec hasn't created it yet — nothing to migrate
     try {
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`)
     } catch (err) {

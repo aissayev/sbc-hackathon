@@ -99,9 +99,16 @@ function withBackendSecret(init: RequestInit | undefined, url: string): RequestI
 
 async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
+    // Admin endpoints carry mutable owner state (orders, threads, escalations)
+    // that the cockpit must show at the latest second after a write +
+    // router.refresh(). Skip the Next data cache for them; otherwise reuse
+    // the standard 60s ISR window for catalog reads.
+    const isAdmin = url.includes('/api/admin/')
     const res = await fetch(url, {
       ...withBackendSecret(init, url),
-      next: { revalidate: process.env.NODE_ENV === 'production' ? 60 : 0 },
+      ...(isAdmin
+        ? { cache: 'no-store' as const }
+        : { next: { revalidate: process.env.NODE_ENV === 'production' ? 60 : 0 } }),
     })
     if (!res.ok) return null
     return (await res.json()) as T
@@ -240,4 +247,191 @@ export async function listEscalations(): Promise<
     }>
   }>(`${BACKEND}/api/admin/escalations`)
   return data?.escalations ?? []
+}
+
+export type InboxChannel = 'whatsapp' | 'instagram' | 'web'
+
+export interface InboxThreadRow {
+  channel: InboxChannel
+  id: string
+  handle: string
+  displayName?: string
+  lastMessage: string
+  lastMessageAt: number
+  bucket: 'new' | 'mine'
+}
+
+export interface InboxThreadDetail extends InboxThreadRow {
+  transcript: Array<{ role: 'customer' | 'us'; text: string; at: number }>
+}
+
+export async function listInboxThreads(opts?: {
+  channel?: 'all' | InboxChannel
+  bucket?: 'all' | 'new' | 'mine'
+}): Promise<{
+  threads: InboxThreadRow[]
+  counts: { all: number; new: number; mine: number }
+  errors: string[]
+}> {
+  const params = new URLSearchParams()
+  if (opts?.channel) params.set('channel', opts.channel)
+  if (opts?.bucket) params.set('bucket', opts.bucket)
+  const qs = params.toString() ? `?${params.toString()}` : ''
+  const data = await safeFetch<{
+    threads: InboxThreadRow[]
+    counts: { all: number; new: number; mine: number }
+    errors: string[]
+  }>(`${BACKEND}/api/admin/threads${qs}`)
+  return data ?? { threads: [], counts: { all: 0, new: 0, mine: 0 }, errors: ['fetch_failed'] }
+}
+
+export async function getInboxThread(channel: InboxChannel, id: string): Promise<InboxThreadDetail | null> {
+  return safeFetch<InboxThreadDetail>(
+    `${BACKEND}/api/admin/threads/${channel}/${encodeURIComponent(id)}`,
+  )
+}
+
+// ─── Channels manager ───────────────────────────────────────────────────
+
+export type ChannelId = 'whatsapp' | 'instagram' | 'web' | 'telegram' | 'gbp'
+
+export interface ChannelStatus {
+  id: ChannelId
+  label: string
+  connected: boolean
+  mode: 'live' | 'sandbox' | 'local' | 'down'
+  webhookUrl?: string
+  threadCount: number
+  lastEventAt: number
+  notes?: string
+}
+
+export async function listChannels(): Promise<ChannelStatus[]> {
+  const data = await safeFetch<{ channels: ChannelStatus[] }>(`${BACKEND}/api/admin/channels`)
+  return data?.channels ?? []
+}
+
+export async function getChannel(id: ChannelId): Promise<ChannelStatus | null> {
+  return safeFetch<ChannelStatus>(`${BACKEND}/api/admin/channels/${id}`)
+}
+
+// ─── Campaigns + Approvals (Posts queue) ────────────────────────────────
+
+export interface CampaignSummary {
+  id: string
+  name?: string
+  channel?: string
+  status?: 'draft' | 'queued' | 'running' | 'paused' | 'closed' | 'unknown'
+  budgetUsd?: number
+  spendUsd?: number
+  leads?: number
+  impressions?: number
+  clicks?: number
+  conversions?: number
+  startedAt?: number
+  notes?: string
+}
+
+export interface CampaignsCockpit {
+  monthlyBudgetUsd: number
+  targetEffectUsd: number
+  spendUsd: number
+  remainingUsd: number
+  leadsTotal: number
+  campaigns: CampaignSummary[]
+  recommendedStrategyId?: string
+  errors: string[]
+}
+
+export interface CampaignDetail extends CampaignSummary {
+  source: 'sandbox' | 'local-plan'
+  thesis?: string
+  rolloutMonths?: Record<string, { phase: string; spendUsd?: number; expectedOutcomes?: Record<string, number | string> }>
+}
+
+export async function getCampaignsCockpit(): Promise<CampaignsCockpit> {
+  return (await safeFetch<CampaignsCockpit>(`${BACKEND}/api/admin/campaigns`)) ?? {
+    monthlyBudgetUsd: 0, targetEffectUsd: 0, spendUsd: 0, remainingUsd: 0,
+    leadsTotal: 0, campaigns: [], errors: ['fetch_failed'],
+  }
+}
+
+export async function getCampaignDetail(id: string): Promise<CampaignDetail | null> {
+  return safeFetch<CampaignDetail>(`${BACKEND}/api/admin/campaigns/${encodeURIComponent(id)}`)
+}
+
+export type ApprovalKind = 'campaign' | 'creative' | 'budget_change' | 'reply'
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
+
+export interface OwnerApproval {
+  id: string
+  kind: ApprovalKind
+  summary: string
+  detail: string
+  channel: 'instagram' | 'whatsapp' | 'gbp' | 'web' | 'telegram' | null
+  status: ApprovalStatus
+  decisionNote: string | null
+  createdAt: number
+  decidedAt: number | null
+}
+
+export async function listApprovals(status: ApprovalStatus | 'all' = 'pending'): Promise<{
+  approvals: OwnerApproval[]
+  counts: { pending: number; approved: number; rejected: number }
+}> {
+  const data = await safeFetch<{
+    approvals: OwnerApproval[]
+    counts: { pending: number; approved: number; rejected: number }
+  }>(`${BACKEND}/api/admin/approvals?status=${status}`)
+  return data ?? { approvals: [], counts: { pending: 0, approved: 0, rejected: 0 } }
+}
+
+// ─── Settings + audit ──────────────────────────────────────────────────
+
+export interface CockpitSettings {
+  env: {
+    publicUrl: string | null
+    sandboxMcpUrl: string | null
+    sandboxTeamToken: 'set' | 'unset'
+    ownerBotToken: 'set' | 'unset'
+    whatsappToken: 'set' | 'unset'
+    whatsappPhoneNumberId: string | null
+    instagramToken: 'set' | 'unset'
+    webBackendSecret: 'set' | 'unset'
+    nodeEnv: string
+  }
+  webhooks: Array<{ channel: string; url: string | null; reachable: boolean }>
+  db: { path: string; tables: Array<{ name: string; rows: number }> }
+}
+
+export type AuditAction =
+  | 'approval_approve' | 'approval_reject'
+  | 'thread_reply'
+  | 'channel_register' | 'channel_test'
+  | 'campaign_pause' | 'campaign_resume' | 'campaign_adjust'
+  | 'order_approve' | 'order_reject'
+
+export interface AuditEvent {
+  id: string
+  action: AuditAction
+  targetId: string | null
+  channel: string | null
+  result: string | null
+  outcome: 'ok' | 'error'
+  createdAt: number
+}
+
+export async function getCockpitSettings(): Promise<CockpitSettings | null> {
+  return safeFetch<CockpitSettings>(`${BACKEND}/api/admin/settings`)
+}
+
+export async function listAuditEvents(limit = 100): Promise<{
+  events: AuditEvent[]
+  counts: { total: number; today: number; errors: number }
+}> {
+  const data = await safeFetch<{
+    events: AuditEvent[]
+    counts: { total: number; today: number; errors: number }
+  }>(`${BACKEND}/api/admin/audit?limit=${limit}`)
+  return data ?? { events: [], counts: { total: 0, today: 0, errors: 0 } }
 }
