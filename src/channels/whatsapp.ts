@@ -1,19 +1,27 @@
 // WhatsApp adapter — dual-path outbound + inbound webhook parser.
 //
+// Customer-facing reply path. To message a real human, call this adapter's
+// .send() — DO NOT call sandbox MCP `whatsapp_send` directly from agent
+// tools or routes; that's the world-sim path and bypasses the real Cloud
+// API. The dual-path fan-out below is what makes "the sandbox AND the real
+// phone both get the reply" work.
+//
 // Outbound modes (controlled by WA_OUTBOUND_MODE in .env):
 //   real     — Meta Cloud API only (graph.facebook.com). For human demos
 //              with real customers on real phones.
 //   sandbox  — sandbox MCP `whatsapp_send` only. For evaluator scoring;
 //              the sandbox needs to see our reply to score channel response.
 //   both     — fire both in parallel; failures of either are logged not thrown.
-//              Default. Best for the hackathon: works for real customers AND
+//              DEFAULT. Best for the hackathon: works for real customers AND
 //              scores well in eval, even if a fake phone number can't be
 //              reached by real Cloud API.
 //
 // Inbound: same `/webhooks/whatsapp` endpoint receives both sandbox-injected
 // messages (from `whatsapp_inject_inbound`) and real Cloud API events. The
 // payload shape is identical (Meta-format) so we don't distinguish at parse
-// time.
+// time. HMAC signature verification fires when WA_APP_SECRET is set.
+//
+// Full enablement runbook: docs/05-deploy/LIVE-CHANNELS.md.
 
 import { config } from '../config.ts'
 import { tryCallSandboxTool } from '../lib/sandbox-mcp.ts'
