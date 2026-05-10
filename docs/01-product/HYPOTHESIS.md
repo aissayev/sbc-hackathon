@@ -6,54 +6,61 @@ Companion files: [plans.json](../../data/campaigns/plans.json) (machine-readable
 
 ---
 
-## At a glance
+## Thesis
 
-- **The bet.** $500/mo ad spend returns $5,000/mo in attributable revenue — a 10× ROAS challenge.
-- **The deployment rule.** The full $500 goes to a single strategy. Splitting it five ways yields ~$100/channel, which sits below every channel's learning threshold and produces no signal.
-- **The recommendation.** B2B Catering Offensive — $100 CAC against $144 first-order margin means payback inside the first order, 8.6× LTV:CAC at year one, 21× at year three. Catering compounds through repeat ordering to roughly $7,500/mo by month six **without any contribution from the subscription tier** — clearing the target on its own.
-- **The downside.** If month-1 CTR drops below 1.0% and CPL exceeds $40 across the strategy, pause and pivot to B2C Anchor.
-- **The compounding asset.** Organic content, newsletter, and Google Business Profile run alongside the paid strategy (no ad spend, ~10 hr/wk of effort). By month six they contribute roughly $5k/yr at zero acquisition cost.
+**HappyCake's catering math wins the $5K/mo target on its own.**
+
+The Office Dessert Box returns **$72 of margin** in 45 kitchen minutes — the most efficient SKU in the live catalog (LIVE: `marketing_get_margin_by_product`). Acquiring **5 office accounts in month one** at a $100 CAC pays back inside the first order ($144 first-order margin > $100 CAC, no cash drawdown past week one). Industry-standard B2B catering reorder cadence (~5×/year, INDUSTRY: PeopleLinx) carries the plan from $1,200/mo at launch to **$7,500/mo by month six** — a 9.3× cumulative ROAS, without any contribution from a subscription tier or B2C campaign.
+
+The full $500/mo concentrates on **B2B Catering Offensive** — Meta lead-gen + Google Local. Splitting across five channels yields ~$100 each, below every channel's learning threshold. Single-strategy concentration is the deployment rule.
+
+## How it compounds
+
+Paid spend buys **acquisition once**. Three levers carry the rest:
+
+| Lever | What | Why it compounds |
+|---|---|---|
+| **1. Reorders** | Acquired catering accounts reorder ~5×/year | By m6, retained accounts produce more revenue than new acquisition — the engine is self-sustaining |
+| **2. Lookalikes** | From m3, Meta runs 1% lookalike-of-purchasers | Each acquired account sharpens future targeting; CPA falls month over month |
+| **3. Organic** | GBP posts, schema.org pages, newsletter capture (~10 hr/wk, $0 spend) | By m6 contributes ~25 orders/mo at zero CAC, dragging blended CAC down |
+
+The 6-month trajectory at the expected case:
+
+| Month | Spend | Mo. revenue | Cum. ROAS | Engine state |
+|---|---|---|---|---|
+| M1 | $500 | $1,200 | 2.4× | Test breadth — 5 first orders |
+| M2 | $500 | $2,400 | 3.6× | Concentrate winners — retargeting layer launches |
+| M3 | $500 | $4,400 | 5.3× | Lookalikes scale — 13 first + 8 reorders |
+| M6 | $500 | **$7,500** | **9.3×** | Reorders dominate — 38 active accounts |
+
+By month four the reorder line crosses the new-acquisition line. That's the inflection. Past it, every additional account compounds existing volume, and the kitchen ceiling (8 Office Boxes/day) starts to matter more than ad spend. The plan is sized so that even at the *expected* row of the [sensitivity table](#sensitivity) — not best-case — the target closes; catastrophic outcomes are visible at $250 of cumulative spend, not $3,000.
+
+## Strategy options
 
 | Strategy | $/mo | Yr-1 cumulative ROAS | Pick? |
 |---|---|---|---|
-| **B2B Catering Offensive** | $500 | **9.3× by m6** | ✅ |
+| **B2B Catering Offensive** | $500 | **9.3× by m6** | ✅ Recommended |
 | B2C Anchor + Retargeting | $500 | 6.3× by m6 | Fallback / seasonal |
 | Local Awareness Walk-in | $500 | 3.6× plateau | ⚠ FOH-speed risk |
 | Custom Cakes Premium | $500 | 2.5× plateau | ❌ Capacity-bound |
-| Always-on Organic | $0 + 10 hr/wk | n/a | ✅ Always |
+| Always-on Organic | $0 + 10 hr/wk | n/a | ✅ Always (parallel to paid) |
+
+**Pivot rule.** If month-1 CTR < 1.0% AND CPL > $40 across the strategy after $250 cumulative spend, pause and pivot to B2C Anchor.
 
 ---
 
-## What this campaign is going for, in plain English
+## How to read every figure
 
-The objective is to turn a $500/month advertising budget into $5,000/month of repeat or recurring revenue, primarily by acquiring B2B catering accounts in Sugar Land and the Energy Corridor. Each acquired account places between four and twelve orders per year. Five new accounts in month one compound through repeat ordering into roughly $7,500/mo of monthly revenue by month six — clearing the target with the catering channel alone, before any subscription tier or B2C contribution is considered.
-
-The plan is sized so that even at the expected (not best-case) row of the sensitivity table the math closes, and so that catastrophic outcomes are visible early enough to pivot at $250 of cumulative spend rather than $3,000.
-
----
-
-## Confidence and limitations (read before the numbers)
-
-Until the chosen strategy spends $50 in market every CTR / CPL / CVR figure carries an OUR EST. tag and rests on LIVE plus INDUSTRY inputs. The first $50 should be treated as data acquisition, not booking activity.
-
-The sandbox simulator returns flat ~4.20% CTR and ~$42 average order across all campaigns regardless of SKU or channel — useful as a "loop completes" check, not as a production forecast. Live performance will show variance, and the median row of the [sensitivity table](#sensitivity) is a more realistic operating expectation than the simulator output.
-
-**Subscription positioning.** The Weekly Corporate Subscription tier is a Phase-2 lever that activates only after Phase 1 (months 1–3) demonstrates catering acquisition is working. The $5,000/mo target is hit by month six on Phase 1 alone — see [Target math: with vs. without subscription](#target-math-with-vs-without-subscription).
-
-The plan's value is structural: the catering strategy clears the target at the expected case, the alternatives are explicit when conditions change, and the kill criteria limit downside to $250 of pre-pivot spend.
-
----
-
-## Reading the numbers
-
-Every figure in this document carries one of four provenance tags:
+Every number in this document carries one of four provenance tags so the source of any claim can be checked at a glance:
 
 | Tag | Meaning | Example |
 |---|---|---|
-| **LIVE** | Pulled from the sandbox MCP at the last brief refresh. Origin tool listed under [Data sources](#data-sources). | LIVE: 60% margin |
+| **LIVE** | Pulled from the sandbox MCP at the last brief refresh — see [Data sources](#data-sources). | LIVE: 60% margin |
 | **INDUSTRY** | Public benchmark (May 2026). Citations in [plans.json](../../data/campaigns/plans.json) → `industryBenchmarks`. | INDUSTRY: 1.4% CTR |
 | **OUR EST.** | A modeled estimate built on LIVE and INDUSTRY inputs. Confirmed only after the first $50 of real spend. | OUR EST.: 5 first orders |
 | **OUR PROPOSAL** | A new SKU or program proposed for the campaign and not yet in the live catalog. | OUR PROPOSAL: Sampler Box $48 |
+
+Subscription positioning: the Weekly Corporate Subscription tier is a **Phase-2 lever** that activates only after Phase 1 (months 1–3) demonstrates catering acquisition is working. The $5,000/mo target is hit by month six on Phase 1 alone — see [Target math: with vs. without subscription](#target-math-with-vs-without-subscription).
 
 ---
 
@@ -382,6 +389,14 @@ Four observed signals support the catering recommendation over alternatives:
 | **Seasonality drag** | Aug–Dec is the corporate-catering peak; Jan–Feb is the trough | Plan launches in May (shoulder); model 30% trough-month dip in m9–m10 if running long |
 | **Competitor entry into Meta audience** | CPM rises >40% in 14 days | Shift toward Google Local; lean on retained-customer revenue compounding |
 | **Cash-flow squeeze** | Owner cannot absorb the $250 max drawdown in week one | Reduce m1 spend to $300; extend test period to six weeks |
+
+### What can move the numbers
+
+Until the chosen strategy spends $50 in market, every CTR / CPL / CVR figure carries an OUR EST. tag and rests on LIVE plus INDUSTRY inputs. The first $50 should be treated as data acquisition, not booking activity.
+
+The sandbox simulator returns flat ~4.20% CTR and ~$42 average order across all campaigns regardless of SKU or channel — useful as a "loop completes" check, not a production forecast. Live performance will show variance, and the *Expected* row of the [sensitivity table](#sensitivity) is a more realistic operating expectation than the simulator output.
+
+The plan's value is structural: the catering strategy clears the target at the expected case, the alternatives are explicit when conditions change, and the kill criteria limit downside to $250 of pre-pivot spend.
 
 ---
 
