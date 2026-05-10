@@ -16,6 +16,7 @@
 import { sendTelegram, editTelegramMessage, sendChatAction } from '../../channels/telegram.ts'
 import { config } from '../../config.ts'
 import type { StreamEvent } from '../../agent/invoke.ts'
+import { mdToTelegramHtml, escapeHtml } from './format.ts'
 
 const FRIENDLY_TOOL_NAME: Record<string, string> = {
   mcp__local__list_orders: 'list_orders',
@@ -66,19 +67,28 @@ export async function finalizeOwnerThinking(
 ): Promise<void> {
   const token = config.telegram.owner.token
   if (!token) return
-  const body = run.reply || '(empty reply)'
+  // Body is agent-authored markdown (`**bold**`, `*` bullets, etc.). We
+  // convert to Telegram HTML so it renders properly instead of showing
+  // raw asterisks. Footer is plain text we control — escape only.
+  const bodyHtml = mdToTelegramHtml(run.reply || '(empty reply)')
   const toolNames = run.tool_calls.map((t) => compactTool(t.name))
   const dedup = Array.from(new Set(toolNames))
   const seconds = (run.duration_ms / 1000).toFixed(1)
   const cost = run.cost_usd != null ? `$${run.cost_usd.toFixed(2)}` : '—'
-  const trace = dedup.length
+  const traceText = dedup.length
     ? `\n\n— used: ${dedup.join(', ')} · ${seconds}s · ${cost}`
     : `\n\n— ${seconds}s · ${cost}`
-  const final = body + trace
-  const edited = await editTelegramMessage(token, threadId, thinkingMessageId, final)
+  const final = bodyHtml + escapeHtml(traceText)
+  const edited = await editTelegramMessage(
+    token,
+    threadId,
+    thinkingMessageId,
+    final,
+    'HTML',
+  )
   if (!edited) {
     // Edit failed (rare — usually identical-content rejection). Send fresh.
-    await sendTelegram(token, threadId, final)
+    await sendTelegram(token, threadId, final, undefined, 'HTML')
   }
 }
 
@@ -135,7 +145,7 @@ export function makeOwnerStreamSink(
     if (text === lastSent) return
     editInFlight = true
     lastEditAt = Date.now()
-    const ok = await editTelegramMessage(token, threadId, messageId, clip(text))
+    const ok = await editTelegramMessage(token, threadId, messageId, clip(text), 'HTML')
     editInFlight = false
     if (ok) lastSent = text
     // If new content arrived while we were sending, fire again.
@@ -144,12 +154,13 @@ export function makeOwnerStreamSink(
 
   return (event) => {
     if (event.kind === 'text') {
-      pending = `🤔 ${event.running}`
+      pending = `🤔 ${mdToTelegramHtml(event.running)}`
       void tryFlush()
     } else if (event.kind === 'tool_start') {
       // Show the tool while it runs; subsequent text events overwrite.
       const friendly = compactTool(event.name)
-      pending = `🛠 calling ${friendly}…${lastSent && lastSent.startsWith('🤔') ? `\n\n${lastSent.slice(2).trim()}` : ''}`
+      const tail = lastSent && lastSent.startsWith('🤔') ? `\n\n${lastSent.slice(2).trim()}` : ''
+      pending = `🛠 calling <code>${escapeHtml(friendly)}</code>…${tail}`
       void tryFlush()
     }
     // tool_end + done: no-op here; finalizeOwnerThinking writes the final state.
