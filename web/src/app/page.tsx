@@ -6,7 +6,6 @@ import { BLOG_POSTS } from '@/lib/blog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
-import { HoursTable } from '@/components/brand/hours'
 import { QuickOrderForm } from '@/components/order/quick-order-form'
 import { HeroDecor } from '@/components/sections/hero-decor'
 import { EditorialTriptych } from '@/components/sections/editorial-triptych'
@@ -16,7 +15,6 @@ import { NewsletterBand } from '@/components/sections/newsletter-band'
 import { VisitBand } from '@/components/sections/visit-band'
 import { ThreeWaysBand } from '@/components/sections/three-ways-band'
 import { ShowcaseRow } from '@/components/sections/showcase-row'
-import { DeliveryZones } from '@/components/sections/delivery-zones'
 import { ArrowRight, Sparkles, MapPin, Star, Clock } from 'lucide-react'
 
 export const revalidate = 60
@@ -78,11 +76,8 @@ export default async function HomePage() {
       <ThreeWaysBand />
       <PlaceToGather />
       <Testimonials />
-      <Manifesto />
       <StoriesBand />
       <VisitBand />
-      <DeliveryZones />
-      <BusinessBand />
       <NewsletterBand />
       <ClosingCta />
     </>
@@ -182,15 +177,13 @@ function Hero({ products }: { products: Product[] }) {
 function StoriesBand() {
   const featured = BLOG_POSTS.slice(0, 3)
   return (
-    <section className="container mt-24">
+    <section className="container mt-28 md:mt-32">
       <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
         <div>
-          <Eyebrow>Stories & guides</Eyebrow>
-          <h2 className="display-h2 mt-3">Notes from the bench</h2>
-          <p className="mt-2 text-cocoa-900/70 max-w-xl">
-            Honest, useful pieces — honey-cake history, planning a custom cake, allergens. Same
-            voice as the counter conversation.
-          </p>
+          <Eyebrow>Stories &amp; guides</Eyebrow>
+          <h2 className="display-h2 mt-3 [text-wrap:balance]">
+            Notes from the bench.
+          </h2>
         </div>
         <Button asChild variant="outline-sky" shape="pill">
           <Link href="/blog">
@@ -235,83 +228,20 @@ function StoriesBand() {
   )
 }
 
-function Manifesto() {
-  return (
-    <section className="container mt-24">
-      <div className="grid gap-10 md:grid-cols-12 items-start">
-        <div className="md:col-span-5">
-          <Eyebrow>About us</Eyebrow>
-          <h2 className="display-h2 mt-3">A family-run cake shop, hands behind every slice.</h2>
-        </div>
-        <div className="md:col-span-7 text-cocoa-900/85 space-y-4 leading-relaxed">
-          <p>
-            HappyCake is owned and run by Askhat and his wife. Every cake is hand-decorated and
-            hand-packed; recipes were tested at the dinner table and refined until they earned
-            their names.
-          </p>
-          <p>
-            We&apos;re not a chain. We&apos;re one family making cakes the way we would for our
-            own table — and serving them to yours, on Promenade Way in Sugar Land.
-          </p>
-          <p>
-            <Link href="/about" className="text-sky-700 underline-offset-4 hover:underline font-medium">
-              Read our story →
-            </Link>
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function BusinessBand() {
-  return (
-    <section className="container mt-24">
-      <div className="rounded-[28px] border border-sky/20 bg-sky/5 p-8 md:p-12 grid gap-6 md:grid-cols-[1fr_auto] md:items-center max-w-5xl mx-auto">
-        <div>
-          <Eyebrow className="text-sky-700">For business</Eyebrow>
-          <h2 className="display-h2 mt-2 text-3xl md:text-4xl [text-wrap:balance]">
-            Catering, gifting, standing programs.
-          </h2>
-          <p className="mt-3 text-cocoa-900/75 max-w-xl">
-            Office breaks, events, corporate gifting. One point of contact, one invoice. We reply
-            to every B2B inquiry within one business day.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button asChild size="lg" variant="sky">
-            <Link href="/business">See programs</Link>
-          </Button>
-          <Button asChild size="lg" variant="outline-sky">
-            <Link href="/business/inquire">Send inquiry</Link>
-          </Button>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 function ClosingCta() {
+  // Single sky CTA; the secondary "see the menu" link is redundant with
+  // the global header nav. Bigger headline, more breathing room.
   return (
     <section className="container mt-24 mb-4">
-      <div className="rounded-[32px] bg-cocoa-900 text-cream p-10 md:p-16 relative overflow-hidden">
+      <div className="rounded-[32px] bg-cocoa-900 text-cream p-12 md:p-20 relative overflow-hidden">
         <div className="absolute inset-0 pattern-dots-cream opacity-25" aria-hidden />
-        <div className="relative max-w-2xl">
-          <Eyebrow className="text-sky-200">Today's bake is out</Eyebrow>
-          <p className="font-display text-3xl md:text-5xl mt-3 leading-[1.05] [text-wrap:balance]">
-            Come in for a slice — or order a whole cake by Saturday.
+        <div className="relative max-w-3xl">
+          <p className="font-display text-4xl md:text-6xl leading-[1.02] [text-wrap:balance]">
+            Come in for a slice. <span className="text-sky-200">Or order a whole cake.</span>
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-8">
             <Button asChild size="lg" variant="sky">
               <Link href="/order">Start an order</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="ghost"
-              className="text-cream hover:bg-cream/10"
-            >
-              <Link href="/menu">See what's in the case</Link>
             </Button>
           </div>
         </div>
