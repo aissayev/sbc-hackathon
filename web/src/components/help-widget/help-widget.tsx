@@ -200,7 +200,12 @@ function Launcher({ open, onClick }: { open: boolean; onClick: () => void }) {
         'fixed z-40 rounded-full shadow-lift transition-transform hover:scale-105',
         'bottom-5 right-5 md:bottom-6 md:right-6',
         open ? 'bg-cocoa-700 text-cream' : 'bg-sky text-white',
-        'h-14 w-14 inline-flex items-center justify-center',
+        'h-14 w-14 items-center justify-center',
+        // On mobile the card occupies most of the viewport with its own X
+        // close in the chrome header, so the duplicate launcher is just
+        // visual clutter; hide it when open. Desktop keeps it visible since
+        // the card is a smaller floating panel and the launcher anchors it.
+        open ? 'hidden md:inline-flex' : 'inline-flex',
       )}
     >
       {open ? <X className="h-6 w-6" /> : <HelpCircle className="h-6 w-6" />}
@@ -268,10 +273,11 @@ function Card({
   onOpenHelp: () => void
   onClose: () => void
 }) {
-  // The Home tab owns its own hero (gradient header), so we drop the chrome
-  // header on Home for the cleanest Intercom-style top edge. Other tabs get
-  // a slim chrome header with brand + close.
-  const showChromeHeader = tab !== 'home'
+  // The Home tab owns its own hero (gradient header) and the messages-chat
+  // sub-view has its own back-nav row, so both render their own close
+  // affordance. Other tabs get the slim chrome header.
+  const inChat = tab === 'messages' && messageView === 'chat'
+  const showChromeHeader = tab !== 'home' && !inChat
 
   return (
     <div
@@ -279,9 +285,16 @@ function Card({
       aria-label="Help and shortcuts"
       className={cn(
         'fixed z-40 bg-bakery shadow-lift overflow-hidden flex flex-col',
-        'inset-x-3 bottom-24 top-[max(8vh,env(safe-area-inset-top,0px))] rounded-3xl',
+        // Mobile: near full-screen sheet. The launcher is hidden when the
+        // widget is open (see Launcher), so the card owns the bottom too —
+        // bottom-3 for breathing room with safe-area, top is 4vh + safe-area.
+        // Page content no longer bleeds through under the card.
+        'inset-x-3 bottom-3 top-[max(4vh,env(safe-area-inset-top,0px))] rounded-3xl',
+        'pb-[env(safe-area-inset-bottom,0px)]',
+        // Desktop: floating 380px panel anchored to the launcher.
         'md:inset-auto md:bottom-24 md:right-6 md:top-auto md:w-[380px]',
         'md:h-[min(640px,calc(100vh-7rem))] md:max-h-[calc(100vh-7rem)] md:rounded-2xl',
+        'md:pb-0',
         'animate-fade-in',
       )}
     >
@@ -309,6 +322,7 @@ function Card({
             view={messageView}
             onOpenChat={onOpenChat}
             onBackToList={onMessageBack}
+            onClose={onClose}
           />
         )}
         {tab === 'help' && (
