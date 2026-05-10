@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { listProducts } from '@/lib/api'
+import { listProducts, type Product } from '@/lib/api'
 import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
 import { BLOG_POSTS } from '@/lib/blog'
 import { APPEARANCES } from '@/lib/press'
@@ -10,10 +10,9 @@ import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoursTable, isOpenNow } from '@/components/brand/hours'
-import { HeroImage } from '@/components/brand/hero-image'
+import { QuickOrderForm } from '@/components/order/quick-order-form'
 import {
   ArrowRight,
-  MessageSquareHeart,
   Sparkles,
   Coffee,
   Gift,
@@ -25,6 +24,8 @@ import {
   Youtube,
   Leaf,
   ExternalLink,
+  Star,
+  Clock,
 } from 'lucide-react'
 
 export const revalidate = 60
@@ -87,7 +88,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
-      <Hero status={status} />
+      <Hero status={status} products={products} />
       <Pillars />
 
       <section className="container mt-24">
@@ -146,12 +147,25 @@ export default async function HomePage() {
   )
 }
 
-function Hero({ status }: { status: { open: boolean; nextChange?: string } }) {
+function Hero({
+  status,
+  products,
+}: {
+  status: { open: boolean; nextChange?: string }
+  products: Product[]
+}) {
   return (
     <section className="relative overflow-hidden">
-      <div className="absolute inset-0 hero-bg pointer-events-none" aria-hidden />
-      <div className="container relative pt-12 pb-16 md:pt-20 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-12 items-center">
-        <div className="lg:col-span-6">
+      {/* Layered backdrop: warm cream wash + sky / berry corner glows + a faint
+          grid lattice masked to the centre. Pattern mirrors the websites
+          monorepo hero recipe (25_karada-u, 24_skymax). */}
+      <div className="absolute inset-0 home-hero-bg pointer-events-none" aria-hidden />
+      <div className="absolute inset-0 home-hero-grid pointer-events-none opacity-70" aria-hidden />
+      <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky/15 blur-3xl pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -left-32 h-[28rem] w-[28rem] rounded-full bg-berry/10 blur-3xl pointer-events-none" aria-hidden />
+
+      <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
+        <div className="lg:col-span-7">
           <Eyebrow>Cake shop · Sugar Land, TX</Eyebrow>
           <h1
             id="hero-tagline"
@@ -163,19 +177,21 @@ function Hero({ status }: { status: { open: boolean; nextChange?: string } }) {
             Handcrafted cakes and pastries made with love — European traditions, warm Kazakh
             hospitality, baked fresh every morning in our Sugar Land kitchen.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link href="/order">Order a cake</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline-sky">
-              <Link href="/menu">Explore the menu</Link>
-            </Button>
-            <Button asChild size="lg" variant="ghost">
-              <Link href="/chat">
-                <MessageSquareHeart /> Chat with us
-              </Link>
-            </Button>
-          </div>
+
+          {/* Trust strip — replaces the noisy CTA stack with three quiet
+              proof points the eye can scan in a glance. */}
+          <ul className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-cocoa-900/75">
+            <li className="inline-flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-sky-700" /> Baked fresh daily
+            </li>
+            <li className="inline-flex items-center gap-2">
+              <Star className="h-4 w-4 text-sky-700" /> Loved by 500+ Sugar Land families
+            </li>
+            <li className="inline-flex items-center gap-2">
+              <Clock className="h-4 w-4 text-sky-700" /> Pickup or local delivery
+            </li>
+          </ul>
+
           <div className="mt-7 flex flex-wrap items-center gap-4 text-sm">
             <Badge variant={status.open ? 'sage' : 'sky'} className="px-3 py-1">
               <span className={`h-1.5 w-1.5 rounded-full mr-2 ${status.open ? 'bg-emerald-600' : 'bg-sky-700'}`} />
@@ -189,21 +205,17 @@ function Hero({ status }: { status: { open: boolean; nextChange?: string } }) {
             >
               <MapPin className="h-4 w-4" /> {BRAND.address.line1}
             </a>
+            <a
+              href={BRAND.phone.hrefTel}
+              className="inline-flex items-center gap-1.5 text-cocoa-900/70 hover:text-cocoa-900"
+            >
+              <Phone className="h-4 w-4" /> {BRAND.phone.display}
+            </a>
           </div>
         </div>
-        <div className="lg:col-span-6 relative">
-          <HeroImage
-            src={ASSETS.hero[0]}
-            alt="Hand-decorated honey cake from Happy Cake's Sugar Land kitchen — six layers of golden biscuit and soft custard"
-            className="aspect-[4/5] sm:aspect-[5/4] lg:aspect-[4/5]"
-          />
-          <div className="absolute -bottom-6 -left-6 sm:-left-10 hidden md:flex items-center gap-3 bakery-card px-5 py-4">
-            <Sparkles className="h-5 w-5 text-sky" />
-            <div className="text-sm">
-              <div className="font-medium text-cocoa-900">Fresh today</div>
-              <div className="text-cocoa-900/65">Baked this morning, ready for pickup.</div>
-            </div>
-          </div>
+
+        <div className="lg:col-span-5 relative">
+          <QuickOrderForm products={products} />
         </div>
       </div>
     </section>

@@ -77,6 +77,26 @@
       linear-gradient(165deg, #FFFBF3 0%, #FFF7EA 50%, #FBE9F0 100%);
   }
 
+  /* Layered home-hero backdrop — warm cream wash, sky + berry glows in the
+     corners, and a faint dot lattice. Used as a stack of three overlays so
+     the hero feels deeper than a flat gradient without being noisy. */
+  .home-hero-bg {
+    background-color: #FFFBF3;
+    background-image:
+      radial-gradient(46% 46% at 12% 8%, rgba(0, 174, 234, 0.18) 0%, transparent 60%),
+      radial-gradient(40% 40% at 100% 12%, rgba(233, 75, 123, 0.10) 0%, transparent 60%),
+      radial-gradient(60% 60% at 50% 105%, rgba(107, 58, 30, 0.10) 0%, transparent 65%),
+      linear-gradient(180deg, #FFFBF3 0%, #FFF7EA 60%, #FBE9F0 100%);
+  }
+  .home-hero-grid {
+    background-image:
+      linear-gradient(to right, rgba(107, 58, 30, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(107, 58, 30, 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 35%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 35%, transparent 80%);
+  }
+
   /* Soft polka-dot polish for sections + dark hero overlays */
   .pattern-dots-cream {
     background-image: radial-gradient(circle, rgba(248, 236, 211, 0.55) 1px, transparent 1.2px);

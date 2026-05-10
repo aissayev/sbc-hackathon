@@ -13,15 +13,20 @@ import { cn } from '@/lib/utils'
 //   horizontal     — header / footer chrome (logo at inline height)
 //   mark-only      — same image, sized for tight slots (chips, avatars)
 //   wordmark-only  — pure typographic fallback if you ever need text only
+//
+// Sizes (`size`) map to fixed Tailwind heights so the header lockup stays
+// visually proportional to the rest of the chrome on every breakpoint.
 
 export function Wordmark({
   className,
   variant = 'horizontal',
   tone = 'cocoa',
+  size = 'md',
 }: {
   className?: string
   variant?: 'horizontal' | 'mark-only' | 'wordmark-only'
   tone?: 'cocoa' | 'cream'
+  size?: 'sm' | 'md' | 'lg'
 }) {
   if (variant === 'wordmark-only') {
     const text = tone === 'cream' ? 'text-cream' : 'text-cocoa-700'
@@ -40,13 +45,24 @@ export function Wordmark({
   }
 
   if (variant === 'mark-only') {
-    return <LogoImage size={40} className={cn('h-10 w-auto', className)} priority />
+    return <LogoImage pxSize={56} className={cn('h-10 w-auto', className)} priority />
   }
 
-  // horizontal — the default header / footer rendering
+  // horizontal — the default header / footer rendering. The `lg` step is
+  // what the home-page header uses; `md` is the previous default for inner
+  // pages and the footer.
+  const heightClass =
+    size === 'lg'
+      ? 'h-14 md:h-20 lg:h-24'
+      : size === 'sm'
+        ? 'h-10 md:h-12'
+        : 'h-12 md:h-16'
+  // Render a chunky raster so retina + zoomed-in displays stay crisp at the
+  // larger header sizes (the source asset is 1024px so we have headroom).
+  const pxSize = size === 'lg' ? 112 : size === 'sm' ? 56 : 80
   return (
     <span className={cn('inline-flex items-center', className)} aria-label="Happy Cake">
-      <LogoImage size={64} className="h-12 md:h-16 w-auto shrink-0" priority />
+      <LogoImage pxSize={pxSize} className={cn(heightClass, 'w-auto shrink-0')} priority />
     </span>
   )
 }
@@ -54,11 +70,11 @@ export function Wordmark({
 // next/image, served from the hackathon CDN. Falls back to the typographic
 // wordmark in brand colours if the asset 404s so the header is never empty.
 function LogoImage({
-  size,
+  pxSize,
   className,
   priority,
 }: {
-  size: number
+  pxSize: number
   className?: string
   priority?: boolean
 }) {
@@ -76,12 +92,15 @@ function LogoImage({
       </span>
     )
   }
+  // Pull the largest raster when we know we're rendering big — keeps the
+  // edges crisp without eating the layout (Tailwind className still wins).
+  const src = pxSize >= 96 ? ASSETS.logo.px1024 : ASSETS.logo.px512
   return (
     <Image
-      src={ASSETS.logo.px512}
+      src={src}
       alt="Happy Cake"
-      width={Math.round(size * 2.4)}
-      height={size}
+      width={Math.round(pxSize * 2.4)}
+      height={pxSize}
       className={cn('object-contain', className)}
       priority={priority}
       onError={() => setFailed(true)}

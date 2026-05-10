@@ -28,13 +28,24 @@ export function SiteHeader() {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
+  // Bigger logo on the home page (the marketing surface) — every other
+  // page keeps the standard sized lockup so the chrome doesn't fight the
+  // page hero. Same component, two scales.
+  const isHome = pathname === '/'
+
   return (
-    <header className="sticky top-0 z-30 bg-cream/85 backdrop-blur border-b border-cocoa-700/12">
-      <div className="container flex items-center justify-between gap-4 py-3 md:py-4">
-        <Link href="/" aria-label={`${BRAND.name} home`} className="flex items-center gap-2">
-          <Wordmark />
+    <>
+      <header className="sticky top-0 z-30 bg-cream/85 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-cocoa-700/10">
+      <div
+        className={cn(
+          'container flex items-center justify-between gap-4 transition-[padding] duration-200',
+          isHome ? 'py-3 md:py-4' : 'py-2.5 md:py-3',
+        )}
+      >
+        <Link href="/" aria-label={`${BRAND.name} home`} className="flex items-center -my-1">
+          <Wordmark size={isHome ? 'lg' : 'md'} />
         </Link>
-        <nav className="hidden md:flex items-center gap-7 text-sm text-cocoa-900">
+        <nav className="hidden lg:flex items-center gap-1 text-sm text-cocoa-900">
           {NAV.map((n) => {
             const active = pathname === n.href || pathname.startsWith(n.href + '/')
             return (
@@ -42,8 +53,10 @@ export function SiteHeader() {
                 key={n.href}
                 href={n.href}
                 className={cn(
-                  'hover:text-sky transition-colors relative',
-                  active && 'text-sky',
+                  'inline-flex items-center h-10 px-3 rounded-full font-medium transition-colors',
+                  active
+                    ? 'bg-sky/10 text-sky-700'
+                    : 'text-cocoa-900/85 hover:bg-cream-200 hover:text-cocoa-900',
                 )}
               >
                 {n.label}
@@ -51,7 +64,7 @@ export function SiteHeader() {
             )
           })}
         </nav>
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           <a
             href={BRAND.phone.hrefTel}
             className="text-sm text-cocoa-900/70 hover:text-cocoa-900 inline-flex items-center gap-1.5"
@@ -70,16 +83,19 @@ export function SiteHeader() {
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
-          className="md:hidden inline-flex items-center justify-center h-10 w-10 rounded-full bg-cream-100 text-cocoa-900 hover:bg-cream-200"
+          className="lg:hidden inline-flex items-center justify-center h-11 w-11 rounded-full bg-cream-100 text-cocoa-900 hover:bg-cream-200"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
+      </header>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — rendered as a sibling of <header> because the
+          header's backdrop-blur creates a containing block that would clip
+          a fixed-positioned drawer to the header's height. */}
       <div
         className={cn(
-          'md:hidden fixed inset-x-0 top-[60px] bottom-0 bg-cream transition-transform duration-300 ease-out',
+          'lg:hidden fixed inset-x-0 top-[64px] bottom-0 z-40 bg-cream overflow-y-auto transition-transform duration-300 ease-out',
           open ? 'translate-y-0' : '-translate-y-[110%] pointer-events-none',
         )}
       >
@@ -107,6 +123,6 @@ export function SiteHeader() {
           </a>
         </nav>
       </div>
-    </header>
+    </>
   )
 }
