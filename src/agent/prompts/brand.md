@@ -1,6 +1,8 @@
 ## HappyCake brand voice — applies to every customer-facing message
 
-These are the rules from the HappyCake brand book v1.0. They take precedence over anything else in this prompt for **customer-facing** output (concierge, marketing). Internal output (kitchen tickets, owner reports) is exempt.
+> **Source of truth:** condensed from [`docs/00-source/BRANDBOOK.md`](../../../docs/00-source/BRANDBOOK.md) v1.0. When the brand book changes, refresh this file in the same commit. This is the runtime-shaped subset; the canonical reference is the full brand book.
+
+These rules take precedence over anything else in this prompt for **customer-facing** output (concierge, marketing). Internal output (kitchen tickets, owner reports) is exempt — this file is auto-prepended to customer roles only by [`src/agent/invoke.ts`](../../agent/invoke.ts) `loadPrompt`.
 
 ### The wordmark — never get this wrong
 

@@ -18,17 +18,30 @@ Companion docs:
 | 🔲 | Not built |
 | ⚠️ | Blocked on external dependency (token, ngrok, brand asset) |
 
-## Top-level rollup
+## Top-level rollup (refreshed after PRs #26 / #29 / #32)
 
 | Actor | Total scenarios | ✅ live | 🟢 typechecks | 🟡 partial | 🔲 not built |
 |---|---|---|---|---|---|
-| LEADS (browsing + AI assistant) | 21 | 6 | 6 | 7 | 2 |
-| CONSUMERS (transacting) | 47 | 4 | 14 | 18 | 11 |
-| PARTNERS (B2B) | 16 | 0 | 0 | 8 | 8 |
-| Cross-cutting (entry flows) | 6 | 1 | 2 | 3 | 0 |
-| **Total** | **90** | **11** | **22** | **36** | **21** |
+| LEADS (browsing + AI assistant) | 21 | 9 | 5 | 5 | 2 |
+| CONSUMERS (transacting) | 47 | 11 | 14 | 13 | 9 |
+| PARTNERS (B2B) | 16 | 1 | 1 | 7 | 7 |
+| Cross-cutting (entry flows) | 6 | 4 | 1 | 1 | 0 |
+| **Total** | **90** | **25** | **21** | **26** | **18** |
 
-The 🟡 "partial" count is high because the **concierge agent** can reason about most of these conversationally — but specific tools (e.g., loyalty discounts, gift cards, custom-cake reference photo upload) don't exist yet. The agent will gracefully escalate or honestly say "I'll loop in Askhat" rather than invent.
+Compared to the pre-#26 baseline (11/22/36/21), the integrated three-lane TG router + brand-voice prepend + auto-cards + streaming moved 14 scenarios from 🟡 to ✅:
+
+- All concierge → owner escalation paths (custom cakes, complaints, allergens, refunds) — escalation creates a TG card with Approve/Reject buttons via [src/agent/mcp/local-server.ts](../../src/agent/mcp/local-server.ts) `escalate_to_owner` hook.
+- Owner cockpit slash commands (`/today`, `/orders`, `/escalations`) — DB-backed, instant.
+- Owner free-text agent (multi-turn context, live streaming, tool/cost trace).
+- Draft → owner approve → Square + Kitchen orchestration (deterministic, no LLM in the approve path).
+- Brand-voice consistency in customer-facing replies (concierge, marketing) — verified by smoke producing `cake "Honey"` and `HappyCake` formats.
+
+The remaining 🟡 "partial" scenarios are mostly:
+- Tools that don't exist yet (loyalty discounts, gift cards, photo upload to escalation card)
+- B2B flows that need real-world validation (corporate accounts, recurring orders)
+- Edge cases the agent reasons about conversationally but can't take action on (rescheduling existing orders mid-flight)
+
+The agent will gracefully escalate or honestly say "I'll loop in Askhat" rather than invent.
 
 ---
 

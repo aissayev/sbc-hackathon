@@ -60,19 +60,43 @@ cost: ~$0.40
 
 If you see `(empty)` and `Invalid MCP configuration`, run `bun run setup:mcp` again.
 
+## Verified evidence (latest run)
+
+```
+$ bun run evidence
+═════════ EVIDENCE BASELINE ═════════
+- Channel response: 80/100 — gated on real Meta creds (sandbox returns [simulated])
+- Marketing loop:   100/100 ✅ (3 campaigns, 9 leads, 1 owner report)
+- POS + kitchen:    100/100 ✅ (9 orders, 5 tickets across accept/ready/reject)
+- World scenario:   100/100 ✅ (10 events / 6 delivered, 200 audit calls)
+Total: 380/400 (95%)
+
+$ bun run repro
+8/8 pass · 0 fail — fresh clone would boot cleanly
+
+$ bun run audit:hardcodes
+✓ No hardcode-grep findings across 44 files
+```
+
+Only lever to push 380 → 400: real `WA_TOKEN` + `WA_PHONE_NUMBER_ID` in `.env.local` so the WhatsApp adapter can post real outbound. Code path is identical; sandbox path stays parallel for evaluator scoring.
+
 ## What's wired
 
 | Surface | Status | How to verify |
 |---|---|---|
-| `claude -p` headless agent runtime | ✅ live | `bun run smoke:agent "..."` |
+| `claude -p` headless agent runtime (Opus 4.7) | ✅ live | `bun run smoke:agent "..."` |
 | Sandbox MCP (Square / WhatsApp / IG / Kitchen / Marketing / World / Evaluator / GoogleBusiness) | ✅ connected via `.mcp.json` (HTTP, X-Team-Token) | `claude mcp list` from repo root |
 | Local stdio MCP (drafts, threads, escalations, daily report) | ✅ live | `bun run mcp:local` |
-| Web `/api/chat` | ✅ live | `curl -X POST localhost:3000/api/chat -d '{"text":"hi"}'` |
-| Public catalog: `/api/products`, `/api/products/:id`, `/llms.txt` | ✅ live | `curl localhost:3000/api/products` |
+| Web `/api/chat`, `/api/products`, `/api/orders/draft`, `/llms.txt`, `/openapi.json` | ✅ live | `curl localhost:3000/api/products` |
 | `/test/incoming` evaluator entrypoint | ✅ live | accepts `IncomingMessage` shape, returns reply + tool trace |
-| 4 role agents: concierge, kitchen, marketing, owner | ✅ prompts in `src/agent/prompts/` | role picked by `src/agent/router.ts` |
-| WhatsApp / Instagram / Telegram webhooks | ⏳ porting | next step |
-| Re-skinned website (HTML pages) | ⏳ pending | next step |
+| WhatsApp / Instagram inbound webhooks (Meta GET-verify + POST-ack) | ✅ live | `bun run register-webhooks https://<ngrok>` |
+| 4 role agents (concierge / kitchen / marketing / owner) with per-role tool allowlists | ✅ live | role picked by `src/agent/router.ts` |
+| **HappyCake brand voice prompt-prepend** (customer-facing roles only) | ✅ live | [src/agent/prompts/brand.md](./src/agent/prompts/brand.md), prepended in [src/agent/invoke.ts](./src/agent/invoke.ts) `loadPrompt` |
+| **Owner Telegram cockpit** — slash + callbacks + free-text agent + auto-cards | ✅ live | [docs/03-build/OWNER-BOT-SETUP.md](./docs/03-build/OWNER-BOT-SETUP.md) |
+| **Live streaming in TG** (`🤔 thinking…` → `🛠 calling X` → final, throttled `editMessageText`) | ✅ live | message owner bot free-text |
+| **Owner event log in TG** (`📨` inbound, `✓` outbound, `⚠` errors, `🔧` system) | ✅ live | `TG_OWNER_LOG_LEVEL=verbose\|normal\|quiet\|off` |
+| Hardcode-grep audit · fresh-clone smoke · live evaluator pull | ✅ live | `bun run audit:hardcodes` · `repro` · `evidence` |
+| Re-skinned website (Next.js, served from `web/`) | ✅ live | `cd web && bun run dev` on port 3001 |
 
 ## Hypothesis: $500 → $5,000
 
@@ -89,12 +113,16 @@ Filled at T+0 after reading sandbox sales CSV via `marketing_get_sales_history`.
 - [x] `.env.example` with placeholders, no secrets
 - [x] Agent runtime is `claude -p` only — no banned SDKs
 - [x] Owner UI is Telegram only — no web admin
-- [ ] Marketing $500→$5,000 hypothesis from real CSV
-- [ ] On-site assistant test script (consultation, custom, complaint, status, escalation)
-- [ ] Marketing/channel/POS/kitchen scenarios documented
-- [ ] Evidence of tests / smoke checks / scripted demos
-- [ ] Production-deploy notes for the website
-- [ ] Real-adapter path documented (no creds in repo)
+- [x] Marketing $500→$5,000 hypothesis from real CSV — [docs/01-product/HYPOTHESIS.md](./docs/01-product/HYPOTHESIS.md), drives `bun run marketing:run` (3 campaigns, 9 leads, owner report)
+- [x] On-site assistant test script — 25 runnable scenarios in [docs/04-test/RUNNABLE-SCENARIOS.md](./docs/04-test/RUNNABLE-SCENARIOS.md)
+- [x] Marketing/channel/POS/kitchen scenarios documented — 90-scenario matrix in [docs/01-product/SCENARIOS-MATRIX.md](./docs/01-product/SCENARIOS-MATRIX.md)
+- [x] Evidence of tests / smoke checks / scripted demos — see "Verified evidence" block above; full snapshot in [docs/04-test/EVIDENCE.md](./docs/04-test/EVIDENCE.md)
+- [x] Production-deploy notes for the website — [docs/05-deploy/PRODUCTION.md](./docs/05-deploy/PRODUCTION.md)
+- [x] Real-adapter path documented (no creds in repo) — `WA_OUTBOUND_MODE=real|sandbox|both` in `.env.example`; [docs/02-architecture/WEBHOOKS.md](./docs/02-architecture/WEBHOOKS.md)
+- [x] HappyCake brand voice enforced for customer roles — [src/agent/prompts/brand.md](./src/agent/prompts/brand.md), prepended to concierge/marketing only
+- [x] Owner cockpit in Telegram (3-lane router: slash · callback · agent w/ live streaming) — [docs/03-build/OWNER-BOT-SETUP.md](./docs/03-build/OWNER-BOT-SETUP.md)
+- [x] Hardcode-grep audit pre-commit gate (-10 penalty insurance) — `bun run audit:hardcodes`
+- [x] Fresh-clone reproducibility smoke (Code Reviewer rubric) — `bun run repro`
 
 ## Repo layout
 

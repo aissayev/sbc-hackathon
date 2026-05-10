@@ -134,6 +134,61 @@ This loop happens INSIDE Claude Code. We don't orchestrate it. We just see the e
 
 Every line is one decision. We parse them in our wrapper to extract the final reply text + the tool trace.
 
+### 3a. Brand voice — prompt-prepend for customer-facing roles
+
+The hackathon brand book (`docs/00-source/BRANDBOOK.md` v1.0) mandates a specific voice for customer-facing replies: *HappyCake* (one word, two capitals), *cake "Honey"* format for products, soft CTA close, three-emoji cap, no fabrication, English-only.
+
+We enforce this by prepending `src/agent/prompts/brand.md` (a condensed, runtime-shaped subset of the brand book) to the system prompt for **customer-facing roles only**:
+
+```ts
+// src/agent/invoke.ts loadPrompt
+const BRAND_ROLES: AgentRole[] = ['concierge', 'marketing']
+const role_md = readFileSync(`src/agent/prompts/${role}.md`)
+if (!BRAND_ROLES.includes(role)) return role_md
+const brand_md = readFileSync('src/agent/prompts/brand.md')
+return `${brand_md}\n\n---\n\n${role_md}`
+```
+
+Internal roles (`kitchen`, `owner`) skip the prepend — operator surfaces are exempt. This keeps the customer voice consistent across web/WA/IG without polluting the owner cockpit's terse, numerate voice.
+
+`brand.md` is condensed from the canonical `BRANDBOOK.md`. **Refresh both together** when brand rules change.
+
+### 3b. Streaming — `onStream` callback for live UX
+
+`claude -p --output-format stream-json` emits one JSON event per assistant turn or tool round-trip — not per token, but real-time-ish per step. We expose those events via an optional `onStream` callback in `InvokeOptions`:
+
+```ts
+export type StreamEvent =
+  | { kind: 'text'; chunk: string; running: string }
+  | { kind: 'tool_start'; name: string }
+  | { kind: 'tool_end'; name: string }
+  | { kind: 'done'; final: string }
+
+interface InvokeOptions {
+  role: AgentRole
+  msg: IncomingMessage
+  mcpConfigPath?: string
+  timeoutMs?: number
+  onStream?: (event: StreamEvent) => void  // ← new
+}
+```
+
+`invoke.ts` is line-buffered (was full-buffered until close), so each stdout line is parsed and dispatched as it arrives. The owner Telegram bot uses this to live-edit a "🤔 thinking…" placeholder via `editMessageText`:
+
+```
+🤔 thinking…              ← initial placeholder
+🛠 calling kitchen_get_capacity…
+🤔 Tomorrow looks tight on whole honey
+🛠 calling list_orders…
+Tomorrow looks tight — already at 9/12 with 3 drafts pending. Pistachio open.
+
+— used: kitchen_get_capacity, list_orders · 12.3s · $0.18
+```
+
+Throttled to ≤ 1 edit / 800ms (TG soft per-chat limit ~1/sec). Identical-text edits skipped (TG rejects). This is the "Streaming Text for Bots" UX from Telegram's May 2026 update — no new API method required.
+
+See [src/bots/owner/live.ts](../../src/bots/owner/live.ts) `makeOwnerStreamSink` for the throttle implementation.
+
 ### 4. Process exit + persistence
 
 When `claude -p` finishes (or hits `--max-budget-usd`, or our 90s timeout), it exits. Our wrapper:
