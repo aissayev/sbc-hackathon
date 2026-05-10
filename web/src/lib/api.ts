@@ -517,6 +517,48 @@ export async function getChannel(id: ChannelId): Promise<ChannelStatus | null> {
   return safeFetch<ChannelStatus>(`${BACKEND}/api/admin/channels/${id}`)
 }
 
+// ─── Admin logs (combined agent_invocations + audit_log feed) ───────────
+
+export type LogChannel = 'whatsapp' | 'instagram' | 'web' | 'telegram' | 'unknown'
+export type LogKind = 'agent_call' | 'audit'
+
+export interface LogRow {
+  id: string
+  kind: LogKind
+  at: number
+  channel: LogChannel
+  scope_id: string | null
+  role: string | null
+  action: string | null
+  outcome: 'ok' | 'error' | 'partial'
+  duration_ms: number | null
+  cost_usd: number | null
+  summary: string
+}
+
+export interface LogsResult {
+  rows: LogRow[]
+  total_recent: number
+  by_channel: Record<LogChannel, number>
+}
+
+export async function listAdminLogs(opts: {
+  channel?: LogChannel | 'all'
+  limit?: number
+} = {}): Promise<LogsResult> {
+  const qs = new URLSearchParams()
+  if (opts.channel && opts.channel !== 'all') qs.set('channel', opts.channel)
+  if (opts.limit) qs.set('limit', String(opts.limit))
+  const data = await safeFetch<LogsResult>(`${BACKEND}/api/admin/logs?${qs.toString()}`)
+  return (
+    data ?? {
+      rows: [],
+      total_recent: 0,
+      by_channel: { whatsapp: 0, instagram: 0, web: 0, telegram: 0, unknown: 0 },
+    }
+  )
+}
+
 // ─── Campaigns + Approvals (Posts queue) ────────────────────────────────
 
 export interface CampaignSummary {
