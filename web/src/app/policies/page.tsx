@@ -5,7 +5,7 @@ import { Eyebrow } from '@/components/brand/eyebrow'
 export const metadata: Metadata = {
   title: 'Visit & FAQ',
   description:
-    'Plain-English answers from Happy Cake — hours, location, allergens, lead times, pickup, delivery, payment, cancellation, halal-friendly options.',
+    'Plain-English answers from HappyCake — hours, location, allergens, lead times, pickup, delivery, payment, cancellation, halal-friendly options.',
   alternates: { canonical: '/policies' },
 }
 

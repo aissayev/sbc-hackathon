@@ -28,8 +28,8 @@ const STEPS: Array<{ key: StepKey; label: string; subtitle: string }> = [
   { key: 'fit', label: 'What kind of fit', subtitle: 'Office, event, gifting, or a standing program?' },
   { key: 'when', label: 'How many + how often', subtitle: 'Headcount, cadence, and the first date.' },
   { key: 'budget', label: 'Budget + dietary', subtitle: 'Helps us scope the right package.' },
-  { key: 'contact', label: 'Who do we talk to', subtitle: 'Askhat replies within one business day.' },
-  { key: 'review', label: 'Review & send', subtitle: 'Quick scan before we forward to the owner.' },
+  { key: 'contact', label: 'Who do we talk to', subtitle: 'Our team replies within one business day.' },
+  { key: 'review', label: 'Review & send', subtitle: 'Quick scan before we forward this to the team.' },
 ]
 
 const STEP_FIELDS: Record<StepKey, (keyof B2BValues)[]> = {
@@ -424,7 +424,7 @@ function ReviewStep({ form }: { form: ReturnType<typeof useForm<B2BValues>> }) {
   return (
     <div>
       <p className="text-sm text-cocoa-900/70">
-        Looks good? We'll forward this to Askhat. Expect a reply within one business day with a
+        Looks good? We'll send it to our team. Expect a reply within one business day with a
         proposal — pricing, delivery, and a short sample tasting plan if it makes sense.
       </p>
       <div className="mt-5 bakery-card p-5 border-l-4 border-sky">

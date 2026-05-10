@@ -10,7 +10,7 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: 'Menu',
   description:
-    'Today\'s Happy Cake menu — by-the-slice, whole cakes, pastries, custom orders, and catering. Hand-decorated in our Sugar Land kitchen.',
+    'Today\'s HappyCake menu — by-the-slice, whole cakes, pastries, custom orders, and catering. Hand-decorated in our Sugar Land kitchen.',
   alternates: { canonical: '/menu' },
 }
 

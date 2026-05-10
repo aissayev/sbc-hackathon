@@ -18,7 +18,7 @@ export function SiteFooter() {
       <section aria-labelledby="footer-visit" className="border-b border-cream/10">
         <div className="container py-14 grid gap-10 md:gap-8 md:grid-cols-12">
           <div className="md:col-span-4">
-            <h2 id="footer-visit" className="sr-only">Visit Happy Cake in Sugar Land</h2>
+            <h2 id="footer-visit" className="sr-only">Visit HappyCake in Sugar Land</h2>
             <Wordmark tone="cream" />
             <p className="mt-4 max-w-md text-cream/80 leading-relaxed text-sm">
               {BRAND.slogan}

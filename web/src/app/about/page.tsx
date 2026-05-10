@@ -21,7 +21,7 @@ import {
 export const metadata: Metadata = {
   title: 'About — a family bakery from Kazakhstan, baking in Sugar Land',
   description:
-    'Happy Cake is a family-owned bakery — born in Kazakhstan, baking in Sugar Land, Texas. Run by Askhat and his wife. European cake traditions, warm Kazakh hospitality, every cake hand-decorated.',
+    'HappyCake is a family-owned bakery — born in Kazakhstan, baking in Sugar Land, Texas. Run by Askhat and his wife. European cake traditions, warm Kazakh hospitality, every cake hand-decorated.',
   alternates: { canonical: '/about' },
 }
 
@@ -128,7 +128,7 @@ export default function AboutPage() {
               <span className="text-sky">that crossed an ocean</span>.
             </h1>
             <p className="mt-5 text-lg text-cocoa-900/80 leading-relaxed max-w-xl">
-              Happy Cake started in a family kitchen in Kazakhstan and grew into a community of
+              HappyCake started in a family kitchen in Kazakhstan and grew into a community of
               families baking by hand. In 2024 we opened our first US location on Promenade Way in
               Sugar Land — same recipes, same hands behind the case.
             </p>
@@ -167,7 +167,7 @@ export default function AboutPage() {
         <Eyebrow>Our story</Eyebrow>
         <h2 className="display-h2 mt-2">From a Kazakh family kitchen to Promenade Way</h2>
         <p>
-          Happy Cake was born from a love of bringing people together through exceptional baked
+          HappyCake was born from a love of bringing people together through exceptional baked
           goods. From layered honey cakes to delicate cloud cakes, every item is crafted fresh
           every day — the same recipes Askhat&apos;s family has perfected since 2018, written by
           hand and tested at the dinner table.
@@ -302,19 +302,19 @@ function InsideBakery() {
   const tiles = [
     {
       src: ASSETS.store.signWithFlowers,
-      alt: 'Happy Cake neon sign over the counter, with a fresh flower bouquet and a branded coffee cup',
+      alt: 'HappyCake neon sign over the counter, with a fresh flower bouquet and a branded coffee cup',
       span: 'md:col-span-2 md:row-span-2',
       aspect: 'aspect-[3/4]',
     },
     {
       src: ASSETS.store.signOverTable,
-      alt: 'Communal table with blue chairs under the Happy Cake neon sign and a Cloud Cake poster',
+      alt: 'Communal table with blue chairs under the HappyCake neon sign and a Cloud Cake poster',
       span: 'md:col-span-2',
       aspect: 'aspect-[16/10]',
     },
     {
       src: ASSETS.store.coffeeAndCake,
-      alt: 'Black-Forest cake slice and a Happy Cake-branded iced coffee on the dining table',
+      alt: 'Black-Forest cake slice and a HappyCake-branded iced coffee on the dining table',
       span: '',
       aspect: 'aspect-square',
     },

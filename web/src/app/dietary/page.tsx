@@ -14,7 +14,7 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: 'Dietary options',
   description:
-    'Gluten-free, nut-free, dairy-free, vegan, and halal-friendly cakes from Happy Cake Sugar Land. Filtered menu views, plain-English allergen disclaimer.',
+    'Gluten-free, nut-free, dairy-free, vegan, and halal-friendly cakes from HappyCake Sugar Land. Filtered menu views, plain-English allergen disclaimer.',
   alternates: { canonical: '/dietary' },
 }
 

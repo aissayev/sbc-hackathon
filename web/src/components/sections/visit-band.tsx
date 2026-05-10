@@ -111,7 +111,7 @@ export function VisitBand() {
         <div className="relative overflow-hidden rounded-[28px] bg-cream-100 aspect-[4/5] sm:aspect-[16/9] lg:aspect-auto lg:min-h-full order-first lg:order-last">
           <Image
             src={ASSETS.store.signOverTable}
-            alt="Inside Happy Cake on Promenade Way — the long blue-chair table under our neon sign"
+            alt="Inside HappyCake on Promenade Way — the long blue-chair table under our neon sign"
             fill
             sizes="(min-width: 1024px) 600px, 100vw"
             className="object-cover"
