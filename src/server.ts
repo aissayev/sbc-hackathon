@@ -18,6 +18,7 @@ import type { IncomingMessage, MessageHandler, ChannelAdapter } from './channels
 import {
   isOwnerSlashCommand,
   handleOwnerCommand,
+  handleOwnerAsyncCommand,
   handleOwnerCallback,
   sendOwnerReply,
   sendOwnerThinking,
@@ -62,9 +63,17 @@ const onMessage: MessageHandler = async (msg) => {
       await sendOwnerReply(msg.threadId, { text: '✓ conversation cleared. fresh context.' })
       return
     }
-    const reply = handleOwnerCommand(msg)
-    if (reply) {
-      await sendOwnerReply(msg.threadId, reply)
+    // Sync DB-backed: /today, /orders, /escalations.
+    const sync = handleOwnerCommand(msg)
+    if (sync) {
+      await sendOwnerReply(msg.threadId, sync)
+      return
+    }
+    // Async sandbox-MCP-backed: /inbox, /reviews, /campaigns, /spend, /gb.
+    // Sandbox HTTP is covered by the team token; still no `claude -p` spend.
+    const asyncReply = await handleOwnerAsyncCommand(msg)
+    if (asyncReply) {
+      await sendOwnerReply(msg.threadId, asyncReply)
       return
     }
   }
