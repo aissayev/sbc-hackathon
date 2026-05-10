@@ -32,6 +32,7 @@ import {
   dailyReport,
 } from '../../domain/tools.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
+import { getPolicies } from '../../domain/policies.ts'
 import { postDraftOrderCard, postEscalationCard } from '../../bots/owner.ts'
 
 function ok(data: unknown) {
@@ -280,6 +281,17 @@ server.registerTool(
     // Delegated to the channel layer at the server level — we only mark intent here.
     return ok({ ok: true, queued: true, order_id, text })
   },
+)
+
+
+server.registerTool(
+  'get_policies',
+  {
+    description:
+      "HappyCake's customer-facing policies. Authoritative source for: shipping (we don't), pickup, local delivery, allergens (shared kitchen), hours, cancellation, payment methods, contact channels. Call this BEFORE answering any 'do you...?' / 'what time...?' / 'how do I...?' question. Note: lead times and capacity are NOT here \u2014 those come from kitchen_get_menu_constraints + kitchen_get_capacity (live MCP). Some fields carry _confidence: 'placeholder' \u2014 escalate to owner rather than quote those as fact.",
+    inputSchema: {},
+  },
+  async () => ok(getPolicies()),
 )
 
 const transport = new StdioServerTransport()
