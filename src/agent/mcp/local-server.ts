@@ -41,6 +41,13 @@ import {
 import { brandLookup, brandLookupSchema } from './brand-rag.ts'
 import { createApproval } from '../../domain/approvals.ts'
 import {
+  findCustomerByPhone,
+  findCustomerByThread,
+  getCustomerById,
+  listCustomerOrders,
+  normalizePhone,
+} from '../../domain/customers.ts'
+import {
   requestRefund,
   requestRefundSchema,
   approveRefund,
@@ -394,6 +401,75 @@ server.registerTool(
     inputSchema: brandLookupSchema.shape,
   },
   async (args) => ok(brandLookup(args as z.infer<typeof brandLookupSchema>)),
+)
+
+// \u2500\u2500\u2500 CRM tools \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+//
+// Three lookups against the customers table. Read-only \u2014 writes happen
+// implicitly when the agent (or website checkout) creates a draft order
+// via create_draft_order, which calls upsertCustomerForOrder() under
+// the hood.
+//
+// Identity rules:
+// - Threads link to a customer once we've seen a phone (createDraftOrder).
+// - Phone is the strong key (E.164 normalized). Email is the fallback.
+// - The agent should call find_customer_by_phone or find_customer_by_thread
+//   FIRST when answering "have I ordered before?" or before quoting
+//   personalized lead times \u2014 never invent customer history.
+
+server.registerTool(
+  'find_customer_by_thread',
+  {
+    description:
+      'Look up the customer record linked to a chat thread (channel + thread_id). Returns null if the thread has no customer linked yet (the customer hasn\'t given a phone in this conversation). Cheapest path inside an agent run \u2014 call this before find_customer_by_phone.',
+    inputSchema: { thread_id: z.string() },
+  },
+  async (args) => {
+    const { thread_id } = args as { thread_id: string }
+    const c = findCustomerByThread(thread_id)
+    return ok(c ?? { ok: false, reason: 'no customer linked to this thread' })
+  },
+)
+
+server.registerTool(
+  'find_customer_by_phone',
+  {
+    description:
+      'Look up a customer by phone number. Phone is normalized to E.164 internally \u2014 pass any format (\"(281) 979-8320\", \"+1 281\u2026\", \"2819798320\"). Returns the customer record if found, or {ok:false, reason} if not. Use when a caller gives their number on the phone or in chat.',
+    inputSchema: { phone: z.string() },
+  },
+  async (args) => {
+    const { phone } = args as { phone: string }
+    const norm = normalizePhone(phone)
+    if (!norm) return ok({ ok: false, reason: 'invalid phone' })
+    const c = findCustomerByPhone(norm)
+    return ok(c ?? { ok: false, reason: `no customer found for ${norm}` })
+  },
+)
+
+server.registerTool(
+  'list_customer_orders',
+  {
+    description:
+      'List a customer\'s recent orders (most recent first), with status, total, and an item summary. Pass customer_id (from find_customer_by_*) and an optional limit (default 5). Use to answer \"what did they order last time?\" or to check order history before promising a delivery time.',
+    inputSchema: { customer_id: z.string(), limit: z.number().int().positive().max(50).optional() },
+  },
+  async (args) => {
+    const { customer_id, limit } = args as { customer_id: string; limit?: number }
+    const customer = getCustomerById(customer_id)
+    if (!customer) return ok({ ok: false, reason: `unknown customer ${customer_id}` })
+    return ok({
+      ok: true,
+      customer_id,
+      name: customer.name,
+      phone: customer.phone,
+      order_count: customer.order_count,
+      total_spent_cents: customer.total_spent_cents,
+      first_seen_at: customer.first_seen_at,
+      last_seen_at: customer.last_seen_at,
+      recent_orders: listCustomerOrders(customer_id, limit ?? 5),
+    })
+  },
 )
 
 const transport = new StdioServerTransport()
