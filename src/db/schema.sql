@@ -29,11 +29,15 @@ CREATE TABLE IF NOT EXISTS threads (
   channel     TEXT NOT NULL,
   sender_id   TEXT,
   sender_name TEXT,
+  -- FK into customers.id; nullable until the thread is matched (usually
+  -- on first order draft, when phone shows up).
+  customer_id TEXT,
   -- JSON array of {role, content, ts}
   history_json TEXT NOT NULL DEFAULT '[]',
   created_at  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_threads_customer ON threads(customer_id);
 
 CREATE TABLE IF NOT EXISTS orders (
   id            TEXT PRIMARY KEY,
@@ -53,6 +57,11 @@ CREATE TABLE IF NOT EXISTS orders (
   status        TEXT NOT NULL CHECK (status IN ('draft','approved','rejected','in_kitchen','ready','out_for_delivery','picked_up','completed','cancelled','refund_pending','refunded')),
   customer_name TEXT,
   customer_phone TEXT,
+  -- Optional: collected when web checkout asks for it.
+  customer_email TEXT,
+  -- FK into customers.id; nullable so old rows / phone-less drafts still
+  -- pass. Maintained by upsertCustomerForOrder() in domain/customers.ts.
+  customer_id TEXT,
   -- JSON array of {sku, qty, unit_cents, line_total_cents, modifiers}
   items_json    TEXT NOT NULL,
   total_cents   INTEGER NOT NULL,
@@ -75,6 +84,39 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_thread ON orders(thread_id);
 CREATE INDEX IF NOT EXISTS idx_orders_referral ON orders(referral_source);
+CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+
+-- CRM source of truth. One row per unique customer (deduped by phone, then
+-- email). Populated automatically on every draft-order create from the
+-- customer_name + customer_phone the form collects, and surfaced to the
+-- agent via local MCP tools (find_customer_by_phone, get_customer,
+-- list_customer_orders) and to the owner via a Telegram /customer command
+-- + repeat-customer badge on draft-order cards.
+--
+-- Counters (order_count, total_spent_cents, last_seen_at) are denormalized
+-- so a "12th order" badge is a single row read, not an aggregate scan.
+-- They're kept in sync from upsertCustomerForOrder() in domain/customers.ts.
+--
+-- square_customer_id is reserved for live Square sync; the hackathon
+-- sandbox MCP doesn't expose customer endpoints, so it stays NULL today.
+CREATE TABLE IF NOT EXISTS customers (
+  id                 TEXT PRIMARY KEY,                 -- 'cust_<random>'
+  name               TEXT,
+  phone              TEXT UNIQUE,                      -- E.164-normalized when possible
+  email              TEXT UNIQUE,
+  square_customer_id TEXT,                             -- reserved for prod sync
+  first_seen_at      INTEGER NOT NULL,
+  last_seen_at       INTEGER NOT NULL,
+  order_count        INTEGER NOT NULL DEFAULT 0,
+  total_spent_cents  INTEGER NOT NULL DEFAULT 0,
+  -- Free-form owner notes. Shown in /customer view, not the agent prompt.
+  notes              TEXT,
+  created_at         INTEGER NOT NULL,
+  updated_at         INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+CREATE INDEX IF NOT EXISTS idx_customers_last_seen ON customers(last_seen_at DESC);
 
 -- Refund requests, initiated by the customer on any channel via the
 -- concierge agent's `request_refund` MCP tool. The owner approves or

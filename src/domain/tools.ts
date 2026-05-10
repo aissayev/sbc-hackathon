@@ -8,6 +8,11 @@
 import { z } from 'zod'
 import { getDb } from '../db/db.ts'
 import type { Channel } from '../channels/types.ts'
+import {
+  upsertCustomerForOrder,
+  recordOrderForCustomer,
+  getCustomerById,
+} from './customers.ts'
 
 // ─── Products / catalog ──────────────────────────────────────────────────
 
@@ -86,6 +91,8 @@ export const createDraftOrderSchema = z.object({
   channel: z.enum(['whatsapp', 'instagram', 'web', 'telegram']),
   customer_name: z.string().optional(),
   customer_phone: z.string().optional(),
+  // Optional: web checkout collects it; chat may collect it too.
+  customer_email: z.string().email().optional(),
   items: z.array(z.object({ product_id: z.string(), quantity: z.number().int().positive() })).min(1),
   scheduled_at_iso: z.string().optional(),
   pickup_or_delivery: z.enum(['pickup', 'delivery']).default('pickup'),
@@ -109,6 +116,14 @@ export type CreateDraftOrderResult =
       total_cents: number
       items: Array<{ sku: string; qty: number; unit_cents: number; line_total_cents: number; name: string }>
       status: 'draft'
+      // CRM link, if name/phone/email were enough to identify the customer.
+      // Null when no contact info was provided (rare — web checkout
+      // requires at least name + phone).
+      customer_id: string | null
+      // Helpful at the call site so the orchestrator can decide
+      // "first-time" vs "repeat" without an extra read.
+      is_repeat_customer: boolean
+      prior_order_count: number
     }
 
 export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): CreateDraftOrderResult {
@@ -127,13 +142,30 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       name: p.name,
     })
   }
+
+  // CRM upsert FIRST so the order row can store customer_id. The upsert
+  // refreshes name/phone/email if richer info shows up, but doesn't
+  // increment counters yet — we do that after we know total_cents. Returns
+  // null when name+phone+email are all missing (chat-started threads
+  // before the customer says who they are).
+  const customerId = upsertCustomerForOrder({
+    threadId: args.thread_id,
+    name: args.customer_name ?? null,
+    phone: args.customer_phone ?? null,
+    email: args.customer_email ?? null,
+  })
+
+  // Capture prior_order_count BEFORE we increment so the badge reads
+  // "1st order" / "2nd order" naturally (this draft is the Nth).
+  const priorCount = customerId ? (getCustomerById(customerId)?.order_count ?? 0) : 0
+
   const id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const now = Date.now()
   const result = getDb()
     .prepare(
       `INSERT INTO orders
-       (id, thread_id, channel, status, customer_name, customer_phone, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, referral_source, created_at, updated_at)
-       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, thread_id, channel, status, customer_name, customer_phone, customer_email, customer_id, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, referral_source, created_at, updated_at)
+       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -141,6 +173,8 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       args.channel,
       args.customer_name ?? null,
       args.customer_phone ?? null,
+      args.customer_email ?? null,
+      customerId,
       JSON.stringify(itemsResolved),
       total,
       args.scheduled_at_iso ?? null,
@@ -150,6 +184,12 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       now,
       now,
     )
+
+  // Now that we have total_cents, increment the denormalized counters
+  // on the customer record. Done last so a partial INSERT failure
+  // doesn't leave the customers table reporting an order that didn't land.
+  if (customerId) recordOrderForCustomer(customerId, total)
+
   // better-sqlite3's `run` returns lastInsertRowid as a bigint or number
   // depending on the driver build; coerce to number for our offset math.
   // The orders table's rowid is monotonically increasing, never reused.
@@ -161,6 +201,9 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
     total_cents: total,
     items: itemsResolved,
     status: 'draft' as const,
+    customer_id: customerId,
+    is_repeat_customer: priorCount > 0,
+    prior_order_count: priorCount,
   }
 }
 
@@ -182,10 +225,13 @@ interface OrderRowFull {
   // id remains the canonical primary key for internal references.
   rowid: number
   id: string
+  thread_id: string
+  channel: string
   status: string
   total_cents: number
   scheduled_at: string | null
   customer_name: string | null
+  customer_id: string | null
   pickup_or_delivery: string
   kitchen_ticket_id: string | null
   items_json: string | null
@@ -245,10 +291,13 @@ function shapeOrderStatus(row: OrderRowFull) {
     // immutable SQLite ROWID — so "HC-1042" prints the same in chat,
     // confirmation page, tracker, and the owner's TG card.
     friendly_id: friendlyOrderId(row.rowid),
+    thread_id: row.thread_id,
+    channel: row.channel,
     status: row.status,
     total_cents: row.total_cents,
     scheduled_at: row.scheduled_at,
     customer_name: row.customer_name,
+    customer_id: row.customer_id,
     pickup_or_delivery: row.pickup_or_delivery,
     kitchen_ticket_id: row.kitchen_ticket_id,
     items,
@@ -272,7 +321,7 @@ export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
   // Pull rowid alongside the row so shapeOrderStatus can derive the
   // friendly alias without a second round-trip.
   const select =
-    'SELECT rowid, id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id, items_json FROM orders'
+    'SELECT rowid, id, thread_id, channel, status, total_cents, scheduled_at, customer_name, customer_id, pickup_or_delivery, kitchen_ticket_id, items_json FROM orders'
 
   // Customers often paste the displayed code with a leading `#` and
   // surrounding whitespace; strip both before matching.

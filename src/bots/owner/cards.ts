@@ -12,7 +12,8 @@ import { sendTelegram } from '../../channels/telegram.ts'
 import { config } from '../../config.ts'
 import { getOrderStatus } from '../../domain/tools.ts'
 import { readRefundForCard } from '../../domain/refunds.ts'
-import { fmtMoney, shortId } from './format.ts'
+import { getCustomerById } from '../../domain/customers.ts'
+import { fmtMoney, shortId, ordinal } from './format.ts'
 import { scoreLead, fmtStars } from './scoring.ts'
 
 /**
@@ -36,11 +37,32 @@ export async function postDraftOrderCard(orderId: string): Promise<boolean> {
   const threadId = (status.thread_id as string | null | undefined) ?? ''
   const score = scoreLead({ total_cents: total, thread_id: threadId, channel })
 
+  // Repeat-customer badge — order_count is post-increment (this order is
+  // counted), so order_count===1 means "first ever order" and 2+ means
+  // "Nth visit". Total spend reads as the customer's lifetime, including
+  // this draft. Skipped silently if the order has no customer link.
+  const customerId = (status.customer_id as string | null | undefined) ?? null
+  let repeatBadge: string | null = null
+  let lifetimeLine: string | null = null
+  if (customerId) {
+    const c = getCustomerById(customerId)
+    if (c) {
+      if (c.order_count <= 1) {
+        repeatBadge = '✨ First-time customer'
+      } else {
+        repeatBadge = `🔁 ${ordinal(c.order_count)} order · ${fmtMoney(c.total_spent_cents)} lifetime`
+        lifetimeLine = null  // already in repeatBadge
+      }
+    }
+  }
+
   const lines: string[] = [
     `New draft order ${shortId(orderId)}`,
     `Score: ${fmtStars(score.stars)}${score.reasons.length ? '  · ' + score.reasons.join(', ') : ''}`,
     `Total: ${fmtMoney(total)}`,
   ]
+  if (repeatBadge) lines.push(repeatBadge)
+  if (lifetimeLine) lines.push(lifetimeLine)
   if (customer) lines.push(`Customer: ${customer}`)
   if (scheduled) lines.push(`Pickup: ${scheduled}`)
 

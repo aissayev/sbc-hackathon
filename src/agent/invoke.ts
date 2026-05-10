@@ -18,6 +18,7 @@ import { getDb } from '../db/db.ts'
 import type { AgentRole, IncomingMessage } from '../channels/types.ts'
 import { loadHistory, saveHistory, trimHistory, type HistoryEntry } from '../db/threads.ts'
 import { ROLE_TOOL_ALLOWLIST, DENY_ALWAYS } from './allowlists.ts'
+import { findCustomerByThread } from '../domain/customers.ts'
 
 export interface AgentResult {
   reply: string
@@ -121,11 +122,36 @@ function buildPrompt(msg: IncomingMessage, history: HistoryEntry[]): string {
     transcript ? `<conversation_history>\n${transcript}\n</conversation_history>` : '',
     buildClockTag(),
     `<thread_meta>channel=${msg.channel} thread_id=${msg.threadId} sender=${msg.senderName ?? msg.senderId}</thread_meta>`,
+    buildCustomerTag(msg.threadId),
     `<customer_message>\n${msg.text}\n</customer_message>`,
     'Reply to the customer. Use tools as needed. Do NOT include the tags above in your reply.',
   ]
     .filter(Boolean)
     .join('\n\n')
+}
+
+// If the thread is linked to a customer (i.e. we have phone/name/email
+// from a prior order), inject a one-line CRM context tag so the agent
+// can recognize repeat customers without a tool call. Empty string when
+// the thread is anonymous — keeps the prompt clean.
+function buildCustomerTag(threadId: string): string {
+  try {
+    const c = findCustomerByThread(threadId)
+    if (!c) return ''
+    const fields = [
+      c.name && `name=${c.name}`,
+      c.phone && `phone=${c.phone}`,
+      c.email && `email=${c.email}`,
+      `customer_id=${c.id}`,
+      `prior_orders=${c.order_count}`,
+      c.order_count > 0 && `lifetime_spend_cents=${c.total_spent_cents}`,
+    ].filter(Boolean).join(' ')
+    return `<customer>${fields}</customer>`
+  } catch (err) {
+    // Don't let CRM lookup errors block the agent from replying.
+    console.warn('[invoke] customer tag lookup failed:', (err as Error).message)
+    return ''
+  }
 }
 
 function logInvocation(row: {

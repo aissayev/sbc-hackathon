@@ -116,6 +116,15 @@ function applyMigrations(db: Database) {
   // 2026-05-10: ?ref= attribution on draft orders.
   addColumn('orders', 'referral_source', 'TEXT')
 
+  // 2026-05-10: CRM. Link orders + threads to a customers row so the
+  // owner can see "Maria's 12th order" and the agent can recognize a
+  // repeat caller. The customers table itself is created by schema.sql
+  // (CREATE TABLE IF NOT EXISTS); only the foreign-key columns on
+  // existing tables need an idempotent ALTER.
+  addColumn('orders', 'customer_id', 'TEXT')
+  addColumn('threads', 'customer_id', 'TEXT')
+  addColumn('orders', 'customer_email', 'TEXT')
+
   // 2026-05-10: refund flow — extend orders.status CHECK to include
   // `refund_pending` + `refunded`. SQLite can't ALTER a CHECK constraint
   // in place; the dance is rebuild-and-rename. Idempotent: we read the
