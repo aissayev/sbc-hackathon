@@ -50,6 +50,7 @@ orderRoutes.post('/api/orders/draft', async (c) => {
     )
     return c.json({
       order_id: result.order_id,
+      friendly_id: result.friendly_id,
       total_cents: result.total_cents,
       status: result.status,
       items: result.items,
@@ -79,6 +80,7 @@ orderRoutes.post('/api/orders/draft', async (c) => {
 
   return c.json({
     order_id: result.order_id,
+    friendly_id: result.friendly_id,
     total_cents: result.total_cents,
     // Optimistic: client treats it as approved. If promotion later fails
     // the tracker will reflect the corrected status on next poll.

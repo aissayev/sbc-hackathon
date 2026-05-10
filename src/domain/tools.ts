@@ -102,6 +102,10 @@ export type CreateDraftOrderResult =
   | {
       ok: true
       order_id: string
+      // Short customer-facing alias (`HC-1042`). Stable per order,
+      // derived from SQLite ROWID. Surface this anywhere a human
+      // would read the id back over the phone.
+      friendly_id: string
       total_cents: number
       items: Array<{ sku: string; qty: number; unit_cents: number; line_total_cents: number; name: string }>
       status: 'draft'
@@ -125,7 +129,7 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
   }
   const id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const now = Date.now()
-  getDb()
+  const result = getDb()
     .prepare(
       `INSERT INTO orders
        (id, thread_id, channel, status, customer_name, customer_phone, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, referral_source, created_at, updated_at)
@@ -146,7 +150,18 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       now,
       now,
     )
-  return { ok: true, order_id: id, total_cents: total, items: itemsResolved, status: 'draft' as const }
+  // better-sqlite3's `run` returns lastInsertRowid as a bigint or number
+  // depending on the driver build; coerce to number for our offset math.
+  // The orders table's rowid is monotonically increasing, never reused.
+  const rowid = Number(result.lastInsertRowid)
+  return {
+    ok: true,
+    order_id: id,
+    friendly_id: friendlyOrderId(rowid),
+    total_cents: total,
+    items: itemsResolved,
+    status: 'draft' as const,
+  }
 }
 
 export const getOrderStatusSchema = z.object({
@@ -161,6 +176,11 @@ export const getOrderStatusSchema = z.object({
 const APPROVAL_REQUIRED_CATEGORIES = new Set(['custom', 'catering'])
 
 interface OrderRowFull {
+  // SQLite's auto-assigned ROWID. Used to derive a short customer-friendly
+  // alias (`HC-<rowid+offset>`) so people can read order numbers over the
+  // phone without spelling out a 24-char `ord_<ms>_<rand>` ID. The full
+  // id remains the canonical primary key for internal references.
+  rowid: number
   id: string
   status: string
   total_cents: number
@@ -169,6 +189,31 @@ interface OrderRowFull {
   pickup_or_delivery: string
   kitchen_ticket_id: string | null
   items_json: string | null
+}
+
+// Customer-facing alias for an order. Derived from SQLite ROWID so it's
+// stable, sequential, and trivially short. We start at 1001 (offset 1000
+// + rowid 1) so the smallest alias is four digits — feels like a real
+// order number, not "order 1 of all time".
+const FRIENDLY_ID_OFFSET = 1000
+
+export function friendlyOrderId(rowid: number): string {
+  return `HC-${rowid + FRIENDLY_ID_OFFSET}`
+}
+
+// Resolve a customer-typed friendly id back to its rowid. Accepts:
+//   "HC-1042"  · canonical
+//   "hc-1042"  · case-insensitive
+//   "1042"     · plain digits
+//   "#HC-1042" · with leading hash
+// Returns null if the input doesn't look like a friendly id, or if the
+// derived rowid is below 1 (offset is the floor).
+export function parseFriendlyOrderId(input: string): number | null {
+  const cleaned = input.trim().replace(/^#+/, '').replace(/^hc[-_]?/i, '')
+  if (!/^\d+$/.test(cleaned)) return null
+  const n = Number.parseInt(cleaned, 10)
+  if (n <= FRIENDLY_ID_OFFSET) return null
+  return n - FRIENDLY_ID_OFFSET
 }
 
 interface StoredItem {
@@ -196,6 +241,10 @@ function shapeOrderStatus(row: OrderRowFull) {
   const items: StoredItem[] = row.items_json ? (JSON.parse(row.items_json) as StoredItem[]) : []
   return {
     id: row.id,
+    // Short customer-facing alias. Stable per-order — derived from the
+    // immutable SQLite ROWID — so "HC-1042" prints the same in chat,
+    // confirmation page, tracker, and the owner's TG card.
+    friendly_id: friendlyOrderId(row.rowid),
     status: row.status,
     total_cents: row.total_cents,
     scheduled_at: row.scheduled_at,
@@ -220,22 +269,38 @@ function shapeOrderStatus(row: OrderRowFull) {
 // improbable (the random suffix alone is base36-6 ≈ 2 billion).
 export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
   const db = getDb()
+  // Pull rowid alongside the row so shapeOrderStatus can derive the
+  // friendly alias without a second round-trip.
   const select =
-    'SELECT id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id, items_json FROM orders'
+    'SELECT rowid, id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id, items_json FROM orders'
 
   // Customers often paste the displayed code with a leading `#` and
   // surrounding whitespace; strip both before matching.
   const cleaned = args.order_id.trim().replace(/^#+/, '')
+
+  // 1. Try the canonical full id first — the value our internal callers
+  //    always pass and what `formatOrderId(..., 'full')` prints.
   const exact = db.prepare(`${select} WHERE id = ?`).get(cleaned) as OrderRowFull | undefined
   if (exact) return shapeOrderStatus(exact)
 
-  if (cleaned.length >= 6 && !cleaned.startsWith('ord_')) {
+  // 2. Try the friendly alias ("HC-1042" / "1042"). Customers naturally
+  //    quote this back over the phone or paste it from the confirmation
+  //    page. Resolves through SQLite's stable ROWID.
+  const friendlyRowid = parseFriendlyOrderId(cleaned)
+  if (friendlyRowid !== null) {
+    const byRowid = db.prepare(`${select} WHERE rowid = ?`).get(friendlyRowid) as OrderRowFull | undefined
+    if (byRowid) return shapeOrderStatus(byRowid)
+  }
+
+  // 3. Fall back to suffix match for partial codes ("UG4G4J"). Only
+  //    triggers when the input doesn't already look like a full id and
+  //    is at least 6 chars (random suffix is base36-6 ≈ 2 billion → no
+  //    collisions for any realistic catalog).
+  if (cleaned.length >= 6 && !cleaned.startsWith('ord_') && friendlyRowid === null) {
     const candidates = db
       .prepare(`${select} WHERE id LIKE ? ORDER BY created_at DESC LIMIT 2`)
       .all(`%${cleaned}`) as OrderRowFull[]
     if (candidates.length === 1) return shapeOrderStatus(candidates[0])
-    // Ambiguous: the same suffix matches multiple orders. Force the
-    // customer (or agent) to use the full id rather than guess.
     if (candidates.length > 1) {
       return { ok: false, reason: 'short code matches multiple orders — use the full id starting with `ord_`' }
     }
@@ -244,22 +309,54 @@ export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
   return { ok: false, reason: 'order not found' }
 }
 
-export function listOrders(filter?: { status?: string; limit?: number }) {
-  const limit = filter?.limit ?? 50
-  if (filter?.status) {
-    return getDb()
-      .prepare(
-        `SELECT id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
-         WHERE status = ? ORDER BY created_at DESC LIMIT ?`,
-      )
-      .all(filter.status, limit)
+interface OrderListRow {
+  rowid: number
+  id: string
+  status: string
+  total_cents: number
+  customer_name: string | null
+  scheduled_at: string | null
+  created_at: number
+}
+
+interface ListedOrder {
+  id: string
+  friendly_id: string
+  status: string
+  total_cents: number
+  customer_name: string | null
+  scheduled_at: string | null
+  created_at: number
+}
+
+function shapeListed(row: OrderListRow): ListedOrder {
+  return {
+    id: row.id,
+    friendly_id: friendlyOrderId(row.rowid),
+    status: row.status,
+    total_cents: row.total_cents,
+    customer_name: row.customer_name,
+    scheduled_at: row.scheduled_at,
+    created_at: row.created_at,
   }
-  return getDb()
-    .prepare(
-      `SELECT id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
-       ORDER BY created_at DESC LIMIT ?`,
-    )
-    .all(limit)
+}
+
+export function listOrders(filter?: { status?: string; limit?: number }): ListedOrder[] {
+  const limit = filter?.limit ?? 50
+  const rows = filter?.status
+    ? (getDb()
+        .prepare(
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+           WHERE status = ? ORDER BY created_at DESC LIMIT ?`,
+        )
+        .all(filter.status, limit) as OrderListRow[])
+    : (getDb()
+        .prepare(
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
+           ORDER BY created_at DESC LIMIT ?`,
+        )
+        .all(limit) as OrderListRow[])
+  return rows.map(shapeListed)
 }
 
 export function updateOrderStatus(orderId: string, status: string, note?: string) {
