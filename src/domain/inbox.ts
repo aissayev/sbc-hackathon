@@ -333,7 +333,7 @@ export async function replyToInboxThread(
   channel: InboxChannel,
   id: string,
   text: string,
-  source: 'mini_app' | 'tg_chat' = 'mini_app',
+  source: 'mini_app' | 'tg_chat' | 'agent' = 'mini_app',
   tgChatId?: string,
 ): Promise<{
   ok: boolean

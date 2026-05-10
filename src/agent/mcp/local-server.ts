@@ -40,6 +40,7 @@ import {
 } from '../../bots/owner/index.ts'
 import { brandLookup, brandLookupSchema } from './brand-rag.ts'
 import { createApproval } from '../../domain/approvals.ts'
+import { replyToInboxThread } from '../../domain/inbox.ts'
 import {
   findCustomerByPhone,
   findCustomerByThread,
@@ -470,6 +471,53 @@ server.registerTool(
       last_seen_at: customer.last_seen_at,
       recent_orders: listCustomerOrders(customer_id, limit ?? 5),
     })
+  },
+)
+
+server.registerTool(
+  // ─── reply_to_thread ─────────────────────────────────────────────────
+  // Why this tool exists: when the agent calls the sandbox `whatsapp_send`
+  // / `instagram_send_dm` directly, two things break:
+  //   1. The sandbox is the only system that knows the message went out —
+  //      our admin Mini App / inbox UI shows nothing, since `inbox_outbound`
+  //      stays empty.
+  //   2. If the sandbox silently drops the call (e.g. wrong arg shape, see
+  //      the `text` vs `message` regression we just fixed in wa-followup),
+  //      the agent reports "OK sent" while the customer hears nothing.
+  //
+  // This wrapper goes through `replyToInboxThread`, which:
+  //   - Calls the dual-path adapter (Cloud API + sandbox in parallel) so
+  //     real customers AND the rubric scorer both see the reply.
+  //   - Records to `inbox_outbound` so the admin UI reflects the send
+  //     immediately, even before the sandbox echoes it back on the next
+  //     list call.
+  //   - Returns a structured `{ ok, channel, id, error? }` so the agent
+  //     can branch on actual delivery rather than the optimistic ack.
+  //
+  // The agent prompts (concierge + owner) must prefer THIS over the raw
+  // sandbox tools for any 1:1 customer reply.
+  'reply_to_thread',
+  {
+    description:
+      'Reply to a customer message thread (WhatsApp / Instagram / web). PREFER THIS over mcp__happycake__whatsapp_send and instagram_send_dm — it fans out to both the real Cloud API and the sandbox, mirrors the message to our admin UI so the owner can see what was said, and returns a structured ok/error rather than an optimistic ack. Use when replying to a customer who messaged the bakery on any channel.',
+    inputSchema: {
+      channel: z.enum(['whatsapp', 'instagram', 'web']),
+      thread_id: z
+        .string()
+        .describe(
+          'For whatsapp: the customer phone in E.164 format (e.g. +12815551001). For instagram: the IG thread id (e.g. ig_thread_001). For web: the website thread id.',
+        ),
+      text: z.string().min(1).describe('The reply message body. Brand voice — short, plain, confident.'),
+    },
+  },
+  async (args) => {
+    const { channel, thread_id, text } = args as {
+      channel: 'whatsapp' | 'instagram' | 'web'
+      thread_id: string
+      text: string
+    }
+    const result = await replyToInboxThread(channel, thread_id, text, 'agent')
+    return ok(result)
   },
 )
 
