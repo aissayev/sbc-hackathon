@@ -1,12 +1,12 @@
 # AGENTS.md — entry point for AI assistants working in this repo
 
-If you're a Claude Code session (or any agent) opening this repo cold, **read this first**. It's calibrated for one-shot orientation: where things live, what's running, what's changing.
+If you're a Claude Code session (or any agent) opening this repo cold, **read this first**. It's a one-shot orientation: where things live, what's running, what's changing.
 
 ---
 
 ## What this repo is
 
-Hackathon entry: Happy Cake US multi-channel agentic sales system. Built on Bun + Hono + TypeScript. The agent runtime is `claude -p` (Claude Code CLI, Opus 4.7) — **not** the Claude Agent SDK (banned by the hackathon rules).
+A multi-channel agentic sales system for HappyCake, a family-owned bakery in Sugar Land, TX. Customers reach the bakery on WhatsApp, Instagram, and the website; the owner runs the business from Telegram. One agent — `claude -p` with Opus 4.7 — handles every inbound message. Built on Bun + Hono + TypeScript. No SDKs (`@anthropic-ai/claude-agent-sdk`, LangGraph, CrewAI, etc.) — the runtime is the CLI directly.
 
 If you want full context: read [README.md](./README.md) and [ARCHITECTURE.md](./ARCHITECTURE.md). Brief is in [docs/00-source/BRIEF.md](./docs/00-source/BRIEF.md). Doc tree entry point: [docs/INDEX.md](./docs/INDEX.md).
 
@@ -23,12 +23,12 @@ If you want full context: read [README.md](./README.md) and [ARCHITECTURE.md](./
 
 ---
 
-## Hard rules you must respect
+## Hard rules
 
-1. **No Claude Agent SDK.** No `@anthropic-ai/claude-agent-sdk`, no `langgraph`, no `crewai`, no other LLM provider. The agent runtime is `src/agent/invoke.ts` which spawns `claude -p`. If you find yourself reaching for an SDK, you're solving the wrong problem.
-2. **Owner UI is Telegram only.** No web admin pages, no email digests. Customer-facing web (catalog, `/api/chat`) is fine — that's not owner-facing.
-3. **No secrets in git.** `.env.local`, `.mcp.json` are gitignored. The committed `.mcp.json.template` uses `${SBC_TEAM_TOKEN}` placeholders. If you write a feature that needs a token, route it through `src/config.ts` and document the var in `.env.example`.
-4. **No hardcoded test answers.** -10 points and a public note. If you're writing scenarios for evals, the agent's reply must be agent-generated, not pattern-matched on scenario tags.
+1. **`claude -p` is the agent runtime.** Not the Claude Agent SDK, not LangGraph, not CrewAI. `src/agent/invoke.ts` spawns the CLI subprocess; if you find yourself reaching for an SDK, you're solving the wrong problem.
+2. **Owner UI is Telegram, not the website.** The agent surface for the operator is the bot. The website's `/admin/*` pages are an owner Mini-App for shoulder-of-the-road glances; they're not where the agent lives.
+3. **Secrets stay out of git.** `.env.local` and `.mcp.json` are gitignored. The committed `.mcp.json.template` uses `${SBC_TEAM_TOKEN}` placeholders. New token? Route it through `src/config.ts` and document it in `.env.example`.
+4. **The agent doesn't memorise facts.** Prices, hours, capacity, lead times — every customer-facing fact comes from a tool call at request time. Hardcoded test answers cost the team ten rubric points and a public note in the score-card; `bun run audit:hardcodes` is the grep gate that catches them in CI.
 
 ---
 
