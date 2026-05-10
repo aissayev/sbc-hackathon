@@ -42,6 +42,7 @@ import {
   type ApprovalStatus,
 } from '../domain/approvals.ts'
 import { recordAuditEvent, listAuditEvents, auditCounts } from '../domain/audit.ts'
+import { listAdminLogs, type LogChannel } from '../domain/admin-logs.ts'
 import { getCockpitSettings } from '../domain/settings.ts'
 import {
   listCustomers,
@@ -138,6 +139,18 @@ adminRoutes.post('/api/admin/customers/merge', async (c) => {
 adminRoutes.get('/api/admin/escalations', (c) => {
   const status = c.req.query('status') ?? undefined
   return c.json({ escalations: listEscalations({ status }) })
+})
+
+// Combined feed of agent_invocations + audit_log, channel-filtered.
+// Powers the /admin/logs Mini App page so the owner can see every WA +
+// IG + web event without dropping to SQLite.
+adminRoutes.get('/api/admin/logs', (c) => {
+  const channelRaw = (c.req.query('channel') ?? 'all') as LogChannel | 'all'
+  const sinceRaw = c.req.query('since')
+  const limitRaw = c.req.query('limit')
+  const since = sinceRaw ? Math.max(0, parseInt(sinceRaw, 10) || 0) : undefined
+  const limit = limitRaw ? Math.max(1, Math.min(500, parseInt(limitRaw, 10) || 100)) : 100
+  return c.json(listAdminLogs({ channel: channelRaw, since, limit }))
 })
 
 adminRoutes.post('/api/admin/orders/:id/approve', async (c) => {

@@ -15,6 +15,7 @@ const ITEMS = [
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/careers', label: 'Careers' },
   { href: '/admin/escalations', label: 'Escalations' },
+  { href: '/admin/logs', label: 'Logs' },
   { href: '/admin/settings', label: 'Settings' },
 ]
 
