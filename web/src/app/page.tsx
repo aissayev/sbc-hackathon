@@ -166,16 +166,17 @@ function Hero({
 
       <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
         <div className="lg:col-span-7">
-          <Eyebrow>Cake shop · Sugar Land, TX</Eyebrow>
+          <Eyebrow>Family-owned cake shop & coffee bar</Eyebrow>
           <h1
             id="hero-tagline"
             className="display-h1 mt-5 [text-wrap:balance]"
           >
-            Where every bite <span className="text-sky">tells a story</span>.
+            Cakes worth <span className="text-sky">driving for</span>.
           </h1>
           <p className="mt-5 text-lg text-cocoa-900/75 max-w-xl leading-relaxed">
-            Handcrafted cakes and pastries made with love — European traditions, warm Kazakh
-            hospitality, baked fresh every morning in our Sugar Land kitchen.
+            Small-batch cakes and pastries, baked from scratch every morning. Real ingredients,
+            generous slices, and the kind of welcome that turns first-time guests into Saturday
+            regulars.
           </p>
 
           {/* Trust strip — replaces the noisy CTA stack with three quiet
@@ -185,7 +186,7 @@ function Hero({
               <Sparkles className="h-4 w-4 text-sky-700" /> Baked fresh daily
             </li>
             <li className="inline-flex items-center gap-2">
-              <Star className="h-4 w-4 text-sky-700" /> Loved by 500+ Sugar Land families
+              <Star className="h-4 w-4 text-sky-700" /> 500+ regulars and counting
             </li>
             <li className="inline-flex items-center gap-2">
               <Clock className="h-4 w-4 text-sky-700" /> Pickup or local delivery
