@@ -12,6 +12,7 @@ import { listInboxThreads, type InboxChannel, type InboxThreadRow } from '@/lib/
 import { fmtRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { MessageSquare, Instagram, Phone, Globe, ChevronRight } from 'lucide-react'
+import { SimulateInboundComposer } from '@/components/admin/simulate-inbound'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +58,8 @@ export default async function InboxPage({ searchParams }: PageProps) {
           Couldn't reach: {errors.join(', ')}. Showing what we have.
         </div>
       )}
+
+      <SimulateInboundComposer />
 
       <div className="flex flex-wrap items-center gap-2 mb-4 border-b border-cocoa-700/10 pb-3">
         {BUCKETS.map((b) => {

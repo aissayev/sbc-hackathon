@@ -199,20 +199,94 @@ export async function registerChannelWebhook(channel: ChannelId): Promise<Webhoo
 
 export async function sendTestInbound(channel: ChannelId): Promise<WebhookActionResult> {
   if (channel === 'whatsapp') {
-    const raw = await tryCallSandboxTool('whatsapp_inject_inbound', {
-      from: '+12815559999',
+    return simulateInbound({
+      channel: 'whatsapp',
+      handle: '+12815559999',
       message: `Cockpit smoke test ${new Date().toISOString().slice(11, 19)}`,
     })
-    if (raw == null) return { ok: false, channel, message: 'Sandbox inject_inbound failed.' }
-    return { ok: true, channel, message: 'Injected test WhatsApp inbound. Check Inbox.', raw }
   }
   if (channel === 'instagram') {
-    const raw = await tryCallSandboxTool('instagram_inject_dm', {
-      from: 'test_user_123',
+    return simulateInbound({
+      channel: 'instagram',
+      handle: 'test_user_123',
       message: `Cockpit smoke test ${new Date().toISOString().slice(11, 19)}`,
     })
-    if (raw == null) return { ok: false, channel, message: 'Sandbox inject_dm failed.' }
-    return { ok: true, channel, message: 'Injected test Instagram DM. Check Inbox.', raw }
   }
   return { ok: false, channel, message: `Channel ${channel} doesn't accept test inbound events.` }
+}
+
+export interface SimulateInboundInput {
+  channel: 'whatsapp' | 'instagram'
+  /** Phone in E.164 (`+12815551234`) for WA; IG username (no `@`) for Instagram. */
+  handle: string
+  message: string
+}
+
+/**
+ * Inject an inbound customer message via the sandbox MCP. The sandbox
+ * routes it back to our /webhooks/* endpoint (registered separately
+ * via `bun run register-webhooks <public-url>`) — at which point our
+ * existing onMessage pipeline takes over: pickRole → claude -p →
+ * outbound reply via whatsapp_send / instagram_send_dm. Subsequent
+ * customer messages on the same handle thread under the same id, so
+ * the conversation history is preserved without any extra plumbing.
+ *
+ * Pre-reqs:
+ *   - SBC_TEAM_TOKEN set so the sandbox MCP accepts the call.
+ *   - Webhooks registered (`bun run register-webhooks <https-url>`)
+ *     so the sandbox knows where to push the simulated inbound. Without
+ *     this the inject succeeds but the message never reaches us.
+ *
+ * Returns the same WebhookActionResult shape as registerChannelWebhook
+ * for symmetry — the admin route can render either result the same way.
+ */
+export async function simulateInbound(
+  input: SimulateInboundInput,
+): Promise<WebhookActionResult> {
+  const handle = input.handle.trim()
+  const message = input.message.trim()
+  if (!handle) return { ok: false, channel: input.channel, message: 'Handle is required.' }
+  if (!message) return { ok: false, channel: input.channel, message: 'Message is required.' }
+
+  if (input.channel === 'whatsapp') {
+    if (!handle.startsWith('+') || handle.length < 8) {
+      return {
+        ok: false,
+        channel: 'whatsapp',
+        message: 'WhatsApp number must be in E.164 format (e.g. +12815551234).',
+      }
+    }
+    const raw = await tryCallSandboxTool('whatsapp_inject_inbound', {
+      from: handle,
+      message,
+    })
+    if (raw == null) {
+      return { ok: false, channel: 'whatsapp', message: 'Sandbox whatsapp_inject_inbound failed.' }
+    }
+    return {
+      ok: true,
+      channel: 'whatsapp',
+      message: `Injected as WhatsApp from ${handle}. Reply will land back here.`,
+      raw,
+    }
+  }
+
+  // Instagram — accept @handle or bare handle, normalize off the @.
+  const igHandle = handle.startsWith('@') ? handle.slice(1) : handle
+  if (igHandle.length < 2) {
+    return { ok: false, channel: 'instagram', message: 'Instagram handle is too short.' }
+  }
+  const raw = await tryCallSandboxTool('instagram_inject_dm', {
+    from: igHandle,
+    message,
+  })
+  if (raw == null) {
+    return { ok: false, channel: 'instagram', message: 'Sandbox instagram_inject_dm failed.' }
+  }
+  return {
+    ok: true,
+    channel: 'instagram',
+    message: `Injected as Instagram DM from @${igHandle}. Reply will land back here.`,
+    raw,
+  }
 }

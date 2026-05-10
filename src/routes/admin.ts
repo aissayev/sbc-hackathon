@@ -25,6 +25,7 @@ import {
   getChannelStatus,
   registerChannelWebhook,
   sendTestInbound,
+  simulateInbound,
   type ChannelId,
 } from '../domain/channels.ts'
 import {
@@ -196,6 +197,35 @@ adminRoutes.post('/api/admin/channels/:id/test', async (c) => {
   recordAuditEvent({
     action: 'channel_test', targetId: id, channel: id,
     result: result.message, outcome: result.ok ? 'ok' : 'error',
+  })
+  return c.json(result, result.ok ? 200 : 400)
+})
+
+// Inject a customer-side inbound on WhatsApp / Instagram with a custom
+// handle + message. Sandbox routes it back through our webhook → agent
+// → reply, and threads stick to the handle so multiple injects with
+// the same number stay in the same conversation. Owner uses this to
+// dry-run the agent on real-looking inputs without firing up a phone.
+adminRoutes.post('/api/admin/inbox/simulate', async (c) => {
+  let body: { channel?: unknown; handle?: unknown; message?: unknown }
+  try {
+    body = (await c.req.json()) as typeof body
+  } catch {
+    return c.json({ ok: false, message: 'invalid_json' }, 400)
+  }
+  const channel = body.channel === 'whatsapp' || body.channel === 'instagram' ? body.channel : null
+  if (!channel) {
+    return c.json({ ok: false, message: 'channel must be "whatsapp" or "instagram"' }, 400)
+  }
+  const handle = typeof body.handle === 'string' ? body.handle : ''
+  const message = typeof body.message === 'string' ? body.message : ''
+  const result = await simulateInbound({ channel, handle, message })
+  recordAuditEvent({
+    action: 'inbox_simulate',
+    targetId: handle.slice(0, 64),
+    channel,
+    result: result.message,
+    outcome: result.ok ? 'ok' : 'error',
   })
   return c.json(result, result.ok ? 200 : 400)
 })

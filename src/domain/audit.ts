@@ -13,6 +13,7 @@ export type AuditAction =
   | 'approval_approve' | 'approval_reject'
   | 'thread_reply'
   | 'channel_register' | 'channel_test'
+  | 'inbox_simulate'
   | 'campaign_pause' | 'campaign_resume' | 'campaign_adjust'
   | 'order_approve' | 'order_reject'
   | 'customer_notes_update' | 'customer_merge'
