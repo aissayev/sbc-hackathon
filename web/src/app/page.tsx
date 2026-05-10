@@ -3,7 +3,6 @@ import Image from 'next/image'
 import { listProducts, type Product } from '@/lib/api'
 import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
 import { BLOG_POSTS } from '@/lib/blog'
-import { KIND_LABELS } from '@/lib/catalog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
@@ -92,10 +91,10 @@ export default async function HomePage() {
         <div className="flex items-end justify-between flex-wrap gap-4 mb-3">
           <div>
             <Eyebrow>Today&apos;s bake</Eyebrow>
-            <h2 className="display-h2 mt-3">One of each — start here</h2>
+            <h2 className="display-h2 mt-3">No two cakes the same</h2>
             <p className="mt-2 text-cocoa-900/70 max-w-xl">
-              By-the-slice, whole cakes, pastries, and custom. Tap any to see the rest of that
-              section.
+              Every cake in the case comes from a different tradition — Kazakh honey, modern
+              meringue, Italian classic, French chocolate. Worth trying all of them.
             </p>
           </div>
           <Button asChild variant="outline-sky" shape="pill" size="default">
@@ -105,30 +104,14 @@ export default async function HomePage() {
             </Link>
           </Button>
         </div>
-        <div className="mt-5 flex flex-wrap gap-2 mb-8">
-          {(['slice', 'whole', 'pastry', 'custom', 'catering'] as const).map((k) => (
-            <Link
-              key={k}
-              href={`/menu#${k}`}
-              className="inline-flex items-center rounded-full border border-cocoa-700/15 bg-white px-4 h-9 text-sm text-cocoa-900 hover:bg-cream-100 transition-colors"
-            >
-              {KIND_LABELS[k].plural}
-            </Link>
-          ))}
-        </div>
-        {/* First product gets the featured (full-bleed, title-overlaid) variant
-            so the slice section reads like a magazine spread. The remaining
-            kinds fall to the standard card. */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {featured[0] && (
-            <ProductCard
-              product={featured[0]}
-              variant="featured"
-              className="lg:col-span-2 lg:row-span-2"
-            />
-          )}
-          {featured.slice(1).map((p) => (
-            <ProductCard key={p.id} product={p} />
+        {/* Showcase row: each cake is genuinely unique on the market — the
+            collectible-style card surfaces its tradition (Kazakh-European
+            honey, modern meringue, Italian classic, celebration), its flavor
+            stack, and a one-line tagline. Equal-height tiles fit one viewport
+            on desktop. */}
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr">
+          {featured.map((p) => (
+            <ProductCard key={p.id} product={p} variant="showcase" />
           ))}
         </div>
       </section>
