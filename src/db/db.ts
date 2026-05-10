@@ -1,7 +1,7 @@
 // SQLite handle, lazily opened. Schema applied on first open.
 
 import { Database } from 'bun:sqlite'
-import { mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, existsSync, renameSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { config } from '../config.ts'
 
@@ -10,7 +10,7 @@ let _db: Database | null = null
 export function getDb(): Database {
   if (_db) return _db
   mkdirSync(dirname(config.db.path), { recursive: true })
-  _db = new Database(config.db.path)
+  _db = openWithCorruptionRecovery(config.db.path)
   _db.exec('PRAGMA journal_mode = WAL')
   _db.exec('PRAGMA foreign_keys = ON')
   // Migrations run BEFORE schema.exec because schema.sql may reference
@@ -21,6 +21,37 @@ export function getDb(): Database {
   _db.exec(schema)
   autoSeedProductsIfEmpty(_db)
   return _db
+}
+
+// Open the SQLite file. If it's corrupt (file system damage, partial
+// write, wrong format), rename it aside and open a fresh DB. This trades
+// non-critical local state (chat history, draft orders) for the backend
+// staying up — the alternative is the whole server crashing on every
+// request. Production-grade resilience for hackathon-quality storage.
+function openWithCorruptionRecovery(path: string): Database {
+  try {
+    const db = new Database(path)
+    // Probe the file: a corrupt header throws here even if `new Database`
+    // succeeded (Bun opens lazily).
+    db.exec('SELECT 1')
+    return db
+  } catch (err) {
+    const msg = (err as Error).message
+    // Only handle real corruption signals — propagate other errors (e.g.
+    // permission denied) so the operator sees them.
+    const isCorrupt = /malformed|not a database|corrupt|file is encrypted/i.test(msg)
+    if (!isCorrupt) throw err
+    if (!existsSync(path)) throw err
+    const aside = `${path}.corrupt-${Date.now()}`
+    console.error(`[db] CORRUPT db at ${path}: ${msg}`)
+    console.error(`[db] moving aside to ${aside} and starting fresh`)
+    renameSync(path, aside)
+    // Move WAL + SHM with the same suffix so they don't try to recover the corrupt main.
+    for (const ext of ['-wal', '-shm']) {
+      if (existsSync(path + ext)) renameSync(path + ext, aside + ext)
+    }
+    return new Database(path)
+  }
 }
 
 // Idempotent products seed: if the products table is empty AND the canonical
