@@ -6,29 +6,30 @@ This document leads with the **latest captured snapshot** so a judge can see sco
 
 ---
 
-## Latest snapshot (live evaluator pull)
+## Latest snapshot (live evaluator pull — 2026-05-10)
 
 ```
 $ bun run evidence
 ═════════ EVIDENCE BASELINE ═════════
 
-Channel response: 80/100
-  → 8 WA inbound, 0 outbound. Real WA send is sandbox-simulated until Meta
-    credentials (WA_TOKEN, WA_PHONE_NUMBER_ID) are wired into .env.local.
-  → Lift to 100: any real WA reply + 1 IG action + 1 GBP review reply.
+Channel response:  90/100
+  → 9 WA inbound, 0 outbound. Real WA send is sandbox-simulated until
+    Meta credentials (WA_TOKEN, WA_PHONE_NUMBER_ID) land in .env.local.
+  → Lift to 100: send WA replies on the 9 inbound, run any IG action,
+    post one GBP review reply.
 
 Marketing loop:    100/100 ✅
-  → 3 campaigns created, 9 leads generated, 1 owner report.
+  → 9 campaigns, 27 leads generated, 3 owner reports filed.
   → Driven by `bun run marketing:run`.
 
 POS + kitchen:     100/100 ✅
-  → 9 orders end-to-end, 5 kitchen tickets across accept/ready/reject.
+  → 9 orders end-to-end, 5 kitchen tickets (1 accepted, 3 ready, 1 rejected).
   → Driven by `bun run boost` and `bun run close-gaps`.
 
 World scenario:    100/100 ✅
   → Scenario active, 10 events emitted / 6 delivered, 200 audit calls.
 
-═════════ TOTAL: 380/400 (95%) ═════════
+═════════ TOTAL: 390/400 (97.5%) ═════════
 
 Tool calls (5):
   • mcp__happycake__evaluator_get_evidence_summary
@@ -37,10 +38,38 @@ Tool calls (5):
   • mcp__happycake__evaluator_score_pos_kitchen_flow
   • mcp__happycake__evaluator_score_world_scenario
 
-duration: 16.4s · cost: $0.395
+duration: 18.6s · cost: $0.397
 ```
 
-**Diagnosis:** Three of four rubric categories at 100. The remaining 80/100 in *Channel response* is gated on real Meta credentials, not code. Our adapter has dual-path output (`WA_OUTBOUND_MODE=real|sandbox|both`) — adding `WA_TOKEN` + `WA_PHONE_NUMBER_ID` to `.env.local` flips real outbound on without code changes.
+**Diagnosis:** Three of four rubric categories at 100/100. *Channel response*
+sits at 90/100 — the remaining 10 points are gated on real Meta credentials,
+not code. Our adapter is dual-path (`WA_OUTBOUND_MODE=real|sandbox|both`),
+so adding the two env vars below flips real outbound on with zero code
+change:
+
+```bash
+# .env.local
+WA_TOKEN=EAAB...                # Meta system-user token, scoped to this WABA
+WA_PHONE_NUMBER_ID=123456789    # the registered WA Business phone id
+WA_OUTBOUND_MODE=both           # sandbox + real in parallel; default already
+```
+
+Once set, every concierge reply that lands a `whatsapp_send` lights both the
+sandbox simulator (for evaluator scoring) and Meta's Cloud API (for the
+real customer). The evaluator picks up the outbound count on the next
+`evaluator_score_channel_response` call. Same pattern for `IG_TOKEN` /
+`IG_USER_ID` (Instagram-direct).
+
+**Per-rubric-category projection** (using the 115-point scoring published
+at <https://www.steppebusinessclub.com/hackathon>):
+
+| Rubric category | Max | Sandbox baseline | After WA/IG/GBP creds |
+|---|---|---|---|
+| Functional Tester | 20 | ~19 | ~20 |
+| Channel-response component (in Functional Tester) | — | 90/100 | 100/100 |
+| Marketing loop | 100 | 100 ✅ | 100 ✅ |
+| POS + kitchen | 100 | 100 ✅ | 100 ✅ |
+| World scenario | 100 | 100 ✅ | 100 ✅ |
 
 ## Reproducibility — fresh clone audit
 
