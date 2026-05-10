@@ -239,6 +239,26 @@ CREATE TABLE IF NOT EXISTS agent_invocations (
   created_at  INTEGER NOT NULL
 );
 
+-- Owner password gate. Single-row table (id=1) holding:
+--   - password_hash:   argon2id (Bun.password.hash). Null when no
+--                      password has been set yet → first-run flow
+--                      forces /admin/setup before /admin/login is usable.
+--   - session_secret:  32-byte hex, used to HMAC-sign session cookies.
+--                      Generated on first password setup; rotating it
+--                      logs everyone out (use as the panic button).
+--   - created_at / updated_at: ms epoch.
+--
+-- Mini App auth (Telegram init-data) bypasses this — Telegram-launched
+-- sessions are already authenticated by Telegram itself. This table
+-- only gates the browser path.
+CREATE TABLE IF NOT EXISTS auth_settings (
+  id              INTEGER PRIMARY KEY CHECK (id = 1),
+  password_hash   TEXT,
+  session_secret  TEXT NOT NULL,
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL
+);
+
 -- ─── Content studio ─────────────────────────────────────────────────────
 -- Owner-side content lifecycle: free-text intent → drafted caption →
 -- brand-checked → approved → scheduled → published. Sandbox MCP
