@@ -22,6 +22,7 @@
     "world:start": "bun src/scripts/world-start.ts",
     "world:run": "bun src/scripts/world-run.ts",
     "marketing:run": "bun src/scripts/marketing-run.ts",
+    "marketing:brief": "bun src/scripts/marketing-brief.ts",
     "close-gaps": "bun src/scripts/close-eval-gaps.ts",
     "boost": "bun src/scripts/boost-coverage.ts",
     "audit:hardcodes": "bun src/scripts/audit-hardcodes.ts",
