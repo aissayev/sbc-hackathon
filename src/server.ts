@@ -9,7 +9,7 @@ import { config, configuredChannels } from './config.ts'
 import { webAdapter } from './channels/web.ts'
 import { whatsappAdapter } from './channels/whatsapp.ts'
 import { instagramAdapter } from './channels/instagram.ts'
-import { telegramAdapter, sendTelegram, configuredBots } from './channels/telegram.ts'
+import { telegramAdapter, configuredBots } from './channels/telegram.ts'
 import { startTelegramPollers } from './channels/telegram-poller.ts'
 import { invokeAgent, recordRun } from './agent/invoke.ts'
 import { pickRole } from './agent/router.ts'
@@ -35,7 +35,7 @@ import {
   logOutbound,
   logError,
   logSystem,
-} from './bots/owner.ts'
+} from './bots/owner/index.ts'
 import { clearHistory } from './db/threads.ts'
 import { startCatalogSync } from './domain/catalog-sync.ts'
 
@@ -233,8 +233,6 @@ startTelegramPollers({
     })
   },
 })
-
-void sendTelegram
 
 export default {
   port: config.port,

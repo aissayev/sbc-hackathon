@@ -33,7 +33,7 @@ import {
 } from '../../domain/tools.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { getPolicies } from '../../domain/policies.ts'
-import { postDraftOrderCard, postEscalationCard } from '../../bots/owner.ts'
+import { postDraftOrderCard, postEscalationCard } from '../../bots/owner/index.ts'
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] }

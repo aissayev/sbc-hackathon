@@ -66,18 +66,24 @@ Real WA/IG creds are kept live as a demo bonus; the evaluator drives synthetic t
 
 ## Web frontend
 
-Server-rendered HTML from Hono (`src/web/pages.ts`). For the on-site assistant chat (`/chat` page), we add a single React island:
+**Next.js 15** (App Router, Turbopack dev) + **React 19**, in `web/`. Talks to the Hono backend over HTTP. Served on its own port (3001) so the backend can stay headless.
 
-- **Vercel AI SDK** (`ai`, `@ai-sdk/react`) — transport + state via `useChat`.
-- **assistant-ui** (`@assistant-ui/react`) — chat chrome with tool-call cards, reasoning panel, mobile-friendly.
+- **Tailwind CSS 3** — styling (cream + happy-blue palette from the brand book).
+- **Radix UI primitives** — `@radix-ui/react-dialog`, `react-popover`, `react-select`, `react-label`, `react-slot`. Accessible chrome under shadcn-style wrappers.
+- **react-hook-form + Zod resolver** — order-form validation with shared schemas.
+- **TanStack Query** — client-side fetching for the chat widget and order-status polling.
+- **lucide-react** — icon set.
+- **react-day-picker** + **date-fns** — pickup-date selection.
 
-Bundled as `chat.bundle.js` via esbuild, served from `/static/`.
+Agent-facing surfaces baked into the same app: Schema.org JSON-LD per page (Bakery, Product/Offer, FAQPage, ItemList), `/llms.txt`, `/sitemap.xml`, `/robots.txt`, `/api/products`, `/api/products/[id]`. The owner Mini App lives at `/admin/*` (Telegram WebApp init-data validated server-side).
 
-Why not Next.js: rest of the site is static and server-rendered for top agent-friendliness; only one page needs React. Saves bundle size and complexity.
+Why Next.js: SSR on every page is the rubric's Agent-Friendliness signal — AI crawlers and the on-site assistant both read fully-rendered HTML, no JS hydration required. App Router gets us metadata, JSON-LD, and route-level revalidation for free.
 
 ## Telegram bots
 
-`telegraf` library, one bot per agent role. Four bot tokens in `.env.local`. Each bot is a NestJS-free standalone module under `src/bots/`.
+Raw `fetch` to `api.telegram.org/bot<token>/<method>`, no library. Multi-bot fan-out: one bot per role (`@hc_owner_bot`, `@hc_concierge_bot`, `@hc_kitchen_bot`, `@hc_marketing_bot`) defined in [src/channels/telegram.ts](../../src/channels/telegram.ts), driven by [src/channels/telegram-poller.ts](../../src/channels/telegram-poller.ts) (long-poll `getUpdates`). Owner-bot slash-command router and inline-keyboard callbacks in [src/bots/owner/](../../src/bots/owner/).
+
+Why not telegraf/grammy: ~80 lines of `fetch` covers everything we need (sendMessage, editMessageText, answerCallbackQuery, sendChatAction); pulling a framework would add type-friction without saving meaningful code.
 
 ## Tunnels
 
@@ -85,13 +91,27 @@ Quick path: `ngrok http 3000` → register the URL via `bun run register-webhook
 
 ## Dependencies (production)
 
+Backend ([package.json](../../package.json)):
 ```
 hono                              — HTTP framework
 zod                               — schema validation
-@modelcontextprotocol/sdk         — local MCP server
-ai + @ai-sdk/react                — chat transport (frontend)
-@assistant-ui/react               — chat UI primitives (frontend)
-telegraf                          — Telegram bots
+@modelcontextprotocol/sdk         — local stdio MCP server
+@aws-sdk/client-s3                — image uploads to DO Spaces
+@aws-sdk/s3-request-presigner     — pre-signed upload URLs
+```
+
+Web ([web/package.json](../../web/package.json)):
+```
+next, react, react-dom            — framework
+zod, @hookform/resolvers          — form validation
+react-hook-form                   — form state
+@tanstack/react-query             — client fetching
+@radix-ui/* (5 primitives)        — accessible UI primitives
+class-variance-authority, clsx,
+  tailwind-merge                  — variant + class helpers
+lucide-react                      — icons
+react-day-picker, date-fns        — date picker
+tailwindcss-animate               — utility animations
 ```
 
 ## Dev dependencies
@@ -99,7 +119,7 @@ telegraf                          — Telegram bots
 ```
 @types/bun                        — Bun TS types
 typescript                        — typecheck only (Bun runs TS directly)
-esbuild                           — bundle the chat island
+tailwindcss, postcss, autoprefixer (web only)
 ```
 
 Bun handles the rest: native test runner, watch mode, package install.
@@ -110,7 +130,7 @@ Bun handles the rest: native test runner, watch mode, package install.
 - `@anthropic-ai/claude-agent-sdk` — banned.
 - `langchain`, `langgraph`, `crewai-js` — banned.
 - `prisma`, `pg`, `mysql2` — single-file SQLite is enough.
-- `next`, `react-dom/server` — static HTML from Hono is enough.
+- `telegraf`, `grammy`, `node-telegram-bot-api` — raw fetch is enough.
 - `redis`, `bullmq` — in-process queue suffices for laptop QPS.
 - `openai`, `@google/generative-ai` — disallowed.
 
@@ -120,29 +140,29 @@ A `git grep` of these in `package.json` returns clean.
 
 ```
 sbc-hackathon/
-├── README.md, ARCHITECTURE.md, AGENTS.md
+├── README.md, ARCHITECTURE.md, AGENTS.md, CLAUDE.md
 ├── .env.example, .env.local (gitignored)
 ├── .mcp.json.template, .mcp.json (gitignored)
 ├── package.json, tsconfig.json, bun.lock
-├── data/                       — committed seed data (photos, brandbook copy)
+├── data/                       — committed seed data (catalog, campaign plans)
 ├── .data/                      — runtime SQLite (gitignored)
 ├── docs/                       — this docs tree
-├── evals/scenarios/            — YAML customer scenarios
 ├── evidence/                   — evaluator preview outputs (gitignored)
-└── src/
-    ├── server.ts               — Hono entrypoint
-    ├── config.ts               — env access seam
-    ├── lib/env.ts              — .env loader
-    ├── routes/webhooks.ts      — WA/IG/TG webhook handlers
-    ├── channels/               — per-channel adapters
-    ├── domain/tools.ts         — typed wrappers around MCP tools
+├── web/                        — Next.js 15 customer site + owner Mini App
+└── src/                        — Bun + Hono backend
+    ├── server.ts               — Hono entrypoint, composition root
+    ├── config.ts               — single env access seam
+    ├── lib/                    — env, sandbox-mcp client, event-log, spaces
+    ├── routes/                 — webhooks.ts, catalog, orders, admin, leads, meta
+    ├── channels/               — per-channel adapters (WA/IG/TG/web)
+    ├── domain/                 — pure ops: tools, policies, campaigns, orchestration
     ├── agent/
     │   ├── invoke.ts           — claude -p subprocess wrapper
     │   ├── router.ts           — channel/sender → role
-    │   ├── prompts/<role>.md   — system prompts per role
+    │   ├── allowlists.ts       — per-role tool allowlists + global denylist
+    │   ├── prompts/<role>.md   — system prompts per role (when present)
     │   └── mcp/local-server.ts — stdio MCP for our state
-    ├── bots/                   — telegraf bots (one per role)
+    ├── bots/owner/             — owner-bot slash commands + cards + callbacks
     ├── db/                     — SQLite schema + queries
-    ├── web/                    — server-rendered HTML pages
-    └── scripts/                — db-init, smoke-agent, world-start, evidence, setup-mcp
+    └── scripts/                — db-init, smoke-agent, world, evidence, setup-mcp
 ```
