@@ -100,6 +100,25 @@ export const ASSETS = {
       ? `${CDN}/team/family-couple.jpg`
       : '/assets/team/family-couple.jpg',
   },
+  // Real interior photography from the Sugar Land storefront. Same fall-back
+  // pattern as `team` — local public/ until they land on the CDN.
+  store: {
+    signWithFlowers: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/store/sign-flowers.jpg`
+      : '/assets/store/sign-flowers.jpg',
+    signOverTable: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/store/sign-table.jpg`
+      : '/assets/store/sign-table.jpg',
+    diningRoom: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/store/wide-room.jpg`
+      : '/assets/store/wide-room.jpg',
+    wallArt: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/store/wall-art.jpg`
+      : '/assets/store/wall-art.jpg',
+    coffeeAndCake: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/store/sign-coffee-cake.jpg`
+      : '/assets/store/sign-coffee-cake.jpg',
+  },
 } as const
 
 // Deterministic photo picker — same product id always gets the same shot.

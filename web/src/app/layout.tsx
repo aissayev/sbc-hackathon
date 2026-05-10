@@ -35,19 +35,29 @@ export const metadata: Metadata = {
     canonical: '/',
     types: { 'application/llms.txt': '/llms.txt' },
   },
+  // Social-card image is a real shot of our counter (a slice + branded iced
+  // coffee under the Happy Cake neon) — outperforms an abstract product photo
+  // because it telegraphs "real café, real seat" in the link preview.
   openGraph: {
     type: 'website',
     title: `${BRAND.name} — ${BRAND.tagline}`,
     description: BRAND.slogan,
     siteName: BRAND.name,
     locale: 'en_US',
-    images: [{ url: ASSETS.hero[0], width: 1600, height: 1000, alt: 'Happy Cake' }],
+    images: [
+      {
+        url: ASSETS.store.coffeeAndCake,
+        width: 1280,
+        height: 936,
+        alt: 'Happy Cake — a slice of cake and an iced coffee under our neon sign',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: `${BRAND.name} — ${BRAND.tagline}`,
     description: BRAND.slogan,
-    images: [ASSETS.hero[0]],
+    images: [ASSETS.store.coffeeAndCake],
   },
   // Icons resolve via the App Router file convention:
   //   app/favicon.ico   → /favicon.ico (auto-linked as <link rel="icon">)
