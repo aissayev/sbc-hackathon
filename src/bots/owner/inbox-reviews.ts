@@ -1,46 +1,16 @@
-// Owner async slash commands for inbox + reviews + spend + GBP metrics.
-//
-// Hits the sandbox over HTTP (covered by team token, not Claude Max) — same
-// cost profile as DB-backed commands: instant, free, no `claude -p` spend.
-// Async only because of network I/O.
-//
-// Companion to commands.ts (sync, DB-backed) and the existing /campaigns +
-// /brief commands. These four close the WA/IG/GBP visibility gap on the
-// owner cockpit:
-//
-//   /inbox      WhatsApp + Instagram thread inbox
-//   /reviews    Recent Google Business reviews + 1-tap reply
-//   /spend      Marketing budget MTD
-//   /gb         Google Business profile metrics
+// Owner async slash commands — closes WA/IG/GBP visibility gap.
+// Sandbox HTTP, no `claude -p` spend.
 
 import { tryCallSandboxTool } from '../../lib/sandbox-mcp.ts'
 import type { BotReply } from './commands.ts'
 import type { IncomingMessage } from '../../channels/types.ts'
 import { shortId } from './format.ts'
 
-interface ThreadRow {
-  threadId?: string; id?: string; from?: string
-  customerHandle?: string; customer_handle?: string
-  lastMessage?: string; last_message?: string
-}
-interface ReviewRow {
-  id?: string; reviewId?: string
-  rating?: number; stars?: number
-  text?: string; body?: string
-  authorName?: string; author?: string
-  hasReply?: boolean; replied?: boolean
-}
-interface CampaignSpend {
-  spendUsd?: number; spend_usd?: number; leads?: number
-}
-interface BudgetShape {
-  monthlyBudgetUsd?: number; targetEffectUsd?: number
-}
-interface GbMetrics {
-  views?: number; calls?: number
-  directionRequests?: number; direction_requests?: number
-  period?: string; windowDays?: number
-}
+interface ThreadRow { threadId?: string; id?: string; from?: string; customerHandle?: string; customer_handle?: string; lastMessage?: string; last_message?: string }
+interface ReviewRow { id?: string; reviewId?: string; rating?: number; stars?: number; text?: string; body?: string; authorName?: string; author?: string; hasReply?: boolean; replied?: boolean }
+interface CampaignSpend { spendUsd?: number; spend_usd?: number; leads?: number }
+interface BudgetShape { monthlyBudgetUsd?: number; targetEffectUsd?: number }
+interface GbMetrics { views?: number; calls?: number; directionRequests?: number; direction_requests?: number; period?: string; windowDays?: number }
 
 const trunc = (s: string, n = 60): string => s.length > n ? s.slice(0, n).trimEnd() + '\u2026' : s
 const stars = (n: number): string => {
@@ -55,9 +25,7 @@ async function inboxReply(): Promise<BotReply> {
   ])
   const waThreads = (Array.isArray(wa) ? wa : (wa?.threads ?? [])).slice(0, 5)
   const igThreads = (Array.isArray(ig) ? ig : (ig?.threads ?? [])).slice(0, 5)
-  if (waThreads.length === 0 && igThreads.length === 0) {
-    return { text: '\u2705 Inbox empty \u2014 no open WA or IG threads.' }
-  }
+  if (waThreads.length === 0 && igThreads.length === 0) return { text: '\u2705 Inbox empty \u2014 no open WA or IG threads.' }
   const rows: string[] = ['Inbox \u2014 open threads', '']
   const buttons: Array<Array<{ text: string; data: string }>> = []
   for (const t of waThreads) {
@@ -106,31 +74,20 @@ async function spendReply(): Promise<BotReply> {
   const remaining = Math.max(0, monthly - cumSpend)
   const cumLeads = all.reduce((acc, c) => acc + (c.leads ?? 0), 0)
   return {
-    text: [
-      'Marketing \u2014 month to date', '',
-      `Budget:    $${monthly} target $${target} effect`,
-      `Spent:     $${cumSpend.toFixed(2)}`,
-      `Remaining: $${remaining.toFixed(2)}`,
-      `Leads:     ${cumLeads}`,
-    ].join('\n'),
+    text: ['Marketing \u2014 month to date', '', `Budget:    $${monthly} target $${target} effect`, `Spent:     $${cumSpend.toFixed(2)}`, `Remaining: $${remaining.toFixed(2)}`, `Leads:     ${cumLeads}`].join('\n'),
     keyboard: [[{ text: '\ud83d\udce3 Campaigns', data: '/campaigns' }]],
   }
 }
 
 async function gbReply(): Promise<BotReply> {
   const m = await tryCallSandboxTool<GbMetrics>('gb_get_metrics', { window: 'last_7_days' })
-  if (!m) return { text: '(GBP metrics unavailable \u2014 sandbox returned no data)' }
+  if (!m) return { text: '(GBP metrics unavailable)' }
   const views = m.views ?? 0
   const calls = m.calls ?? 0
   const directions = m.directionRequests ?? m.direction_requests ?? 0
   const period = m.period ?? `last ${m.windowDays ?? 7} days`
   return {
-    text: [
-      `Google Business \u2014 ${period}`, '',
-      `Views:      ${views}`,
-      `Calls:      ${calls}`,
-      `Directions: ${directions}`,
-    ].join('\n'),
+    text: [`Google Business \u2014 ${period}`, '', `Views:      ${views}`, `Calls:      ${calls}`, `Directions: ${directions}`].join('\n'),
     keyboard: [[{ text: '\u2b50 Reviews', data: '/reviews' }]],
   }
 }
