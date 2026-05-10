@@ -21,8 +21,75 @@ import {
   transcribeAudio,
   TranscribeNotConfiguredError,
 } from '../lib/transcribe.ts'
+import { logVoiceTranscription } from '../bots/owner/log.ts'
 
 const TG_API = 'https://api.telegram.org'
+
+// Spoken-form keywords that map to owner slash commands. Whisper drops the
+// leading slash and often capitalises / appends punctuation (e.g. "Brief.")
+// so we normalise before matching. Keep this list aligned with the switch
+// in src/bots/owner/commands.ts:handleOwnerCommand.
+const VOICE_COMMAND_MAP: Record<string, string> = {
+  // English
+  brief: '/brief',
+  briefing: '/brief',
+  today: '/today',
+  orders: '/orders',
+  escalations: '/escalations',
+  campaigns: '/campaigns',
+  campaign: '/campaigns',
+  inbox: '/inbox',
+  reviews: '/reviews',
+  spend: '/spend',
+  score: '/score',
+  reset: '/reset',
+  help: '/help',
+  start: '/start',
+  // Russian — these are how the owner is most likely to say each command
+  бриф: '/brief',
+  брифинг: '/brief',
+  заказы: '/orders',
+  сегодня: '/today',
+  кампании: '/campaigns',
+  кампания: '/campaigns',
+  отзывы: '/reviews',
+  помощь: '/help',
+  сброс: '/reset',
+}
+
+/**
+ * Normalise a transcript and map spoken keywords to slash commands. Returns
+ * the original text if no keyword matches. Examples:
+ *   "Brief."          → "/brief"
+ *   " brief "         → "/brief"
+ *   "слаш бриф"       → "/brief"   (some users prefix with "slash")
+ *   "show me orders"  → "show me orders"  (only exact-keyword matches)
+ *
+ * Single-word transcripts get matched. Multi-word transcripts only match if
+ * the first non-stopword is a known command — this avoids false positives on
+ * "campaigns are doing great today".
+ */
+export function voiceCommandToSlash(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return raw
+  // Strip leading punctuation, "slash"/"слэш" prefixes, lowercase first word.
+  const cleaned = trimmed.replace(/^[\s.,!?;:'"`/]+/, '')
+  const words = cleaned.toLowerCase().split(/\s+/)
+  // Strip trailing punctuation so "Brief." matches "brief".
+  const stripPunct = (w: string) => w.replace(/[.,!?;:'"`]+$/, '')
+  let head = stripPunct(words[0])
+  if ((head === 'slash' || head === 'слэш' || head === 'слаш') && words.length >= 2) {
+    head = stripPunct(words[1])
+  }
+  const match = VOICE_COMMAND_MAP[head]
+  if (!match) return raw
+  // Only auto-rewrite when the transcript was effectively just the command
+  // (≤2 words). Longer phrases stay as free text — let the agent reason
+  // about them rather than risking a false slash invocation.
+  const wordCount = words.length - (head === words[0] ? 0 : 1)
+  if (wordCount > 2) return raw
+  return match
+}
 
 interface GetUpdatesResponse {
   ok: boolean
@@ -74,11 +141,9 @@ async function maybeTranscribeUpdate(
       filename: m.voice ? 'voice.ogg' : 'audio.ogg',
     })
     const ms = Date.now() - start
-    console.log(
-      `[telegram:${bot.role}] transcribed ${audio.duration}s voice in ${ms}ms (lang=${result.languageCode ?? 'auto'}): ${result.text.slice(0, 80)}${result.text.length > 80 ? '…' : ''}`,
-    )
 
     if (!result.text) {
+      console.warn(`[telegram:${bot.role}] empty transcript for ${audio.duration}s voice`)
       await sendTelegram(
         bot.token,
         m.chat.id,
@@ -87,10 +152,30 @@ async function maybeTranscribeUpdate(
       return null
     }
 
-    // Inject the transcript so the rest of the pipeline (parser → router →
-    // agent) sees a normal text message. Caption is preserved if present.
+    // Map "brief" / "campaigns" / "today" → /brief etc. so voice notes can
+    // invoke slash commands. Pass-through otherwise.
+    const mapped = voiceCommandToSlash(result.text)
+    const transformedTo = mapped !== result.text ? mapped : undefined
+
+    // Internal log — both to TG owner channel (audit trail) and console
+    // (recoverable from server logs). Owner role only — kitchen / marketing
+    // / concierge bots fan out to the owner log too because the owner is
+    // who reviews the audit trail.
+    logVoiceTranscription({
+      role: bot.role,
+      threadId: String(m.chat.id),
+      transcript: result.text,
+      languageCode: result.languageCode,
+      durationSec: result.durationSec ?? audio.duration,
+      latencyMs: ms,
+      transformedTo,
+    })
+
+    // Inject the transcript (or the mapped slash command) so the rest of
+    // the pipeline (parser → router → slash dispatcher → agent) sees a
+    // normal text message. Caption is preserved if present.
     const caption = m.caption ? `${m.caption}\n\n` : ''
-    const injectedText = `${caption}${result.text}`
+    const injectedText = `${caption}${mapped}`
     const cloned: TelegramUpdate = {
       ...update,
       message: update.message ? { ...update.message, text: injectedText } : update.message,
