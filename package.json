@@ -29,6 +29,7 @@
     "audit:hardcodes": "bun src/scripts/audit-hardcodes.ts",
     "repro": "bun src/scripts/repro-smoke.ts",
     "register-webhooks": "bun src/scripts/register-webhooks.ts",
+    "tg:menu": "bun src/scripts/tg-menu.ts",
     "webhooks:status": "bun src/scripts/webhooks-status.ts",
     "world:tick": "bun src/scripts/world-tick.ts",
     "evidence": "bun src/scripts/evidence.ts",
