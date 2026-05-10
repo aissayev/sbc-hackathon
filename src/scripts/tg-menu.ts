@@ -73,7 +73,20 @@ const MENU_LABEL: Record<TgBotSpec['role'], string> = {
   owner: 'HappyCake',
   kitchen: 'Kitchen',
   marketing: 'Marketing',
-  concierge: 'HappyCake',
+  concierge: 'Order a cake',
+}
+
+// Per-role Mini App landing path. Owner / kitchen / marketing all open
+// the cockpit (which routes them to /admin/today by default). Concierge
+// is the *customer-facing* bot — its Mini App should open the order
+// page, NOT the admin cockpit. Previously this script registered the
+// same /admin URL for every bot, which is why the customer Mini App
+// was opening the admin login screen instead of the order form.
+const MENU_PATH: Record<TgBotSpec['role'], string> = {
+  owner: '/admin',
+  kitchen: '/admin',
+  marketing: '/admin',
+  concierge: '/order',
 }
 
 function configuredBots(): Array<TgBotSpec & { token: string }> {
@@ -110,7 +123,6 @@ if (!url || !url.startsWith('https://')) {
 }
 
 const base = url.replace(/\/$/, '')
-const adminUrl = `${base}/admin`
 
 const bots = configuredBots()
 if (bots.length === 0) {
@@ -118,19 +130,22 @@ if (bots.length === 0) {
   process.exit(1)
 }
 
-console.log(`Configuring ${bots.length} bot(s) → menu button: ${adminUrl}`)
+console.log(`Configuring ${bots.length} bot(s) → ${base}{/admin or /order}`)
 console.log()
 
 for (const bot of bots) {
   const label = MENU_LABEL[bot.role]
   const commands = COMMANDS[bot.role]
-  console.log(`[${bot.role}]`)
+  // Per-role landing path — owner cockpit for staff bots, customer
+  // order form for the concierge (customer-facing) bot.
+  const miniAppUrl = `${base}${MENU_PATH[bot.role]}`
+  console.log(`[${bot.role}]  → ${miniAppUrl}`)
   try {
     await tgRequest(bot.token, 'setChatMenuButton', {
       menu_button: {
         type: 'web_app',
         text: `🎂 ${label}`,
-        web_app: { url: adminUrl },
+        web_app: { url: miniAppUrl },
       },
     })
     console.log(`  ✓ menu button → 🎂 ${label}`)
@@ -153,4 +168,4 @@ console.log("  - The button next to the message input opens the Mini App")
 console.log()
 console.log('If the menu button does NOT show up:')
 console.log('  - Force-restart Telegram (it caches menu buttons aggressively)')
-console.log('  - Verify the URL is reachable: curl -sI ' + adminUrl)
+console.log(`  - Verify the URLs are reachable: curl -sI ${base}/admin and ${base}/order`)
