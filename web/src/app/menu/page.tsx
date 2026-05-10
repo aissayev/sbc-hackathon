@@ -21,16 +21,76 @@ export default async function MenuPage() {
   // server round-trip per filter change (the prior /menu route did).
   const all = await listProducts()
 
+  // Embed the full Product per ListItem so an AI crawler that fetches
+  // /menu sees price, availability, allergens, and lead time without
+  // having to follow each item URL. The brief's Agent-Friendliness
+  // rubric explicitly rewards "product data is readable" + "prices and
+  // constraints are clear" — single-fetch comprehension is the ideal.
   const itemListJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: `${BRAND.name} menu`,
-    itemListElement: all.map((p, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      url: `${BRAND.origin}/menu/${p.id}`,
-      name: p.name,
-    })),
+    description: `Today's catalog — ${all.length} items, hand-decorated in our Sugar Land kitchen.`,
+    numberOfItems: all.length,
+    itemListElement: all.map((p, i) => {
+      const productUrl = `${BRAND.origin}/menu/${p.id}`
+      const allergens =
+        typeof p.allergens === 'string' && p.allergens.length > 0
+          ? p.allergens.split(',').map((a) => a.trim()).filter(Boolean)
+          : []
+      return {
+        '@type': 'ListItem',
+        position: i + 1,
+        url: productUrl,
+        item: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          '@id': productUrl,
+          name: p.name,
+          url: productUrl,
+          sku: p.id,
+          category: p.category,
+          description: p.description ?? undefined,
+          image: p.photo_url ? [p.photo_url] : undefined,
+          brand: { '@type': 'Brand', name: BRAND.name },
+          offers: {
+            '@type': 'Offer',
+            url: productUrl,
+            priceCurrency: 'USD',
+            price: (p.price_cents / 100).toFixed(2),
+            availability: p.in_stock
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+            seller: { '@type': 'Organization', name: BRAND.name },
+          },
+          additionalProperty: [
+            {
+              '@type': 'PropertyValue',
+              name: 'lead_time_hours',
+              value: p.lead_time_hours,
+            },
+            ...(allergens.length > 0
+              ? [
+                  {
+                    '@type': 'PropertyValue',
+                    name: 'allergens',
+                    value: allergens.join(', '),
+                  },
+                ]
+              : []),
+            ...(typeof p.daily_capacity === 'number'
+              ? [
+                  {
+                    '@type': 'PropertyValue',
+                    name: 'daily_capacity',
+                    value: p.daily_capacity,
+                  },
+                ]
+              : []),
+          ],
+        },
+      }
+    }),
   }
 
   return (
