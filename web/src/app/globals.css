@@ -145,38 +145,6 @@
     mix-blend-mode: multiply;
   }
 
-  /* Hero sparkle bobbing — subtle vertical drift, varied per element via
-     animation-delay (set inline). Pure translateY (no rotate) so inline
-     rotation transforms on sprinkle children survive. Respects
-     prefers-reduced-motion. */
-  @keyframes hero-bob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-  }
-  @keyframes hero-twinkle {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.6; transform: scale(0.9); }
-  }
-  .hero-bob { animation: hero-bob 7s ease-in-out infinite; }
-  .hero-twinkle { animation: hero-twinkle 4.5s ease-in-out infinite; }
-
-  /* Cursor-driven parallax — three depth tiers consume --px / --py
-     custom properties set by HeroDecor on mousemove. Foreground moves
-     most, background barely moves. Math is intentionally tiny (max 6px
-     base × 1.4 = ~8px) — the effect is felt, not seen. The combination
-     with the existing bob/twinkle animations needs `transform` to stack
-     via CSS variables, but we apply parallax on the *wrapper* div and
-     bob/twinkle on the *child* glyph, so the two transforms compose
-     without fighting each other. */
-  .hero-px-front { transform: translate3d(calc(var(--px, 0px) * 1.4), calc(var(--py, 0px) * 1.4), 0); transition: transform 0.1s ease-out; }
-  .hero-px-mid   { transform: translate3d(calc(var(--px, 0px) * 0.8), calc(var(--py, 0px) * 0.8), 0); transition: transform 0.15s ease-out; }
-  .hero-px-back  { transform: translate3d(calc(var(--px, 0px) * 0.4), calc(var(--py, 0px) * 0.4), 0); transition: transform 0.2s ease-out; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .hero-bob, .hero-twinkle { animation: none; }
-    .hero-px-front, .hero-px-mid, .hero-px-back { transform: none; }
-  }
-
   /* Soft polka-dot polish for sections + dark hero overlays */
   .pattern-dots-cream {
     background-image: radial-gradient(circle, rgba(248, 236, 211, 0.55) 1px, transparent 1.2px);
