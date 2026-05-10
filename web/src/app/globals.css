@@ -77,24 +77,104 @@
       linear-gradient(165deg, #FFFBF3 0%, #FFF7EA 50%, #FBE9F0 100%);
   }
 
-  /* Layered home-hero backdrop — warm cream wash, sky + berry glows in the
-     corners, and a faint dot lattice. Used as a stack of three overlays so
-     the hero feels deeper than a flat gradient without being noisy. */
+  /* Layered home-hero backdrop — "Confetti Morning":
+     1. Warm cream base
+     2. Top-left butter / sun glow (morning light through bakery windows)
+     3. Top-right sky kiss (signature sky accent without overpowering)
+     4. Bottom-right blush bloom (sweetness)
+     5. Bottom warm cocoa wash (anchor)
+     6. Subtle vertical gradient (cream → blush) bleeding into the page
+     The radials use higher opacities than before so the warmth actually
+     reads — previously the wash was so faint it looked accidental. */
   .home-hero-bg {
     background-color: #FFFBF3;
     background-image:
-      radial-gradient(46% 46% at 12% 8%, rgba(0, 174, 234, 0.18) 0%, transparent 60%),
-      radial-gradient(40% 40% at 100% 12%, rgba(233, 75, 123, 0.10) 0%, transparent 60%),
-      radial-gradient(60% 60% at 50% 105%, rgba(107, 58, 30, 0.10) 0%, transparent 65%),
-      linear-gradient(180deg, #FFFBF3 0%, #FFF7EA 60%, #FBE9F0 100%);
+      radial-gradient(50% 55% at 8% 0%, rgba(255, 196, 102, 0.30) 0%, transparent 65%),
+      radial-gradient(42% 48% at 102% 6%, rgba(0, 174, 234, 0.22) 0%, transparent 65%),
+      radial-gradient(46% 50% at 96% 92%, rgba(233, 75, 123, 0.18) 0%, transparent 65%),
+      radial-gradient(55% 50% at 18% 110%, rgba(107, 58, 30, 0.12) 0%, transparent 65%),
+      linear-gradient(178deg, #FFF8EB 0%, #FFF3E0 55%, #FBE2EB 100%);
   }
+
+  /* Soft dot mesh — gentle, bakery-friendly, replaces the old linear grid
+     (which read more "grid software" than "small bakery"). Dots are warm
+     cocoa at very low opacity, masked to the centre so the corners stay
+     clean for the radial glows to shine. */
   .home-hero-grid {
     background-image:
-      linear-gradient(to right, rgba(107, 58, 30, 0.06) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(107, 58, 30, 0.06) 1px, transparent 1px);
-    background-size: 56px 56px;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 35%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 35%, transparent 80%);
+      radial-gradient(circle, rgba(107, 58, 30, 0.10) 1.1px, transparent 1.4px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 85%);
+  }
+
+  /* Editorial cake-photo treatment — mask + warm color grade so the
+     photo dissolves into the cream wash and reads as a watercolor
+     atmosphere rather than a stock-photo slap.
+     • Mask: radial fade. The photo is brightest at left ~30% / vertical
+       middle (where the cake itself sits), and falls to fully transparent
+       toward the right where the form lives and the headline column
+       begins. Adjusting the mask stops shifts how much "cake" you see.
+     • Tint: gentle desaturate + warm shift via filter, plus opacity. The
+       multiply blend would tint the cake too dark over the cream — a
+       straight low-opacity filtered photo composes more cleanly. */
+  .hero-photo-mask {
+    /* Goldilocks tuning: bright center at 16% (cake reads as a real
+       photo on the left, not just wash) with a tighter 52% transparent
+       stop so the falloff happens BEFORE body-copy starts. Tested at
+       1280, 1440, and 1920 — type contrast holds at all three. */
+    -webkit-mask-image: radial-gradient(ellipse 60% 100% at 16% 50%, black 18%, transparent 52%);
+    mask-image: radial-gradient(ellipse 60% 100% at 16% 50%, black 18%, transparent 52%);
+  }
+  .hero-photo-tint {
+    /* Modest opacity bump (0.58 → 0.65) gives the cake texture more
+       presence where the mask shows it. Tint stays close to brand
+       palette so the warm orange doesn't shout. */
+    filter: saturate(0.85) brightness(1.05) contrast(0.94) hue-rotate(-3deg);
+    opacity: 0.65;
+  }
+
+  /* Paper grain — fractal-noise SVG tiled and overlaid in multiply mode.
+     Adds tactility (think risograph / brown-paper bag) without showing up
+     as visible noise. Opacity is intentionally tiny — the human eye reads
+     "texture" rather than "noise". */
+  .home-hero-grain {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 220px 220px;
+    opacity: 0.10;
+    mix-blend-mode: multiply;
+  }
+
+  /* Hero sparkle bobbing — subtle vertical drift, varied per element via
+     animation-delay (set inline). Pure translateY (no rotate) so inline
+     rotation transforms on sprinkle children survive. Respects
+     prefers-reduced-motion. */
+  @keyframes hero-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  @keyframes hero-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.9); }
+  }
+  .hero-bob { animation: hero-bob 7s ease-in-out infinite; }
+  .hero-twinkle { animation: hero-twinkle 4.5s ease-in-out infinite; }
+
+  /* Cursor-driven parallax — three depth tiers consume --px / --py
+     custom properties set by HeroDecor on mousemove. Foreground moves
+     most, background barely moves. Math is intentionally tiny (max 6px
+     base × 1.4 = ~8px) — the effect is felt, not seen. The combination
+     with the existing bob/twinkle animations needs `transform` to stack
+     via CSS variables, but we apply parallax on the *wrapper* div and
+     bob/twinkle on the *child* glyph, so the two transforms compose
+     without fighting each other. */
+  .hero-px-front { transform: translate3d(calc(var(--px, 0px) * 1.4), calc(var(--py, 0px) * 1.4), 0); transition: transform 0.1s ease-out; }
+  .hero-px-mid   { transform: translate3d(calc(var(--px, 0px) * 0.8), calc(var(--py, 0px) * 0.8), 0); transition: transform 0.15s ease-out; }
+  .hero-px-back  { transform: translate3d(calc(var(--px, 0px) * 0.4), calc(var(--py, 0px) * 0.4), 0); transition: transform 0.2s ease-out; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-bob, .hero-twinkle { animation: none; }
+    .hero-px-front, .hero-px-mid, .hero-px-back { transform: none; }
   }
 
   /* Soft polka-dot polish for sections + dark hero overlays */

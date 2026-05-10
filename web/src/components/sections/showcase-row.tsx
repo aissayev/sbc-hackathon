@@ -56,21 +56,17 @@ export function ShowcaseRow({ products }: { products: Product[] }) {
   const hasMore = count < ordered.length
 
   return (
-    <section className="container mt-24" aria-labelledby="showcase-heading">
+    <section className="container mt-28 md:mt-32" aria-labelledby="showcase-heading">
       <div className="flex items-end justify-between flex-wrap gap-4 mb-3">
         <div>
           <Eyebrow>Today&apos;s bake</Eyebrow>
-          <h2 id="showcase-heading" className="display-h2 mt-3">
-            No two cakes the same
+          <h2 id="showcase-heading" className="display-h2 mt-3 [text-wrap:balance]">
+            No two cakes the same.
           </h2>
-          <p className="mt-2 text-cocoa-900/70 max-w-xl">
-            Every cake comes from a different tradition — Kazakh honey, modern meringue, Italian
-            classic, French chocolate. Worth trying all of them.
-          </p>
         </div>
         <Button asChild variant="outline-sky" shape="pill" size="default">
           <Link href="/menu">
-            See the full menu
+            Full menu
             <ArrowRight />
           </Link>
         </Button>

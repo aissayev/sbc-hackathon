@@ -27,29 +27,29 @@ const PATHS: PathCard[] = [
     icon: ShoppingBag,
     eyebrow: 'By the slice',
     title: 'Drop in for a slice',
-    body: "No notice, no plan — what's in the case is what's ready. Grab one with your coffee.",
+    body: "What's in the case is what's ready.",
     lead: 'Ready now',
     href: '/menu',
-    cta: "See today's case",
+    cta: "See the case",
     accent: 'sage',
   },
   {
     icon: Cake,
-    eyebrow: 'Pre-order ahead',
-    title: 'Whole cake for the weekend',
-    body: 'Tell us when you need it. Honey, pistachio roll, cloud cake — pre-order any whole cake by Saturday morning, pick up Sunday.',
-    lead: '1h+ notice · pre-order any day',
+    eyebrow: 'Pre-order',
+    title: 'A whole cake for the weekend',
+    body: 'Order by Saturday morning, pick up Sunday.',
+    lead: '1h+ notice',
     href: '/order',
-    cta: 'Start a pre-order',
+    cta: 'Pre-order',
     accent: 'sky',
     primary: true,
   },
   {
     icon: Sparkles,
-    eyebrow: 'Custom cake',
+    eyebrow: 'Custom',
     title: 'Designed with you',
-    body: 'Birthdays, anniversaries, baby showers. Flavors, fillings, message, photo or fondant — Askhat quotes by phone.',
-    lead: '24h notice · 36h vegan/GF',
+    body: 'Birthdays, weddings, showers. Askhat quotes by phone.',
+    lead: '24h notice',
     href: '/order/custom',
     cta: 'Start the design',
     accent: 'berry',
@@ -82,16 +82,12 @@ const ACCENT: Record<'sage' | 'sky' | 'berry', { ring: string; chip: string; ico
 
 export function ThreeWaysBand() {
   return (
-    <section className="container mt-24" aria-labelledby="three-ways-heading">
-      <div className="text-center max-w-2xl mx-auto">
+    <section className="container mt-28 md:mt-32" aria-labelledby="three-ways-heading">
+      <div className="max-w-3xl">
         <Eyebrow>Three ways to order</Eyebrow>
-        <h2 id="three-ways-heading" className="display-h2 mt-3">
-          Slice today, whole cake by the weekend, or designed with you.
+        <h2 id="three-ways-heading" className="display-h2 mt-3 [text-wrap:balance]">
+          Slice today, whole cake by Sunday, or <span className="text-sky">designed with you</span>.
         </h2>
-        <p className="mt-3 text-cocoa-900/70">
-          Walk in for a slice, pre-order a whole cake for the table, or commission a custom one
-          for the occasion — same kitchen, same hands.
-        </p>
       </div>
       <div className="mt-10 grid gap-5 md:grid-cols-3 auto-rows-fr">
         {PATHS.map((p) => {

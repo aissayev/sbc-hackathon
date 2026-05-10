@@ -29,12 +29,14 @@ import { HoursTable, isOpenNow } from '@/components/brand/hours'
 export function VisitBand() {
   const status = isOpenNow()
   return (
-    <section className="container mt-24" id="visit" aria-labelledby="visit-heading">
-      <div className="text-center max-w-2xl mx-auto">
-        <Eyebrow>When + where</Eyebrow>
-        <h2 id="visit-heading" className="display-h2 mt-3">Come see us</h2>
-        <p className="mt-3 text-cocoa-900/70">
-          Real café, real seat. Stay for an extra cup — we keep it warm.
+    <section className="container mt-28 md:mt-32" id="visit" aria-labelledby="visit-heading">
+      <div className="max-w-3xl">
+        <Eyebrow>Visit + delivery</Eyebrow>
+        <h2 id="visit-heading" className="display-h2 mt-3 [text-wrap:balance]">
+          <span className="text-sky">Come see us.</span> Or we&apos;ll deliver.
+        </h2>
+        <p className="mt-3 text-cocoa-900/70 max-w-xl">
+          Free delivery in Sugar Land. Greater Houston for a small fee — confirmed at order.
         </p>
       </div>
 
