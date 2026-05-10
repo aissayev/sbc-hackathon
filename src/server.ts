@@ -14,6 +14,7 @@ import { startTelegramPollers } from './channels/telegram-poller.ts'
 import { invokeAgent, recordRun } from './agent/invoke.ts'
 import { pickRole } from './agent/router.ts'
 import { createWebhookRoutes } from './routes/webhooks.ts'
+import { adminAuth } from './middleware/admin-auth.ts'
 import type { IncomingMessage, MessageHandler, ChannelAdapter } from './channels/types.ts'
 import {
   isOwnerSlashCommand,
@@ -231,12 +232,13 @@ app.get('/api/orders/:id', (c) => {
 
 // ─── Owner admin API (powers /admin/* in the website) ────────────────────
 //
-// ⚠️ HACKATHON-MODE OPEN ACCESS:
-// These routes are intentionally unauthenticated for the build window — the
-// admin pages are owner-facing per the brief ("owner UI is Telegram only" is
-// the agent constraint; the website's /admin/* is a Mini-App-style surface
-// for the owner). For any public deploy, gate behind cookie auth or the
-// X-Telegram-Init-Data header (Mini App pattern).
+// Auth: see src/middleware/admin-auth.ts. Two paths:
+//   - X-Backend-Secret: shared secret for Next.js SSR → Hono server-to-server.
+//   - X-Telegram-Init-Data: signed initData from the owner Telegram Mini App.
+// If neither WEB_BACKEND_SECRET nor TG_OWNER_BOT_TOKEN is configured, the
+// middleware passes through (hackathon open mode) and emits a one-time warning.
+app.use('/api/admin/*', adminAuth)
+
 app.get('/api/admin/today', (c) => c.json(dailyReport()))
 app.get('/api/admin/orders', (c) => {
   const status = c.req.query('status') ?? undefined
@@ -455,6 +457,23 @@ console.log(`[server] starting on :${config.port} channels=${configuredChannels(
 console.log(`[server] agent=${config.agent.enabled ? config.agent.model : 'disabled'}`)
 console.log(`[server] sandbox_mcp=${config.sandbox.mcpUrl} token=${config.sandbox.teamToken ? 'set' : 'MISSING'}`)
 console.log(`[server] telegram bots: ${configuredBots().map((b) => b.role).join(', ') || '(none)'}`)
+
+// Admin auth visibility. With either secret configured the middleware fences
+// /api/admin/*; without both, /api/admin/* is open (one-time warning fires
+// from the middleware when the first call lands).
+{
+  const hasBackendSecret = Boolean(config.web.backendSecret)
+  const hasOwnerToken = Boolean(config.telegram.owner.token)
+  if (hasBackendSecret && hasOwnerToken) {
+    console.log('[server] admin auth: shared-secret + Mini App init-data')
+  } else if (hasBackendSecret) {
+    console.log('[server] admin auth: shared-secret only (set TG_OWNER_BOT_TOKEN to also accept Mini App init-data)')
+  } else if (hasOwnerToken) {
+    console.log('[server] admin auth: Mini App init-data only (set WEB_BACKEND_SECRET to also accept Next.js SSR)')
+  } else {
+    console.warn('[server] ⚠️  ADMIN: OPEN MODE — /api/admin/* is unauthenticated (set WEB_BACKEND_SECRET or TG_OWNER_BOT_TOKEN)')
+  }
+}
 
 // Multi-owner whitelist visibility. Open mode is intentional during the
 // hackathon (so we can collect team chat ids by having them message the bot

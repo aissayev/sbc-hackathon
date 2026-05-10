@@ -92,6 +92,14 @@ export const config = {
     // disabled (only programmatic + scheduled refresh allowed).
     syncSecret: envGet('CATALOG_SYNC_SECRET'),
   },
+
+  web: {
+    // Shared secret for the Next.js SSR layer to authenticate against the
+    // Hono backend's /api/admin/* endpoints. Set on BOTH sides
+    // (web/.env: WEB_BACKEND_SECRET, backend/.env.local: same). Unset =
+    // server-side admin reads ride open mode (see admin-auth middleware).
+    backendSecret: envGet('WEB_BACKEND_SECRET'),
+  },
 } as const
 
 export function configuredChannels(): string[] {
