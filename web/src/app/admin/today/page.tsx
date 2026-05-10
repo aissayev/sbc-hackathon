@@ -1,6 +1,6 @@
 import { getDailyReport, listAdminOrders } from '@/lib/api'
-import { fmtUsd, fmtRelativeDate, displayOrderId } from '@/lib/format'
-import { Badge } from '@/components/ui/badge'
+import { fmtUsd } from '@/lib/format'
+import { OrdersTable } from '@/components/admin/orders-table'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -37,23 +37,7 @@ export default async function AdminTodayPage() {
             it'll show up here for approval.
           </div>
         ) : (
-          <ul className="divide-y divide-cocoa-700/10 rounded-md border border-cocoa-700/15 bg-white">
-            {orders.slice(0, 8).map((o) => (
-              <li key={o.id} className="p-4 flex items-center gap-3 justify-between flex-wrap">
-                <div>
-                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-cocoa-900 hover:text-cocoa-700 tabular-nums text-sm" title={o.id}>
-                    {displayOrderId(o, 'short')}
-                  </Link>
-                  <span className="ml-3 text-sm text-cocoa-900/70">{o.customer_name ?? '—'}</span>
-                </div>
-                <div className="text-sm text-cocoa-900/70 flex items-center gap-3">
-                  <span>{fmtUsd(o.total_cents)}</span>
-                  {o.scheduled_at && <span>· {fmtRelativeDate(o.scheduled_at)}</span>}
-                  <Badge variant={o.status === 'draft' ? 'blue' : 'default'}>{o.status}</Badge>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <OrdersTable orders={orders.slice(0, 8)} />
         )}
       </section>
 
