@@ -43,10 +43,14 @@ CREATE TABLE IF NOT EXISTS orders (
   --   draft → approved → in_kitchen → ready → out_for_delivery? → picked_up | completed
   --                  ↘ rejected
   --                  ↘ cancelled
+  --                  ↘ refund_pending → refunded
   -- `out_for_delivery` is only used for delivery orders; pickup goes
   -- ready → picked_up. `completed` is the terminal "done" status used by
   -- both delivery and pickup once the customer has the cake.
-  status        TEXT NOT NULL CHECK (status IN ('draft','approved','rejected','in_kitchen','ready','out_for_delivery','picked_up','completed','cancelled')),
+  -- `refund_pending` enters from any post-payment state via the customer
+  -- flow (request_refund tool); owner approval flips it to `refunded`,
+  -- denial reverts to the prior state (stored in refund_requests.prev_status).
+  status        TEXT NOT NULL CHECK (status IN ('draft','approved','rejected','in_kitchen','ready','out_for_delivery','picked_up','completed','cancelled','refund_pending','refunded')),
   customer_name TEXT,
   customer_phone TEXT,
   -- JSON array of {sku, qty, unit_cents, line_total_cents, modifiers}
@@ -71,6 +75,29 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_thread ON orders(thread_id);
 CREATE INDEX IF NOT EXISTS idx_orders_referral ON orders(referral_source);
+
+-- Refund requests, initiated by the customer on any channel via the
+-- concierge agent's `request_refund` MCP tool. The owner approves or
+-- denies via the TG card; on approve the linked order flips to
+-- 'refunded' and we attempt a Square sandbox status update. On deny,
+-- the order reverts to `prev_status` (stored on creation).
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id            TEXT PRIMARY KEY,
+  order_id      TEXT NOT NULL,
+  thread_id     TEXT NOT NULL,
+  channel       TEXT NOT NULL,
+  reason        TEXT NOT NULL,
+  -- Original order.status at request time, so deny can revert cleanly.
+  prev_status   TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied')),
+  -- Free-text reason the owner gave when denying (or noted on approve).
+  decision_note TEXT,
+  created_at    INTEGER NOT NULL,
+  decided_at    INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_refunds_order ON refund_requests(order_id);
+CREATE INDEX IF NOT EXISTS idx_refunds_status ON refund_requests(status);
 
 CREATE TABLE IF NOT EXISTS escalations (
   id          TEXT PRIMARY KEY,

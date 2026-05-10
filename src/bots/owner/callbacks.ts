@@ -16,6 +16,7 @@
 
 import { sendTelegram } from '../../channels/telegram.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
+import { approveRefund, denyRefund } from '../../domain/refunds.ts'
 import { tryCallSandboxTool } from '../../lib/sandbox-mcp.ts'
 import {
   loadCampaignsFile,
@@ -35,6 +36,10 @@ export async function handleOwnerCallback(
 ): Promise<boolean> {
   if (data.startsWith('approve:')) return await handleApprove(token, chatId, data.slice('approve:'.length))
   if (data.startsWith('reject:')) return await handleReject(token, chatId, data.slice('reject:'.length))
+  if (data.startsWith('refund_approve:'))
+    return await handleRefundApprove(token, chatId, data.slice('refund_approve:'.length))
+  if (data.startsWith('refund_deny:'))
+    return await handleRefundDeny(token, chatId, data.slice('refund_deny:'.length))
   if (data.startsWith('view_esc:')) return await handleViewEsc(token, chatId, data.slice('view_esc:'.length))
   if (data.startsWith('view_campaign:'))
     return await handleViewCampaign(token, chatId, data.slice('view_campaign:'.length))
@@ -76,6 +81,96 @@ async function handleReject(token: string, chatId: string, orderId: string): Pro
 
 async function handleViewEsc(token: string, chatId: string, escId: string): Promise<true> {
   await sendTelegram(token, chatId, `Escalation ${shortId(escId)} — type your reply, I'll relay it.`)
+  return true
+}
+
+// ─── Refund flow ────────────────────────────────────────────────────────
+//
+// Approve is one-tap: directly calls approveRefund (which talks to Square,
+// flips local state, and pushes a customer notification). Deny needs a
+// reason from the owner, so we register a "pending denial" against this
+// chat id and the next text message from that chat is consumed by
+// `tryHandlePendingRefundDenial` (called from server.ts onMessage BEFORE
+// it routes to the agent). 10-minute TTL — if the owner walks away, the
+// pending state is forgotten and they need to tap Deny again.
+
+interface PendingDenial {
+  refundId: string
+  expiresAt: number
+}
+
+const PENDING_DENIAL_TTL_MS = 10 * 60 * 1000
+const pendingDenials = new Map<string, PendingDenial>()
+
+async function handleRefundApprove(
+  token: string,
+  chatId: string,
+  refundId: string,
+): Promise<true> {
+  const r = await approveRefund(refundId)
+  if (r.ok) {
+    const lines: string[] = [`✓ refund ${shortId(refundId)} approved`]
+    if (r.square_updated) lines.push('   Square: order CANCELED')
+    else lines.push('   Square: skipped (no linked order)')
+    if (r.customer_notified) lines.push('   Customer: notified on original channel')
+    else lines.push("   Customer: notification skipped (channel didn't accept)")
+    await sendTelegram(token, chatId, lines.join('\n'))
+  } else {
+    await sendTelegram(
+      token,
+      chatId,
+      `✗ refund ${shortId(refundId)} approval failed: ${r.error ?? 'unknown'}`,
+    )
+  }
+  return true
+}
+
+async function handleRefundDeny(token: string, chatId: string, refundId: string): Promise<true> {
+  pendingDenials.set(chatId, { refundId, expiresAt: Date.now() + PENDING_DENIAL_TTL_MS })
+  await sendTelegram(
+    token,
+    chatId,
+    [
+      `Denying refund ${shortId(refundId)}.`,
+      'Reply to this chat with the reason — I\'ll send it to the customer verbatim.',
+      '(10 min timeout. Tap Deny again to restart.)',
+    ].join('\n'),
+  )
+  return true
+}
+
+/**
+ * Called by server.ts BEFORE the agent path. Returns true (and processes
+ * the denial) if the owner has a pending refund-denial against this chat
+ * and just sent a free-text message — that text becomes the customer-
+ * facing reason. Returns false otherwise (agent / slash flow continues).
+ */
+export async function tryHandlePendingRefundDenial(
+  chatId: string,
+  reason: string,
+): Promise<boolean> {
+  const pending = pendingDenials.get(chatId)
+  if (!pending) return false
+  if (Date.now() > pending.expiresAt) {
+    pendingDenials.delete(chatId)
+    return false
+  }
+  pendingDenials.delete(chatId)
+  const token = (await import('../../config.ts')).config.telegram.owner.token
+  if (!token) return true // can't send anything; consume the message anyway
+  const r = await denyRefund(pending.refundId, reason.trim())
+  if (r.ok) {
+    const lines: string[] = [`✗ refund ${shortId(pending.refundId)} denied`]
+    if (r.customer_notified) lines.push('   Customer: notified on original channel')
+    else lines.push("   Customer: notification skipped (channel didn't accept)")
+    await sendTelegram(token, chatId, lines.join('\n'))
+  } else {
+    await sendTelegram(
+      token,
+      chatId,
+      `✗ refund ${shortId(pending.refundId)} denial failed: ${r.error ?? 'unknown'}`,
+    )
+  }
   return true
 }
 
