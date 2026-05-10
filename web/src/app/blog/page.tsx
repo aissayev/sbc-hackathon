@@ -60,7 +60,7 @@ export default function BlogIndexPage() {
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover"
-                    unoptimized
+                    loading="lazy"
                   />
                 </div>
                 <div className="p-5 flex flex-col gap-3 flex-1">

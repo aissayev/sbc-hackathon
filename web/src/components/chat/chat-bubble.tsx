@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { formatChatText, formatChatTime, type ChatMessage } from '@/lib/use-chat'
@@ -238,13 +239,15 @@ export function ChatBubble({
               className="group inline-flex items-center gap-2 rounded-xl bg-white border border-cocoa-700/12 hover:border-sky/45 hover:shadow-md transition-all p-1.5 pr-3 max-w-[230px]"
             >
               {m.photo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={m.photo_url}
-                  alt={m.name}
-                  className="h-10 w-10 rounded-lg object-cover shrink-0"
-                  loading="lazy"
-                />
+                <span className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 bg-cream-100">
+                  <Image
+                    src={m.photo_url}
+                    alt={m.name}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </span>
               ) : (
                 <div className="h-10 w-10 rounded-lg bg-cream-100 shrink-0" />
               )}

@@ -481,7 +481,6 @@ function CakeOptionRow({ product, compact = false }: { product: Product; compact
             fill
             sizes="44px"
             className="object-cover"
-            unoptimized
           />
         )}
       </span>
