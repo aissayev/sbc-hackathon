@@ -29,7 +29,8 @@
     "register-webhooks": "bun src/scripts/register-webhooks.ts",
     "webhooks:status": "bun src/scripts/webhooks-status.ts",
     "world:tick": "bun src/scripts/world-tick.ts",
-    "evidence": "bun src/scripts/evidence.ts"
+    "evidence": "bun src/scripts/evidence.ts",
+    "wa:followup": "bun src/scripts/wa-followup.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
