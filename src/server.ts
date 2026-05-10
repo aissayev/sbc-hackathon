@@ -18,6 +18,7 @@ import type { IncomingMessage, MessageHandler, ChannelAdapter } from './channels
 import {
   isOwnerSlashCommand,
   handleOwnerCommand,
+  handleOwnerAsyncCommand,
   handleOwnerCallback,
   sendOwnerReply,
   sendOwnerThinking,
@@ -71,6 +72,11 @@ const onMessage: MessageHandler = async (msg) => {
     const reply = handleOwnerCommand(msg)
     if (reply) {
       await sendOwnerReply(msg.threadId, reply)
+      return
+    }
+    const asyncReply = await handleOwnerAsyncCommand(msg)
+    if (asyncReply) {
+      await sendOwnerReply(msg.threadId, asyncReply)
       return
     }
   }
