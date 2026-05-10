@@ -57,3 +57,41 @@ function linkSegment(segment: string): string {
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+
+// Detect which catalog products are mentioned in a piece of text. Used by
+// the chat bubble to attach a small photo card per product so the customer
+// sees the cake the agent is talking about — no hunting in the menu.
+//
+// Same match policy as autoLinkProducts (whole-word, case-insensitive,
+// dedup by id, longest-first to avoid double-counting "Whole Honey Cake"
+// + "Honey Cake"). Returns at most 3 — chat bubbles are not a gallery.
+export interface ProductMention {
+  id: string
+  name: string
+  href: string
+  photo_url: string | null
+  price_cents: number
+}
+
+const MENTION_REFS = CATALOG
+  .map((p) => ({
+    id: p.id, name: p.name, href: `/menu/${p.id}`,
+    photo_url: p.photo_url, price_cents: p.price_cents,
+  }))
+  .sort((a, b) => b.name.length - a.name.length)
+
+export function findProductMentions(text: string, max = 3): ProductMention[] {
+  if (!text) return []
+  // Split-on-preserve so we ignore matches inside an existing markdown
+  // link target (otherwise `/menu/honey-cake-slice` matches "honey").
+  const segments = text.split(PRESERVE_RE).filter((_, i) => i % 2 === 0)
+  const haystack = segments.join(' ')
+  const found = new Map<string, ProductMention>()
+  for (const ref of MENTION_REFS) {
+    if (found.size >= max) break
+    if (found.has(ref.id)) continue
+    const re = new RegExp(`\\b${escapeRegExp(ref.name)}\\b`, 'i')
+    if (re.test(haystack)) found.set(ref.id, ref)
+  }
+  return Array.from(found.values())
+}

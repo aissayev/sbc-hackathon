@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Send, Paperclip, X, Image as ImageIcon, Phone, ArrowUpRight } from 'lucide-react'
+import { Send, Paperclip, X, Image as ImageIcon, Phone, ArrowUpRight, UserRound } from 'lucide-react'
 import { ChatBubble } from '@/components/chat/chat-bubble'
 import { useChat, type ChatMessage } from '@/lib/use-chat'
 import { BRAND } from '@/lib/brand'
@@ -13,6 +13,12 @@ const QUICK_PROMPTS = [
   'Anything without nuts?',
   'How far ahead for a custom cake?',
 ]
+
+// Standardised phrasing for the "talk to a person" hand-off — sent by the
+// chat as a regular user turn so the agent's existing escalation path
+// (concierge prompt → escalate_to_owner) handles it. The customer never
+// leaves the channel; a human replies in the same widget.
+const HUMAN_HANDOFF_TEXT = "I'd like to talk to a person, please."
 
 interface StagedAttachment {
   id: string
@@ -62,7 +68,7 @@ export function ChatView({
 }) {
   const { messages, sending, send, reset, finishStreaming } = useChat({
     greeting:
-      "Hi! I'm here to help — ask about today's bake, allergens, or custom cakes. If something's off about an order, tap the paperclip to send a photo and I'll get our owner Askhat on it.",
+      "Hi — the HappyCake team here. Ask about today's bake, allergens, custom cakes, or your order. If something's off, tap the paperclip to send a photo and we'll make it right. What can we help with?",
   })
   const [input, setInput] = React.useState('')
   const [attachments, setAttachments] = React.useState<StagedAttachment[]>([])
@@ -251,13 +257,29 @@ export function ChatView({
         </button>
       </form>
       <div className="px-4 pb-3 pt-1 flex items-center justify-between gap-3 text-[11px] text-cocoa-900/55 bg-cream-50">
-        <button
-          type="button"
-          onClick={reset}
-          className="text-sky-700 hover:text-sky underline-offset-2 hover:underline"
-        >
-          Start over
-        </button>
+        <div className="inline-flex items-center gap-3">
+          <button
+            type="button"
+            onClick={reset}
+            disabled={sending}
+            className="text-sky-700 hover:text-sky underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            Start over
+          </button>
+          {/* Same-channel hand-off. The concierge prompt routes this exact
+              phrasing through escalate_to_owner with reason
+              owner_requested_by_customer; a human replies in this same
+              widget thread. No redirect to phone/WhatsApp. */}
+          <button
+            type="button"
+            onClick={() => send(HUMAN_HANDOFF_TEXT)}
+            disabled={sending}
+            className="inline-flex items-center gap-1 text-sky-700 hover:text-sky underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            <UserRound className="h-3 w-3" />
+            Talk to a person
+          </button>
+        </div>
         <span className="inline-flex items-center gap-3">
           <a href={BRAND.phone.hrefTel} className="inline-flex items-center gap-1 hover:text-cocoa-900">
             <Phone className="h-3 w-3" /> Call

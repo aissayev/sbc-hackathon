@@ -22,7 +22,9 @@ import {
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { IncomingMessage } from '../../channels/types.ts'
-import { fmtMoney, hhmm, shortId } from './format.ts'
+import { fmtMoney, hhmm, shortId, ordinal } from './format.ts'
+import { findCustomerByPhone, listCustomerOrders, mergeCustomers } from '../../domain/customers.ts'
+import { handleContentCommand, handleDraftsCommand } from './marketing/index.ts'
 
 export interface BotReply {
   text: string
@@ -80,6 +82,17 @@ export function handleOwnerCommand(msg: IncomingMessage): BotReply | null {
       return campaignDetailReply(msg.text.trim())
     case '/brief':
       return briefReply()
+    case '/content':
+      return handleContentCommand()
+    case '/drafts':
+      return handleDraftsCommand()
+    case '/post':
+    case '/reel':
+      return postReelHint(cmd)
+    case '/customer':
+      return customerReply(msg.text.trim())
+    case '/merge_customers':
+      return mergeCustomersReply(msg.text.trim())
     case '/reset':
       // /reset is handled in server.ts (clears thread history); return a
       // placeholder so the slash dispatcher doesn't fall through to the agent.
@@ -110,14 +123,24 @@ function helpReply(): BotReply {
       "/today        today's orders, revenue, pending approvals",
       '/orders       last 10 orders + one-tap approve',
       '/escalations  open escalations',
+      '/customer <phone>   CRM view: name, lifetime spend, recent orders',
+      '/merge_customers <source_phone> <target_phone>   merge dupes',
       '',
       'Marketing & social:',
+      '/content      weekly content plan — calendar of drafted posts/reels',
+      '/drafts       in-flight drafts (approve / schedule / publish)',
+      '/post <text>  free text: "make a post about Friday\'s pistachio batch"',
+      '/reel <text>  draft a reel — owner taps approve → sandbox publish',
       '/campaigns    pick ONE strategy (full $500/mo) + approve/launch',
       '/brief        live MCP brief — sales, margins, GBP demand, reviews',
-      '/inbox        open WA + IG threads, 1-tap reply',
-      '/reviews      Google Business reviews, 1-tap reply on unanswered',
+      '/comments     DM inbox — sentiment + drafted replies (1-tap send)',
+      '/inbox        flat WA + IG thread list (legacy, fallback)',
+      '/reviews      Google Business reviews — drafted replies + 1-tap send',
       '/spend        marketing budget MTD',
       '/gb           Google Business profile metrics',
+      '',
+      'Analytics:',
+      '/stats        digital presence dashboard — posting, sentiment, budget, alerts',
       '',
       'Self-grading:',
       '/score        rubric coverage from the sandbox evaluator',
@@ -176,6 +199,14 @@ function ordersReply(): BotReply {
   }
 }
 
+function postReelHint(cmd: string): BotReply {
+  const kind = cmd === '/reel' ? 'reel' : 'post'
+  return {
+    text:
+      `Type the intent and I'll draft it:\n\n  make a ${kind} about Friday's pistachio batch\n\nor pick a starter from /content`,
+  }
+}
+
 function escalationsReply(): BotReply {
   const open = listEscalations({ status: 'open' }) as EscRow[]
   if (open.length === 0) return { text: '✅ No open escalations.' }
@@ -196,6 +227,96 @@ function escalationsReply(): BotReply {
  * marketing:brief`) and shows the top decision-relevant facts without making
  * the operator open a markdown file.
  */
+/**
+ * /customer <phone>  →  full CRM view + last 5 orders.
+ * Phone format is permissive — normalizePhone() inside findCustomerByPhone
+ * strips formatting before lookup. With no arg, prompt for one.
+ */
+function customerReply(rawText: string): BotReply {
+  const arg = rawText.replace(/^\/customer\s*/i, '').trim()
+  if (!arg) {
+    return {
+      text:
+        'Usage: /customer <phone>\n\nExamples:\n  /customer (281) 979-8320\n  /customer 2819798320\n  /customer +12819798320',
+    }
+  }
+  const customer = findCustomerByPhone(arg)
+  if (!customer) {
+    return { text: `No customer record for ${arg}.\n\nFirst-time caller — they'll show up here after their first order.` }
+  }
+
+  const firstSeen = new Date(customer.first_seen_at).toISOString().slice(0, 10)
+  const lastSeen = new Date(customer.last_seen_at).toISOString().slice(0, 10)
+  const repeatLine =
+    customer.order_count <= 1
+      ? '✨ First-time customer'
+      : `🔁 ${ordinal(customer.order_count)} order · ${fmtMoney(customer.total_spent_cents)} lifetime`
+
+  const recent = listCustomerOrders(customer.id, 5)
+  const orderLines = recent.length
+    ? recent.map((o) => {
+        const when = new Date(o.created_at).toISOString().slice(5, 10)
+        return `  ${when}  ${fmtMoney(o.total_cents)}  ${o.status.padEnd(10)}  ${o.items_summary || '—'}`
+      })
+    : ['  (no orders yet)']
+
+  return {
+    text: [
+      `👤 ${customer.name ?? '(no name)'}`,
+      customer.phone ? `   ${customer.phone}` : null,
+      customer.email ? `   ${customer.email}` : null,
+      '',
+      repeatLine,
+      `   First seen: ${firstSeen}`,
+      `   Last seen:  ${lastSeen}`,
+      '',
+      'Recent orders:',
+      ...orderLines,
+      customer.notes ? `\nNotes: ${customer.notes}` : null,
+    ]
+      .filter((s): s is string => s !== null)
+      .join('\n'),
+  }
+}
+
+/**
+ * /merge_customers <source_phone> <target_phone>  →  merge two records.
+ * Source merges INTO target — target survives. Phone-resolved both sides
+ * via findCustomerByPhone (normalizePhone strips formatting).
+ *
+ * Phone-mismatch guard inside mergeCustomers() catches the accidental
+ * "wrong two records" case; explicit-id callers (the MCP tool) can still
+ * force the merge if needed. From the slash command we always go through
+ * the phone-find path so the guard is informational rather than blocking.
+ */
+function mergeCustomersReply(rawText: string): BotReply {
+  const args = rawText.replace(/^\/merge_customers\s*/i, '').trim().split(/\s+/).filter(Boolean)
+  if (args.length < 2) {
+    return {
+      text:
+        'Usage: /merge_customers <source_phone> <target_phone>\n\nSource merges INTO target — target survives. Example:\n  /merge_customers 2815551001 (281) 555-1002',
+    }
+  }
+  const [sourcePhone, ...rest] = args
+  const targetPhone = rest.join(' ')
+  const source = findCustomerByPhone(sourcePhone)
+  const target = findCustomerByPhone(targetPhone)
+  if (!source) return { text: `❌ No customer found for source phone ${sourcePhone}` }
+  if (!target) return { text: `❌ No customer found for target phone ${targetPhone}` }
+
+  const result = mergeCustomers(source.id, target.id)
+  if (!result.ok) return { text: `❌ Merge blocked: ${result.reason}` }
+
+  return {
+    text: [
+      `✅ Merged ${shortId(result.merged.source_id)} → ${shortId(result.merged.target_id)}`,
+      `   Orders moved:  ${result.merged.orders_moved}`,
+      `   Threads moved: ${result.merged.threads_moved}`,
+      `   New order count on target: ${result.merged.new_order_count}`,
+    ].join('\n'),
+  }
+}
+
 function briefReply(): BotReply {
   const path = resolve('data/campaigns/.state/baseline.json')
   if (!existsSync(path)) {

@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     types: { 'application/llms.txt': '/llms.txt' },
   },
   // Social-card image is a real shot of our counter (a slice + branded iced
-  // coffee under the Happy Cake neon) — outperforms an abstract product photo
+  // coffee under the HappyCake neon) — outperforms an abstract product photo
   // because it telegraphs "real café, real seat" in the link preview.
   openGraph: {
     type: 'website',
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
         url: ASSETS.store.coffeeAndCake,
         width: 1280,
         height: 936,
-        alt: 'Happy Cake — a slice of cake and an iced coffee under our neon sign',
+        alt: 'HappyCake — a slice of cake and an iced coffee under our neon sign',
       },
     ],
   },
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
   },
   // Icons resolve via the App Router file convention:
   //   app/favicon.ico    → /favicon.ico (legacy fallback for old browsers)
-  //   app/icon.png       → /icon.png   (256×256, official Happy Cake logo from
+  //   app/icon.png       → /icon.png   (256×256, official HappyCake logo from
   //                        the hackathon CDN — same source the header + hero use)
   //   app/apple-icon.png → /apple-icon.png (512×512)
   // No `icons` block needed; Next picks them up automatically.

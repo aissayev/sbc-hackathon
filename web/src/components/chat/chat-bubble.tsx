@@ -1,8 +1,11 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { formatChatText, formatChatTime, type ChatMessage } from '@/lib/use-chat'
+import { findProductMentions } from '@/lib/auto-link-products'
+import { fmtUsd } from '@/lib/format'
 
 // Single chat bubble — used by both the /chat page and the help-widget mini
 // chat. Sender label + bubble + timestamp. Auto-formats links and **bold**
@@ -55,9 +58,17 @@ export function ChatBubble({
   const padX = size === 'compact' ? 'px-3' : 'px-4'
   const padY = size === 'compact' ? 'py-2' : 'py-2.5'
   const text = size === 'compact' ? 'text-[13px]' : 'text-sm'
-  const labelText = isUser ? 'You' : 'Happy Cake'
+  const labelText = isUser ? 'You' : 'HappyCake'
   const time = formatChatTime(message.ts)
   const { body, urls } = extractImages(message.text)
+  // Cake photo cards: when the agent mentions a product, attach a small
+  // strip of cards beneath the bubble so the customer SEES the cake
+  // we're talking about. Only on assistant messages, only when not
+  // streaming (avoids cards flashing in mid-typewriter), only when the
+  // typewriter has caught up to a sentence boundary in `body`.
+  const mentions = !isUser && !message.pending
+    ? findProductMentions(body)
+    : []
 
   // Typewriter state. When `streaming` is true we step `revealedCount` up
   // to body.length on a timer; once equal we notify the hook and the bubble
@@ -125,7 +136,10 @@ export function ChatBubble({
     <div className={cn('flex flex-col gap-1 animate-fade-in', isUser ? 'items-end' : 'items-start')}>
       <div className="flex items-center gap-2 px-1">
         {!isUser && <AssistantAvatar size={size} />}
-        <span className={cn('text-[10px] uppercase tracking-[0.14em] font-medium', isUser ? 'text-cocoa-900/55' : 'text-sky-700')}>
+        {/* Brand book §2: never render the wordmark in all-caps. We keep
+            the eyebrow tracking + small size for visual rhythm but drop
+            `uppercase` so "HappyCake" reads as the wordmark, not "HAPPYCAKE". */}
+        <span className={cn('text-[10px] tracking-[0.14em] font-medium', isUser ? 'text-cocoa-900/55 uppercase' : 'text-sky-700')}>
           {labelText}
         </span>
         <span className="text-[10px] text-cocoa-900/40">{time}</span>
@@ -177,7 +191,7 @@ export function ChatBubble({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
-                      alt={isUser ? 'Photo you sent to Happy Cake' : 'Photo from Happy Cake'}
+                      alt={isUser ? 'Photo you sent to HappyCake' : 'Photo from HappyCake'}
                       className={cn(
                         'rounded-lg object-cover',
                         urls.length === 1 ? 'max-h-56 w-auto' : 'h-20 w-20',
@@ -191,13 +205,42 @@ export function ChatBubble({
           </>
         )}
       </div>
+      {mentions.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-1.5 max-w-[88%]">
+          {mentions.map((m) => (
+            <Link
+              key={m.id}
+              href={m.href}
+              className="group inline-flex items-center gap-2 rounded-xl bg-white border border-cocoa-700/12 hover:border-sky/45 hover:shadow-md transition-all p-1.5 pr-3 max-w-[230px]"
+            >
+              {m.photo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={m.photo_url}
+                  alt={m.name}
+                  className="h-10 w-10 rounded-lg object-cover shrink-0"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-lg bg-cream-100 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium text-cocoa-900 truncate group-hover:text-sky-700 transition-colors">
+                  {m.name}
+                </div>
+                <div className="text-[11px] text-cocoa-900/55">{fmtUsd(m.price_cents)}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-// "HC" mark in brand colors. Tiny, sits in the label row beside "Happy Cake"
+// "HC" mark in brand colors. Tiny, sits in the label row beside "HappyCake"
 // — it's the equivalent of an Intercom-style operator avatar without needing
-// a real photo of Askhat. The compact size shrinks it for the widget.
+// a personal photo. The compact size shrinks it for the widget.
 function AssistantAvatar({ size }: { size: 'default' | 'compact' }) {
   const dim = size === 'compact' ? 'h-4 w-4 text-[8px]' : 'h-5 w-5 text-[9px]'
   return (

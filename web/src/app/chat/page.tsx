@@ -9,7 +9,7 @@ import { Phone, MessageCircle } from 'lucide-react'
 export const metadata: Metadata = {
   title: 'Chat',
   description:
-    'Talk to the Happy Cake on-site assistant — ask about today\'s bake, allergens, custom cakes, lead times, and order status.',
+    'Talk to the HappyCake on-site assistant — ask about today\'s bake, allergens, custom cakes, lead times, and order status.',
   alternates: { canonical: '/chat' },
 }
 

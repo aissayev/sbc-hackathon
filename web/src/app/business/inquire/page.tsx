@@ -18,8 +18,8 @@ export default function BusinessInquirePage() {
         Tell us about <span className="text-sky">your team</span>.
       </h1>
       <p className="mt-3 text-cocoa-900/80 leading-relaxed">
-        Five quick steps. Askhat reads every B2B inquiry himself and replies within one business
-        day with pricing, sample plan, and next steps.
+        Five quick steps. Our team reads every B2B inquiry directly and replies within one
+        business day with pricing, sample plan, and next steps.
       </p>
       <div className="mt-10">
         <Suspense fallback={<div className="h-64 rounded-2xl bg-cream-100 animate-pulse" />}>

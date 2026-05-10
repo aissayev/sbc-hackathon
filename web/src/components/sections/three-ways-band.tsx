@@ -48,7 +48,7 @@ const PATHS: PathCard[] = [
     icon: Sparkles,
     eyebrow: 'Custom',
     title: 'Designed with you',
-    body: 'Birthdays, weddings, showers. Askhat quotes by phone.',
+    body: 'Birthdays, weddings, showers. Our team quotes by phone.',
     lead: '24h notice',
     href: '/order/custom',
     cta: 'Start the design',

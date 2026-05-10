@@ -11,7 +11,7 @@ export const revalidate = 600
 export const metadata: Metadata = {
   title: 'Press & podcasts',
   description:
-    'Press, podcasts, and YouTube appearances by Askhat — owner of Happy Cake Sugar Land. Family-owned bakery in Sugar Land, TX.',
+    'Press, podcasts, and YouTube appearances by Askhat — owner of HappyCake Sugar Land. Family-owned bakery in Sugar Land, TX.',
   alternates: { canonical: '/press' },
 }
 

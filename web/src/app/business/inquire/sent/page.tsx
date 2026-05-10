@@ -23,7 +23,7 @@ export default async function BusinessInquirySentPage(props: { searchParams?: Se
       <Eyebrow className="mt-6 justify-center">Inquiry received</Eyebrow>
       <h1 className="display-h1 mt-3 [text-wrap:balance]">Thank you — we'll reply within one business day</h1>
       <p className="mt-4 text-cocoa-900/80 leading-relaxed">
-        Askhat reads every B2B inquiry himself. You'll get a reply at the email you provided with
+        Our team reads every B2B inquiry directly. You'll get a reply at the email you provided with
         pricing, a sample plan, and next steps. If we don't get back within 24 business hours,
         please email us — sometimes a reply gets stuck.
       </p>

@@ -109,7 +109,7 @@ function ThreadList({ onOpenChat }: { onOpenChat: () => void }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-medium text-cocoa-900 text-sm truncate">Happy Cake team</span>
+                    <span className="font-medium text-cocoa-900 text-sm truncate">HappyCake team</span>
                     <span className="text-[11px] text-cocoa-900/50 shrink-0">
                       {formatChatTime(preview!.lastTs)}
                     </span>

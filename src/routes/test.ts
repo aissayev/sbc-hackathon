@@ -6,6 +6,7 @@
 import { Hono } from 'hono'
 import { webAdapter } from '../channels/web.ts'
 import type { IncomingMessage, MessageHandler } from '../channels/types.ts'
+import { loadHistory } from '../db/threads.ts'
 
 export function createTestRoutes(onMessage: MessageHandler) {
   const r = new Hono()
@@ -43,6 +44,23 @@ export function createTestRoutes(onMessage: MessageHandler) {
     })
     const replies = webAdapter.drain(threadId)
     return c.json({ thread_id: threadId, replies })
+  })
+
+  // Read the persisted history of a website chat thread. Lets the chat
+  // widget AND the full /chat page hydrate from the same thread so the
+  // user sees one continuous conversation no matter which surface they
+  // opened. The threadId comes from localStorage on the client.
+  r.get('/api/chat/history', (c) => {
+    const threadId = c.req.query('thread_id')
+    if (!threadId) return c.json({ thread_id: null, messages: [] })
+    const history = loadHistory(threadId)
+    const messages = history.map((h, i) => ({
+      id: `h_${i}`,
+      role: h.role,             // 'user' | 'assistant'
+      text: h.content,
+      ts: h.ts,
+    }))
+    return c.json({ thread_id: threadId, messages })
   })
 
   return r

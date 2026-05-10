@@ -7,6 +7,7 @@ import type { IncomingMessage } from '../../channels/types.ts'
 import { fmtMoney, shortId } from './format.ts'
 import { scoreReply } from './score.ts'
 import { referralSummary } from '../../domain/tools.ts'
+import { handleCommentsCommand, handleRichReviewsCommand, handleStatsCommand } from './marketing/index.ts'
 
 interface ThreadRow { threadId?: string; id?: string; from?: string; customerHandle?: string; customer_handle?: string; lastMessage?: string; last_message?: string }
 interface ReviewRow { id?: string; reviewId?: string; rating?: number; stars?: number; text?: string; body?: string; authorName?: string; author?: string; hasReply?: boolean; replied?: boolean }
@@ -124,7 +125,10 @@ export async function handleOwnerAsyncCommand(msg: IncomingMessage): Promise<Bot
   const cmd = msg.text.trim().split(/\s+/)[0]?.toLowerCase()
   switch (cmd) {
     case '/inbox': return await inboxReply()
-    case '/reviews': return await reviewsReply()
+    case '/comments': return await handleCommentsCommand()
+    case '/reviews': return await handleRichReviewsCommand()
+    case '/reviews-flat': return await reviewsReply()
+    case '/stats': return await handleStatsCommand()
     case '/spend': return await spendReply()
     case '/gb': return await gbReply()
     case '/score': return await scoreReply()

@@ -137,6 +137,18 @@ const baseSchema = z.object({
     .max(20, 'That looks long — is it a typo?')
     .regex(PHONE_REGEX, 'Numbers only — digits, spaces, +, -, ( or ) allowed')
     .refine((s) => s.replace(/\D/g, '').length >= 7, 'Need at least 7 digits'),
+  // Optional — phone is the primary contact for "your cake is ready"
+  // pings. Email is for receipts + the occasional newsletter, so making
+  // it required would block conversions for the "I'll grab my phone but
+  // not my email" cohort. Empty string is normalized to undefined before
+  // submit so the API doesn't see a blank string.
+  customer_email: z
+    .string()
+    .trim()
+    .max(120, 'That looks long — is it a typo?')
+    .email('Hmm — that doesn\'t look like an email')
+    .optional()
+    .or(z.literal('')),
   notes: z.string().max(500, 'Keep notes under 500 characters').optional(),
   // Delivery-only — validated conditionally below.
   street: z.string().optional(),
@@ -209,7 +221,7 @@ const STEPS: Array<{ key: StepKey; index: number; label: string; subtitle: strin
   { key: 'cakes', index: 1, label: 'What would you like?', subtitle: 'Pick the cakes and quantities.', icon: Cake },
   { key: 'when', index: 2, label: 'When + how', subtitle: 'Time, pickup or delivery, address.', icon: Clock },
   { key: 'contact', index: 3, label: 'Your details', subtitle: 'Where to reach you, plus any kitchen notes.', icon: UserRound },
-  { key: 'payment', index: 4, label: 'Payment', subtitle: 'Card on file — we charge after Askhat approves.', icon: CreditCard },
+  { key: 'payment', index: 4, label: 'Payment', subtitle: 'Card on file — we charge once the team confirms.', icon: CreditCard },
 ]
 
 type StepFields = ReadonlyArray<keyof FormValues | `items.${number}.${'product_id' | 'quantity'}`>
@@ -228,7 +240,10 @@ function fieldsForStep(stepKey: StepKey, deliveryMode: boolean, itemsCount: numb
       : (['scheduled_at_iso', 'pickup_or_delivery'] as const)
   }
   if (stepKey === 'contact') {
-    return ['customer_name', 'customer_phone'] as const
+    // customer_email validates as optional → included so the user sees
+    // the inline error if they typed something that isn't an email,
+    // but won't block "Next" if the field is blank.
+    return ['customer_name', 'customer_phone', 'customer_email'] as const
   }
   // Payment step is local-state-only (not part of the zod schema). It does
   // its own client-side validation in PaymentStep before allowing submit.
@@ -285,6 +300,7 @@ export function OrderForm({ products }: { products: Product[] }) {
       pickup_or_delivery: seededMode,
       customer_name: '',
       customer_phone: '',
+      customer_email: '',
       notes: '',
       street: '',
       city: 'Sugar Land',
@@ -383,6 +399,9 @@ export function OrderForm({ products }: { products: Product[] }) {
       channel: 'web' as const,
       customer_name: values.customer_name,
       customer_phone: values.customer_phone,
+      // Optional — empty string normalizes to undefined so the server
+      // sees a clean missing value (zod's email() refuses empty strings).
+      customer_email: values.customer_email?.trim() || undefined,
       items: values.items.map((it) => ({ product_id: it.product_id, quantity: Number(it.quantity) })),
       scheduled_at_iso: new Date(values.scheduled_at_iso).toISOString(),
       pickup_or_delivery: values.pickup_or_delivery,
@@ -868,6 +887,24 @@ function ContactStep({ form }: { form: ReturnType<typeof useForm<FormValues>> })
         </div>
       </div>
       <div>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="customer_email">Email</Label>
+          <span className="text-xs text-cocoa-900/55">Optional · for receipts</span>
+        </div>
+        <Input
+          id="customer_email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          {...form.register('customer_email')}
+          className="mt-1"
+        />
+        {form.formState.errors.customer_email && (
+          <p className="mt-1 text-xs text-berry">{form.formState.errors.customer_email.message as string}</p>
+        )}
+      </div>
+      <div>
         <Label htmlFor="notes">Notes for the kitchen (optional)</Label>
         <Textarea
           id="notes"
@@ -983,8 +1020,8 @@ function PaymentStep({
         <div className="text-sm text-cocoa-900/85 leading-relaxed">
           <p className="font-medium text-cocoa-900">Test mode · no charge yet</p>
           <p className="mt-1 text-cocoa-900/70">
-            Card details are captured here so Askhat sees them with the order. The actual
-            charge happens via Square <strong>after</strong> he approves the draft and confirms
+            Card details are captured here so the team sees them with the order. The actual
+            charge happens via Square <strong>after</strong> we approve the draft and confirm
             the cake by phone — never before.
           </p>
           <button
@@ -1131,7 +1168,7 @@ function PaymentStep({
           <span className="text-2xl font-medium text-cocoa-900 tabular-nums">{fmtUsd(total)}</span>
         </div>
         <p className="mt-2 text-xs text-cocoa-900/60 leading-relaxed">
-          Authorisation only. Captured after Askhat approves and confirms by phone — usually
+          Authorisation only. Captured after our team approves and confirms by phone — usually
           within the hour during open hours. Cancel free until capture.
         </p>
       </div>
@@ -1291,7 +1328,7 @@ function BasketAside({
       <p className="mt-4 text-xs text-cocoa-900/55">
         Step {stepIdx + 1} of {STEPS.length} —{' '}
         {requiresApproval
-          ? 'Askhat reviews custom and catering orders within an hour during open hours.'
+          ? 'Our team reviews custom and catering orders within an hour during open hours.'
           : "We'll queue the kitchen as soon as we open — no need to wait for an approval."}
       </p>
     </aside>

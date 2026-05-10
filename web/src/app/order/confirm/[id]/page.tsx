@@ -24,7 +24,7 @@ export default async function OrderConfirmPage(props: { params: Params }) {
       <Eyebrow>Order received</Eyebrow>
       <h1 className="display-h1 mt-3">Thank you</h1>
       <p className="mt-3 text-cocoa-900/80">
-        Askhat will look at this within the hour and confirm by phone or WhatsApp. Track the
+        Our team will look at this within the hour and confirm by phone or WhatsApp. Track the
         status here — we'll keep this page up to date as the cake moves through the kitchen.
       </p>
 

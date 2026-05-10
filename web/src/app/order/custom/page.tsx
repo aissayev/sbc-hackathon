@@ -6,7 +6,7 @@ import { CustomCakeFunnel } from '@/components/order/custom-cake-funnel'
 export const metadata: Metadata = {
   title: 'Design a custom cake',
   description:
-    'Build a custom cake — birthday, anniversary, wedding, or anything else. Five quick steps; Askhat confirms by phone within an hour during open hours.',
+    'Build a custom cake — birthday, anniversary, wedding, or anything else. Five quick steps; our team confirms by phone within an hour during open hours.',
   alternates: { canonical: '/order/custom' },
 }
 

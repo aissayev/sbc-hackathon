@@ -19,7 +19,7 @@ import {
 export const metadata: Metadata = {
   title: 'For business — catering, gifting, standing orders',
   description:
-    'Office breaks, event catering, corporate gifting, and standing programs from Happy Cake. Sugar Land + Houston metro. One point of contact, one invoice, dietary-friendly options.',
+    'Office breaks, event catering, corporate gifting, and standing programs from HappyCake. Sugar Land + Houston metro. One point of contact, one invoice, dietary-friendly options.',
   alternates: { canonical: '/business' },
 }
 
@@ -42,7 +42,7 @@ const TRUST_SIGNALS = [
   {
     icon: Building2,
     title: 'One point of contact',
-    body: 'Askhat handles every B2B account directly. No queue, no service tier — just a phone call.',
+    body: 'Our team handles every B2B account directly. No queue, no service tier — just a phone call.',
   },
 ]
 
@@ -59,7 +59,7 @@ export default function BusinessLanding() {
   const serviceJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Service',
-    name: 'Happy Cake — corporate catering, gifting, and standing programs',
+    name: 'HappyCake — corporate catering, gifting, and standing programs',
     provider: {
       '@type': 'Bakery',
       '@id': `${BRAND.origin}/#bakery`,
@@ -114,7 +114,7 @@ export default function BusinessLanding() {
           <div className="lg:col-span-5">
             <HeroImage
               src={ASSETS.hero[2] ?? ASSETS.hero[0]}
-              alt="Curated office dessert box from Happy Cake — assorted slices, rolls, and mini cakes for a Houston-area office break"
+              alt="Curated office dessert box from HappyCake — assorted slices, rolls, and mini cakes for a Houston-area office break"
               className="aspect-[4/5]"
             />
           </div>

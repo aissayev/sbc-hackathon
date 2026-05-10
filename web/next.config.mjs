@@ -21,7 +21,15 @@ const nextConfig = {
   async rewrites() {
     const backend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
     return [
+      // /api/chat/history MUST come before /api/chat — Next matches the
+      // first source pattern in order and a bare `/api/chat` would shadow
+      // sub-paths in some versions.
+      { source: '/api/chat/history', destination: `${backend}/api/chat/history` },
       { source: '/api/chat', destination: `${backend}/api/chat` },
+      // Local-disk upload fallback serves files at /uploads/<key>; in
+      // prod with Spaces wired the response URL is the CDN domain so
+      // this rewrite is unused.
+      { source: '/uploads/:path*', destination: `${backend}/uploads/:path*` },
       { source: '/api/products', destination: `${backend}/api/products` },
       { source: '/api/products/:id', destination: `${backend}/api/products/:id` },
       { source: '/api/orders/draft', destination: `${backend}/api/orders/draft` },

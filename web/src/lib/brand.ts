@@ -1,11 +1,12 @@
 // Single source of truth for brand strings used in the UI.
 // Mirrors docs/00-source/asset-pack.metadata.json (canonical) and the live
-// happycake.us copy. The display wordmark is "Happy Cake" (two words);
-// agent replies still use the brandbook spelling — this file is for the site.
+// happycake.us copy. The wordmark is **HappyCake** — one word, two capitals,
+// per brand book §2. Used everywhere on the site, in the agent's replies,
+// and in JSON-LD so search results and social shares all read the same.
 
 export const BRAND = {
-  name: 'Happy Cake',
-  legal: 'Happy Cake US',
+  name: 'HappyCake',
+  legal: 'HappyCake US',
   city: 'Sugar Land, TX',
   region: 'Sugar Land + Houston metro',
   // Canonical tagline from the brand book. Specific, modest, the same line

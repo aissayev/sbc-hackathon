@@ -9,7 +9,7 @@ import { Sparkles, ArrowRight } from 'lucide-react'
 export const metadata: Metadata = {
   title: 'Order a cake',
   description:
-    'Send your order to the Happy Cake kitchen in Sugar Land — Askhat reviews and confirms within an hour during open hours.',
+    'Send your order to the HappyCake kitchen in Sugar Land — our team reviews and confirms within an hour during open hours.',
   alternates: { canonical: '/order' },
 }
 
@@ -50,7 +50,7 @@ export default async function OrderPage() {
             Need something fully custom?
           </div>
           <div className="mt-1 text-sm text-cocoa-900/70 leading-relaxed">
-            Flavours, decoration, inscription, dietary needs. Askhat quotes by phone.
+            Flavours, decoration, inscription, dietary needs. Our team quotes by phone.
           </div>
         </div>
         <span className="hidden sm:inline-flex items-center gap-1 text-sm font-medium text-sky-700 group-hover:text-sky-900 shrink-0">

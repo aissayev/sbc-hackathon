@@ -193,7 +193,7 @@ function DefaultCard({
       <div className="relative">
         <CakePhoto
           productId={product.id}
-          name={`${product.name} — ${kindLabel} from Happy Cake`}
+          name={`${product.name} — ${kindLabel} from HappyCake`}
           src={product.photo_url}
           // Card already rounds the top via overflow-hidden; the inner photo
           // wrapping with its own radius created a faint double-rounded edge.
@@ -265,7 +265,7 @@ function FeaturedCard({ product, className }: { product: Product; className?: st
       <div className="relative aspect-[4/5] sm:aspect-[5/4] lg:aspect-[4/5]">
         <CakePhoto
           productId={product.id}
-          name={`${product.name} — ${kindLabel} signature from Happy Cake`}
+          name={`${product.name} — ${kindLabel} signature from HappyCake`}
           src={product.photo_url}
           aspect="square"
           className="!aspect-auto !rounded-none absolute inset-0 h-full w-full"
@@ -317,7 +317,7 @@ function CompactCard({ product, className }: { product: Product; className?: str
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-cream-100">
         <CakePhoto
           productId={product.id}
-          name={`${product.name} — ${kindLabel} from Happy Cake`}
+          name={`${product.name} — ${kindLabel} from HappyCake`}
           src={product.photo_url}
           aspect="square"
           className="!aspect-square !rounded-none h-16 w-16"
@@ -391,7 +391,7 @@ function ShowcaseCard({ product, className }: { product: Product; className?: st
       <div className="relative mt-4 mx-5">
         <CakePhoto
           productId={product.id}
-          name={`${product.name} — ${kindLabel} from Happy Cake`}
+          name={`${product.name} — ${kindLabel} from HappyCake`}
           src={product.photo_url}
           aspect="square"
           className="!rounded-2xl"
@@ -454,7 +454,7 @@ function DenseCard({ product, className }: { product: Product; className?: strin
       <div className="relative">
         <CakePhoto
           productId={product.id}
-          name={`${product.name} — ${kindLabel} from Happy Cake`}
+          name={`${product.name} — ${kindLabel} from HappyCake`}
           src={product.photo_url}
           aspect="4/3"
           className="!rounded-none"
