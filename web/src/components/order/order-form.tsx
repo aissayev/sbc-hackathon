@@ -434,6 +434,11 @@ export function OrderForm({ products }: { products: Product[] }) {
             }}
             error={paymentError}
             total={total}
+            // After a failed submit `paymentError` is non-null. Pass it
+            // through so the child renders inline errors on every field
+            // — not just the touched ones — so the customer sees exactly
+            // which fields blocked the submit.
+            forceShowErrors={paymentError !== null}
           />
         )}
 
@@ -875,17 +880,74 @@ function ContactStep({ form }: { form: ReturnType<typeof useForm<FormValues>> })
 // owner-side TG card already carries a "card on file" hint from the
 // composedNotes line). The visible copy is honest: "test mode, capture
 // after approval, no charge yet".
+
+// Per-field validators. Return `null` when the field is OK to submit, a
+// short string otherwise. Used both for the live checklist (which only
+// reports `valid` / not) and for inline error text after a field has been
+// touched (blurred at least once).
+function validateCardholder(v: string): string | null {
+  if (!v.trim()) return 'Required.'
+  if (v.trim().length < 2) return 'Looks too short.'
+  return null
+}
+function validateCardNumber(v: string): string | null {
+  const digits = v.replace(/\s/g, '')
+  if (digits.length === 0) return 'Required.'
+  if (digits.length < 13) return 'Card number looks too short.'
+  if (!TEST_CARDS.has(digits)) return 'Use 4242 4242 4242 4242 in test mode.'
+  return null
+}
+function validateExpiry(v: string): string | null {
+  if (!v.trim()) return 'Required.'
+  if (!/^\d{2}\s*\/\s*\d{2}$/.test(v.trim())) return 'Format MM / YY.'
+  return null
+}
+function validateCvc(v: string): string | null {
+  if (!v.trim()) return 'Required.'
+  if (!/^\d{3,4}$/.test(v.trim())) return '3 or 4 digits.'
+  return null
+}
+
+const PAYMENT_REQUIRED: Array<{
+  key: 'cardholder' | 'number' | 'expiry' | 'cvc'
+  label: string
+  validate: (v: string) => string | null
+}> = [
+  { key: 'cardholder', label: 'Name on card', validate: validateCardholder },
+  { key: 'number', label: 'Card number', validate: validateCardNumber },
+  { key: 'expiry', label: 'Expiry (MM / YY)', validate: validateExpiry },
+  { key: 'cvc', label: 'CVC', validate: validateCvc },
+]
+
 function PaymentStep({
   payment,
   setPayment,
   error,
   total,
+  forceShowErrors = false,
 }: {
   payment: PaymentState
   setPayment: (p: PaymentState) => void
   error: string | null
   total: number
+  forceShowErrors?: boolean
 }) {
+  // Per-field "touched" state — a field's inline error renders only after
+  // the user has interacted with it once (typed + blurred) OR a parent
+  // submit attempt set forceShowErrors. Avoids screaming red at someone
+  // who just landed on the step.
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
+  const markTouched = (k: string) => setTouched((t) => (t[k] ? t : { ...t, [k]: true }))
+  const shouldShowError = (k: string) => forceShowErrors || Boolean(touched[k])
+
+  // Field errors. Always computed; rendered inline only when touched.
+  const fieldErrors = {
+    cardholder: validateCardholder(payment.cardholder),
+    number: validateCardNumber(payment.number),
+    expiry: validateExpiry(payment.expiry),
+    cvc: validateCvc(payment.cvc),
+  } as const
+
   function autofillTestCard() {
     setPayment({
       ...payment,
@@ -894,6 +956,9 @@ function PaymentStep({
       expiry: '12 / 27',
       cvc: '123',
     })
+    // Autofill counts as having "touched" all fields — checklist flips
+    // to green immediately rather than waiting for blur on each.
+    setTouched({ cardholder: true, number: true, expiry: true, cvc: true })
   }
   function formatCardNumber(raw: string): string {
     const digits = raw.replace(/\D/g, '').slice(0, 19)
@@ -927,6 +992,12 @@ function PaymentStep({
         </div>
       </div>
 
+      {/* Live "what's needed" checklist. Each row flips green ✓ as the
+          field becomes valid. Saves the customer from clicking submit and
+          getting a generic top-level error — they know exactly what's
+          missing as they type. */}
+      <PaymentChecklist payment={payment} fieldErrors={fieldErrors} />
+
       <div className="rounded-2xl border border-cocoa-700/15 bg-white p-5 md:p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 text-cocoa-900">
@@ -941,43 +1012,69 @@ function PaymentStep({
 
         <div className="mt-5 space-y-4">
           <div>
-            <Label htmlFor="cardholder">Name on card</Label>
+            <Label htmlFor="cardholder">
+              Name on card <RequiredMark />
+            </Label>
             <Input
               id="cardholder"
               value={payment.cardholder}
               autoComplete="cc-name"
               onChange={(e) => setPayment({ ...payment, cardholder: e.target.value })}
+              onBlur={() => markTouched('cardholder')}
               placeholder="As it appears on the card"
-              className="mt-1"
+              aria-invalid={shouldShowError("cardholder") && !!fieldErrors.cardholder}
+              aria-describedby="cardholder-error"
+              className={cn('mt-1', shouldShowError("cardholder") && fieldErrors.cardholder && 'border-berry focus-visible:ring-berry/40')}
             />
+            <FieldError id="cardholder-error" show={Boolean(shouldShowError("cardholder") && fieldErrors.cardholder)}>
+              {fieldErrors.cardholder}
+            </FieldError>
           </div>
           <div>
-            <Label htmlFor="card-number">Card number</Label>
+            <Label htmlFor="card-number">
+              Card number <RequiredMark />
+            </Label>
             <Input
               id="card-number"
               value={payment.number}
               autoComplete="cc-number"
               inputMode="numeric"
               onChange={(e) => setPayment({ ...payment, number: formatCardNumber(e.target.value) })}
+              onBlur={() => markTouched('number')}
               placeholder="4242 4242 4242 4242"
-              className="mt-1 font-mono tracking-wider"
+              aria-invalid={shouldShowError("number") && !!fieldErrors.number}
+              aria-describedby="card-number-error"
+              className={cn('mt-1 font-mono tracking-wider', shouldShowError("number") && fieldErrors.number && 'border-berry focus-visible:ring-berry/40')}
             />
+            <FieldError id="card-number-error" show={Boolean(shouldShowError("number") && fieldErrors.number)}>
+              {fieldErrors.number}
+            </FieldError>
           </div>
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <div>
-              <Label htmlFor="card-exp">Expires</Label>
+              <Label htmlFor="card-exp">
+                Expires <RequiredMark />
+              </Label>
               <Input
                 id="card-exp"
                 value={payment.expiry}
                 autoComplete="cc-exp"
                 inputMode="numeric"
                 onChange={(e) => setPayment({ ...payment, expiry: formatExpiry(e.target.value) })}
+                onBlur={() => markTouched('expiry')}
                 placeholder="MM / YY"
-                className="mt-1 font-mono tracking-wider"
+                aria-invalid={shouldShowError("expiry") && !!fieldErrors.expiry}
+                aria-describedby="card-exp-error"
+                className={cn('mt-1 font-mono tracking-wider', shouldShowError("expiry") && fieldErrors.expiry && 'border-berry focus-visible:ring-berry/40')}
               />
+              <FieldError id="card-exp-error" show={Boolean(shouldShowError("expiry") && fieldErrors.expiry)}>
+                {fieldErrors.expiry}
+              </FieldError>
             </div>
             <div>
-              <Label htmlFor="card-cvc">CVC</Label>
+              <Label htmlFor="card-cvc">
+                CVC <RequiredMark />
+              </Label>
               <Input
                 id="card-cvc"
                 value={payment.cvc}
@@ -987,9 +1084,15 @@ function PaymentStep({
                 onChange={(e) =>
                   setPayment({ ...payment, cvc: e.target.value.replace(/\D/g, '').slice(0, 4) })
                 }
+                onBlur={() => markTouched('cvc')}
                 placeholder="123"
-                className="mt-1 font-mono tracking-wider"
+                aria-invalid={shouldShowError("cvc") && !!fieldErrors.cvc}
+                aria-describedby="card-cvc-error"
+                className={cn('mt-1 font-mono tracking-wider', shouldShowError("cvc") && fieldErrors.cvc && 'border-berry focus-visible:ring-berry/40')}
               />
+              <FieldError id="card-cvc-error" show={Boolean(shouldShowError("cvc") && fieldErrors.cvc)}>
+                {fieldErrors.cvc}
+              </FieldError>
             </div>
           </div>
 
@@ -1028,6 +1131,79 @@ function PaymentStep({
         </p>
       </div>
     </div>
+  )
+}
+
+// Live "what's needed to continue" list. Each row flips green ✓ when its
+// field is valid. Always visible during the payment step so the visitor
+// sees their progress as they fill in card details.
+function PaymentChecklist({
+  payment,
+  fieldErrors,
+}: {
+  payment: PaymentState
+  fieldErrors: Record<'cardholder' | 'number' | 'expiry' | 'cvc', string | null>
+}) {
+  const items = PAYMENT_REQUIRED.map((f) => ({
+    key: f.key,
+    label: f.label,
+    valid: fieldErrors[f.key] === null,
+    started: payment[f.key].length > 0,
+  }))
+  const remaining = items.filter((i) => !i.valid).length
+  return (
+    <div className="rounded-2xl bg-cream-50 border border-cocoa-700/10 p-4">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-cocoa-900/55 font-medium">
+        {remaining === 0 ? 'Ready to send' : `${remaining} of ${items.length} to fill`}
+      </p>
+      <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
+        {items.map((it) => (
+          <li key={it.key} className="flex items-center gap-2 text-sm">
+            <ChecklistDot valid={it.valid} started={it.started} />
+            <span className={cn(it.valid ? 'text-cocoa-900' : 'text-cocoa-900/65')}>{it.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ChecklistDot({ valid, started }: { valid: boolean; started: boolean }) {
+  if (valid) {
+    return (
+      <span
+        aria-label="filled"
+        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white text-[10px] font-bold leading-none"
+      >
+        ✓
+      </span>
+    )
+  }
+  return (
+    <span
+      aria-label={started ? 'incomplete' : 'not yet'}
+      className={cn(
+        'inline-block h-4 w-4 shrink-0 rounded-full border-2',
+        started ? 'border-berry/55 bg-berry/15' : 'border-cocoa-700/25 bg-bakery',
+      )}
+    />
+  )
+}
+
+function RequiredMark() {
+  return (
+    <span aria-hidden className="ml-0.5 text-berry text-xs">
+      *
+    </span>
+  )
+}
+
+function FieldError({ id, show, children }: { id: string; show: boolean; children: React.ReactNode }) {
+  if (!show || !children) return null
+  return (
+    <p id={id} role="alert" className="mt-1 text-xs text-berry">
+      {children}
+    </p>
   )
 }
 
