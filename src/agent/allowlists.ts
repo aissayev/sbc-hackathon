@@ -88,6 +88,8 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__local__find_customer_by_thread',
     'mcp__local__find_customer_by_phone',
     'mcp__local__list_customer_orders',
+    // Destructive — owner role only. Never allowlisted for concierge.
+    'mcp__local__merge_customers',
     'mcp__happycake__evaluator_get_evidence_summary',
     'mcp__happycake__evaluator_generate_team_report',
     'mcp__happycake__square_get_pos_summary',

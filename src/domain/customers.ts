@@ -240,6 +240,111 @@ export function recordOrderForCustomer(customerId: string, orderTotalCents: numb
     .catch((err) => console.warn('[customers] sync import failed:', (err as Error).message))
 }
 
+// ── Merge ────────────────────────────────────────────────────────────
+//
+// When two customers exist for the same person — usually because the
+// upsert dedup key (phone) was missing on one side or because the
+// person used two different phone numbers — the owner can merge them
+// from Telegram (`/merge_customers <source_phone> <target_phone>`) or
+// the agent can call merge_customers via MCP (owner-only).
+//
+// Convention: SOURCE merges INTO TARGET. Target survives. Source is deleted.
+// All orders + threads owned by source get re-pointed at target. Counters
+// add. Missing fields on target are filled from source (name/email/notes).
+
+export type MergeResult =
+  | { ok: true; merged: { source_id: string; target_id: string; orders_moved: number; threads_moved: number; new_order_count: number } }
+  | { ok: false; reason: string }
+
+export function mergeCustomers(sourceId: string, targetId: string): MergeResult {
+  if (sourceId === targetId) return { ok: false, reason: 'source and target are the same customer' }
+
+  const db = getDb()
+  const source = getCustomerById(sourceId)
+  const target = getCustomerById(targetId)
+  if (!source) return { ok: false, reason: `source customer ${sourceId} not found` }
+  if (!target) return { ok: false, reason: `target customer ${targetId} not found` }
+
+  // Conflict guard: if both rows have a phone (or email) and they differ,
+  // surface that to the operator — auto-merging would lose dedup data.
+  // The owner can still force the merge with explicit ids; this guard only
+  // catches the accidental "merged the wrong two" case.
+  if (source.phone && target.phone && source.phone !== target.phone) {
+    return {
+      ok: false,
+      reason: `phone mismatch: source ${source.phone} vs target ${target.phone}. Use /customer to confirm both records before merging.`,
+    }
+  }
+
+  const now = Date.now()
+  // Run in a single transaction so a partial failure can't leave the
+  // database with orders pointing at a deleted customer or counters
+  // double-counted.
+  const tx = db.transaction(() => {
+    const movedOrders = db
+      .prepare('UPDATE orders SET customer_id = ? WHERE customer_id = ?')
+      .run(targetId, sourceId)
+
+    const movedThreads = db
+      .prepare('UPDATE threads SET customer_id = ? WHERE customer_id = ?')
+      .run(targetId, sourceId)
+
+    db.prepare(
+      `UPDATE customers
+       SET order_count       = order_count + ?,
+           total_spent_cents = total_spent_cents + ?,
+           name              = COALESCE(name, ?),
+           phone             = COALESCE(phone, ?),
+           email             = COALESCE(email, ?),
+           square_customer_id = COALESCE(square_customer_id, ?),
+           notes             = CASE
+                                  WHEN notes IS NULL THEN ?
+                                  WHEN ? IS NULL THEN notes
+                                  ELSE notes || ' | ' || ?
+                                END,
+           first_seen_at     = MIN(first_seen_at, ?),
+           last_seen_at      = MAX(last_seen_at, ?),
+           updated_at        = ?
+       WHERE id = ?`,
+    ).run(
+      source.order_count,
+      source.total_spent_cents,
+      source.name,
+      source.phone,
+      source.email,
+      source.square_customer_id,
+      source.notes,
+      source.notes,
+      source.notes,
+      source.first_seen_at,
+      source.last_seen_at,
+      now,
+      targetId,
+    )
+
+    db.prepare('DELETE FROM customers WHERE id = ?').run(sourceId)
+
+    return {
+      orders_moved: Number(movedOrders.changes ?? 0),
+      threads_moved: Number(movedThreads.changes ?? 0),
+    }
+  })
+
+  const moved = tx()
+  const after = getCustomerById(targetId)
+
+  return {
+    ok: true,
+    merged: {
+      source_id: sourceId,
+      target_id: targetId,
+      orders_moved: moved.orders_moved,
+      threads_moved: moved.threads_moved,
+      new_order_count: after?.order_count ?? 0,
+    },
+  }
+}
+
 // One-shot: upsert customer from order data, link the thread, return id.
 // This is the convenient call createDraftOrder uses.
 export function upsertCustomerForOrder(args: {

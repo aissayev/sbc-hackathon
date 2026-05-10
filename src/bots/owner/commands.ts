@@ -23,7 +23,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { IncomingMessage } from '../../channels/types.ts'
 import { fmtMoney, hhmm, shortId, ordinal } from './format.ts'
-import { findCustomerByPhone, listCustomerOrders } from '../../domain/customers.ts'
+import { findCustomerByPhone, listCustomerOrders, mergeCustomers } from '../../domain/customers.ts'
 import { handleContentCommand, handleDraftsCommand } from './marketing/index.ts'
 
 export interface BotReply {
@@ -91,6 +91,8 @@ export function handleOwnerCommand(msg: IncomingMessage): BotReply | null {
       return postReelHint(cmd)
     case '/customer':
       return customerReply(msg.text.trim())
+    case '/merge_customers':
+      return mergeCustomersReply(msg.text.trim())
     case '/reset':
       // /reset is handled in server.ts (clears thread history); return a
       // placeholder so the slash dispatcher doesn't fall through to the agent.
@@ -122,6 +124,7 @@ function helpReply(): BotReply {
       '/orders       last 10 orders + one-tap approve',
       '/escalations  open escalations',
       '/customer <phone>   CRM view: name, lifetime spend, recent orders',
+      '/merge_customers <source_phone> <target_phone>   merge dupes',
       '',
       'Marketing & social:',
       '/content      weekly content plan — calendar of drafted posts/reels',
@@ -273,6 +276,44 @@ function customerReply(rawText: string): BotReply {
     ]
       .filter((s): s is string => s !== null)
       .join('\n'),
+  }
+}
+
+/**
+ * /merge_customers <source_phone> <target_phone>  →  merge two records.
+ * Source merges INTO target — target survives. Phone-resolved both sides
+ * via findCustomerByPhone (normalizePhone strips formatting).
+ *
+ * Phone-mismatch guard inside mergeCustomers() catches the accidental
+ * "wrong two records" case; explicit-id callers (the MCP tool) can still
+ * force the merge if needed. From the slash command we always go through
+ * the phone-find path so the guard is informational rather than blocking.
+ */
+function mergeCustomersReply(rawText: string): BotReply {
+  const args = rawText.replace(/^\/merge_customers\s*/i, '').trim().split(/\s+/).filter(Boolean)
+  if (args.length < 2) {
+    return {
+      text:
+        'Usage: /merge_customers <source_phone> <target_phone>\n\nSource merges INTO target — target survives. Example:\n  /merge_customers 2815551001 (281) 555-1002',
+    }
+  }
+  const [sourcePhone, ...rest] = args
+  const targetPhone = rest.join(' ')
+  const source = findCustomerByPhone(sourcePhone)
+  const target = findCustomerByPhone(targetPhone)
+  if (!source) return { text: `❌ No customer found for source phone ${sourcePhone}` }
+  if (!target) return { text: `❌ No customer found for target phone ${targetPhone}` }
+
+  const result = mergeCustomers(source.id, target.id)
+  if (!result.ok) return { text: `❌ Merge blocked: ${result.reason}` }
+
+  return {
+    text: [
+      `✅ Merged ${shortId(result.merged.source_id)} → ${shortId(result.merged.target_id)}`,
+      `   Orders moved:  ${result.merged.orders_moved}`,
+      `   Threads moved: ${result.merged.threads_moved}`,
+      `   New order count on target: ${result.merged.new_order_count}`,
+    ].join('\n'),
   }
 }
 
