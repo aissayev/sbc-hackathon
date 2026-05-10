@@ -33,6 +33,7 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__local__get_order_status',
     'mcp__local__escalate_to_owner',
     'mcp__local__brand_lookup',
+    'mcp__local__get_policies',
   ],
   kitchen: [
     'mcp__happycake__kitchen_create_ticket',
