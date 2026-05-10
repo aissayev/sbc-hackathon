@@ -126,14 +126,39 @@ if (config.instagram.token) {
   else warn('IG_APP_SECRET', 'unset — webhook bodies accepted unsigned (dev/sandbox path)')
 }
 
-// ─── Sandbox MCP reachability (only if token present) ─────────────────────
+// ─── Sandbox MCP reachability per category ───────────────────────────────
+// One probe per category so the operator sees end-to-end MCP coverage at
+// a glance. The full surface (55 sandbox tools + 21 local stdio tools) is
+// audited via `bun run audit:hardcodes` and the per-role allowlists in
+// src/agent/allowlists.ts; this is the liveness check.
 
 if (config.sandbox.teamToken) {
-  const t0 = Date.now()
-  const result = await tryCallSandboxTool<unknown>('square_list_catalog', {})
-  const dt = Date.now() - t0
-  if (result !== null) pass('sandbox MCP reachable', `square_list_catalog OK in ${dt}ms`)
-  else fail('sandbox MCP reachable', 'square_list_catalog failed — check token + URL')
+  const probes: Array<[string, string]> = [
+    ['square (POS)',         'square_list_catalog'],
+    ['kitchen',              'kitchen_get_capacity'],
+    ['marketing',            'marketing_get_budget'],
+    ['whatsapp',             'whatsapp_list_threads'],
+    ['instagram',            'instagram_list_dm_threads'],
+    ['google business',      'gb_get_metrics'],
+    ['evaluator',            'evaluator_get_evidence_summary'],
+  ]
+  let okCount = 0
+  for (const [label, tool] of probes) {
+    const t0 = Date.now()
+    const result = await tryCallSandboxTool<unknown>(tool, tool === 'gb_get_metrics' ? { period: 'last_7_days' } : {})
+    const dt = Date.now() - t0
+    if (result !== null) {
+      pass(`sandbox MCP · ${label}`, `${tool} OK in ${dt}ms`)
+      okCount += 1
+    } else {
+      fail(`sandbox MCP · ${label}`, `${tool} failed`)
+    }
+  }
+  if (okCount === probes.length) {
+    pass('sandbox MCP coverage', `${okCount}/${probes.length} categories reachable`)
+  } else {
+    warn('sandbox MCP coverage', `${okCount}/${probes.length} categories reachable`)
+  }
 }
 
 // ─── Render report ───────────────────────────────────────────────────────
