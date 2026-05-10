@@ -11,7 +11,9 @@ import type { MessageHandler } from './types.ts'
 import {
   configuredBots,
   downloadTelegramFile,
+  editTelegramMessage,
   parseTelegramUpdate,
+  sendChatAction,
   sendTelegram,
   type TelegramBotSpec,
   type TelegramUpdate,
@@ -110,6 +112,14 @@ function sleep(ms: number) {
  * shallow-cloned update with `message.text` populated. Otherwise returns
  * the update unchanged. On transcription failure: sends a graceful reply
  * to the chat and returns null so the caller skips the update.
+ *
+ * UX: the user gets immediate feedback in the chat:
+ *   1. "🎙 listening…"       (sent as a placeholder, instant)
+ *   2. "🎙 «what was heard»"  (edit, after Whisper returns)
+ *   3. The agent's actual reply follows from the existing pipeline.
+ *
+ * On failure the placeholder is edited to show the error, so the user
+ * never wonders if the bot is alive.
  */
 async function maybeTranscribeUpdate(
   bot: TelegramBotSpec,
@@ -123,15 +133,24 @@ async function maybeTranscribeUpdate(
   // we're not running STT in that case, the user typed something.
   if (typeof m.text === 'string' && m.text.length > 0) return update
 
+  console.log(
+    `[telegram:${bot.role}] voice received: ${audio.duration}s, ${audio.file_size ?? '?'} bytes, file_id=${audio.file_id.slice(0, 16)}…`,
+  )
+
   if (!isTranscribeConfigured()) {
-    console.warn(`[telegram:${bot.role}] voice received but ELEVENLABS_API_KEY not set; replying gracefully`)
+    console.warn(`[telegram:${bot.role}] voice received but OPENAI_API_KEY not set; replying gracefully`)
     await sendTelegram(
       bot.token,
       m.chat.id,
-      'voice transcription is not configured on this bot — please type your message instead.',
+      '🎙 voice transcription is not configured on this bot — please type your message instead.',
     ).catch(() => {})
     return null
   }
+
+  // Instant feedback so the user sees the bot heard them while Whisper runs.
+  // sendChatAction is best-effort (auto-clears after ~5s).
+  void sendChatAction(bot.token, m.chat.id, 'typing')
+  const placeholderId = await sendTelegram(bot.token, m.chat.id, '🎙 listening…').catch(() => null)
 
   const start = Date.now()
   try {
@@ -144,11 +163,12 @@ async function maybeTranscribeUpdate(
 
     if (!result.text) {
       console.warn(`[telegram:${bot.role}] empty transcript for ${audio.duration}s voice`)
-      await sendTelegram(
-        bot.token,
-        m.chat.id,
-        'i could not hear anything in that voice note — try again or type the message?',
-      ).catch(() => {})
+      const msg = '🎙 i could not hear anything in that voice note — try again or type the message?'
+      if (placeholderId) {
+        await editTelegramMessage(bot.token, m.chat.id, placeholderId, msg).catch(() => {})
+      } else {
+        await sendTelegram(bot.token, m.chat.id, msg).catch(() => {})
+      }
       return null
     }
 
@@ -156,6 +176,16 @@ async function maybeTranscribeUpdate(
     // invoke slash commands. Pass-through otherwise.
     const mapped = voiceCommandToSlash(result.text)
     const transformedTo = mapped !== result.text ? mapped : undefined
+
+    // Edit the placeholder to show what was actually heard — gives the user
+    // a chance to spot misrecognitions immediately.
+    const heard = result.text.length > 220 ? `${result.text.slice(0, 220)}…` : result.text
+    const echo = transformedTo
+      ? `🎙 «${heard}» → ${transformedTo}`
+      : `🎙 «${heard}»`
+    if (placeholderId) {
+      await editTelegramMessage(bot.token, m.chat.id, placeholderId, echo).catch(() => {})
+    }
 
     // Internal log — both to TG owner channel (audit trail) and console
     // (recoverable from server logs). Owner role only — kitchen / marketing
@@ -189,12 +219,14 @@ async function maybeTranscribeUpdate(
       // Already handled above, but defensive.
       return null
     }
-    console.error(`[telegram:${bot.role}] transcription failed:`, (err as Error).message)
-    await sendTelegram(
-      bot.token,
-      m.chat.id,
-      'something went wrong transcribing that voice note. could you type it instead?',
-    ).catch(() => {})
+    const errMsg = (err as Error).message
+    console.error(`[telegram:${bot.role}] transcription failed:`, errMsg)
+    const userMsg = `❌ couldn't transcribe that voice note (${errMsg.slice(0, 80)}). please type it instead.`
+    if (placeholderId) {
+      await editTelegramMessage(bot.token, m.chat.id, placeholderId, userMsg).catch(() => {})
+    } else {
+      await sendTelegram(bot.token, m.chat.id, userMsg).catch(() => {})
+    }
     return null
   }
 }
@@ -247,8 +279,11 @@ export function startTelegramPollers(opts: { onMessage: MessageHandler; onCallba
   for (const b of bots) {
     void pollOne(b, opts.onMessage, opts.onCallback)
   }
+  const sttStatus = isTranscribeConfigured()
+    ? '✓ on (OpenAI Whisper)'
+    : '✗ off — set OPENAI_API_KEY in .env.local to enable voice notes'
   console.log(
-    `[telegram] ${bots.length} poller(s) running: ${bots.map((b) => b.role).join(', ')}; voice transcription: ${isTranscribeConfigured() ? 'on (ElevenLabs)' : 'off'}`,
+    `[telegram] ${bots.length} poller(s) running: ${bots.map((b) => b.role).join(', ')}\n[telegram] voice transcription: ${sttStatus}`,
   )
 }
 
