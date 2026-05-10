@@ -27,6 +27,19 @@ import {
   sendTestInbound,
   type ChannelId,
 } from '../domain/channels.ts'
+import {
+  getCampaignsCockpit,
+  getCampaignDetail,
+  adjustCampaign,
+} from '../domain/campaigns-cockpit.ts'
+import {
+  listApprovals,
+  getApproval,
+  approveApproval,
+  rejectApproval,
+  approvalCounts,
+  type ApprovalStatus,
+} from '../domain/approvals.ts'
 
 export const adminRoutes = new Hono()
 
@@ -106,6 +119,53 @@ adminRoutes.post('/api/admin/channels/:id/register', async (c) => {
 adminRoutes.post('/api/admin/channels/:id/test', async (c) => {
   const id = c.req.param('id') as ChannelId
   const result = await sendTestInbound(id)
+  return c.json(result, result.ok ? 200 : 400)
+})
+
+// ─── Campaigns ────────────────────────────────────────────────────────
+adminRoutes.get('/api/admin/campaigns', async (c) => c.json(await getCampaignsCockpit()))
+
+adminRoutes.get('/api/admin/campaigns/:id', async (c) => {
+  const detail = await getCampaignDetail(c.req.param('id'))
+  if (!detail) return c.json({ ok: false, error: 'not_found' }, 404)
+  return c.json(detail)
+})
+
+adminRoutes.post('/api/admin/campaigns/:id/:action', async (c) => {
+  const id = c.req.param('id')
+  const action = c.req.param('action') as 'pause' | 'resume' | 'adjust'
+  if (!['pause', 'resume', 'adjust'].includes(action)) {
+    return c.json({ ok: false, error: 'bad_action' }, 400)
+  }
+  let body: Record<string, unknown> = {}
+  try { body = (await c.req.json()) as Record<string, unknown> } catch {}
+  const result = await adjustCampaign(id, action, body)
+  return c.json(result, result.ok ? 200 : 400)
+})
+
+// ─── Approvals (cockpit Posts queue) ──────────────────────────────────
+adminRoutes.get('/api/admin/approvals', (c) => {
+  const status = (c.req.query('status') ?? 'pending') as ApprovalStatus | 'all'
+  return c.json({ approvals: listApprovals({ status }), counts: approvalCounts() })
+})
+
+adminRoutes.get('/api/admin/approvals/:id', (c) => {
+  const a = getApproval(c.req.param('id'))
+  if (!a) return c.json({ ok: false, error: 'not_found' }, 404)
+  return c.json(a)
+})
+
+adminRoutes.post('/api/admin/approvals/:id/:decision', async (c) => {
+  const id = c.req.param('id')
+  const decision = c.req.param('decision') as 'approve' | 'reject'
+  if (decision !== 'approve' && decision !== 'reject') {
+    return c.json({ ok: false, error: 'bad_decision' }, 400)
+  }
+  let body: { note?: string } = {}
+  try { body = (await c.req.json()) as { note?: string } } catch {}
+  const result = decision === 'approve'
+    ? approveApproval(id, body.note)
+    : rejectApproval(id, body.note)
   return c.json(result, result.ok ? 200 : 400)
 })
 

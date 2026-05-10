@@ -314,3 +314,74 @@ export async function listChannels(): Promise<ChannelStatus[]> {
 export async function getChannel(id: ChannelId): Promise<ChannelStatus | null> {
   return safeFetch<ChannelStatus>(`${BACKEND}/api/admin/channels/${id}`)
 }
+
+// ─── Campaigns + Approvals (Posts queue) ────────────────────────────────
+
+export interface CampaignSummary {
+  id: string
+  name?: string
+  channel?: string
+  status?: 'draft' | 'queued' | 'running' | 'paused' | 'closed' | 'unknown'
+  budgetUsd?: number
+  spendUsd?: number
+  leads?: number
+  impressions?: number
+  clicks?: number
+  conversions?: number
+  startedAt?: number
+  notes?: string
+}
+
+export interface CampaignsCockpit {
+  monthlyBudgetUsd: number
+  targetEffectUsd: number
+  spendUsd: number
+  remainingUsd: number
+  leadsTotal: number
+  campaigns: CampaignSummary[]
+  recommendedStrategyId?: string
+  errors: string[]
+}
+
+export interface CampaignDetail extends CampaignSummary {
+  source: 'sandbox' | 'local-plan'
+  thesis?: string
+  rolloutMonths?: Record<string, { phase: string; spendUsd?: number; expectedOutcomes?: Record<string, number | string> }>
+}
+
+export async function getCampaignsCockpit(): Promise<CampaignsCockpit> {
+  return (await safeFetch<CampaignsCockpit>(`${BACKEND}/api/admin/campaigns`)) ?? {
+    monthlyBudgetUsd: 0, targetEffectUsd: 0, spendUsd: 0, remainingUsd: 0,
+    leadsTotal: 0, campaigns: [], errors: ['fetch_failed'],
+  }
+}
+
+export async function getCampaignDetail(id: string): Promise<CampaignDetail | null> {
+  return safeFetch<CampaignDetail>(`${BACKEND}/api/admin/campaigns/${encodeURIComponent(id)}`)
+}
+
+export type ApprovalKind = 'campaign' | 'creative' | 'budget_change' | 'reply'
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
+
+export interface OwnerApproval {
+  id: string
+  kind: ApprovalKind
+  summary: string
+  detail: string
+  channel: 'instagram' | 'whatsapp' | 'gbp' | 'web' | 'telegram' | null
+  status: ApprovalStatus
+  decisionNote: string | null
+  createdAt: number
+  decidedAt: number | null
+}
+
+export async function listApprovals(status: ApprovalStatus | 'all' = 'pending'): Promise<{
+  approvals: OwnerApproval[]
+  counts: { pending: number; approved: number; rejected: number }
+}> {
+  const data = await safeFetch<{
+    approvals: OwnerApproval[]
+    counts: { pending: number; approved: number; rejected: number }
+  }>(`${BACKEND}/api/admin/approvals?status=${status}`)
+  return data ?? { approvals: [], counts: { pending: 0, approved: 0, rejected: 0 } }
+}

@@ -110,6 +110,29 @@ CREATE TABLE IF NOT EXISTS campaigns (
   updated_at  INTEGER NOT NULL
 );
 
+-- Owner approval queue. Anything the marketing or concierge agent wants
+-- the owner to OK before going out (a draft post, a budget change, a
+-- creative tweak) lands here. The cockpit `/admin/posts` page reads
+-- this; the owner's Telegram bot already has approve/reject callbacks.
+CREATE TABLE IF NOT EXISTS owner_approvals (
+  id          TEXT PRIMARY KEY,
+  -- 'campaign'      — proposed campaign launch
+  -- 'creative'      — IG/GBP post draft, WA broadcast copy
+  -- 'budget_change' — adjust an existing campaign's budget
+  -- 'reply'         — proposed reply to a sensitive thread
+  kind        TEXT NOT NULL,
+  summary     TEXT NOT NULL,
+  detail      TEXT NOT NULL,
+  -- 'instagram', 'whatsapp', 'gbp', 'web', 'telegram', or null when not channel-specific
+  channel     TEXT,
+  status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  -- Free-text reason captured at decision time (e.g. owner's note in TG).
+  decision_note TEXT,
+  created_at  INTEGER NOT NULL,
+  decided_at  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_approvals_status ON owner_approvals(status);
+
 CREATE TABLE IF NOT EXISTS agent_invocations (
   id          TEXT PRIMARY KEY,
   role        TEXT NOT NULL,

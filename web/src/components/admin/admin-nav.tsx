@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 const ITEMS = [
   { href: '/admin/today', label: 'Today' },
   { href: '/admin/inbox', label: 'Inbox' },
+  { href: '/admin/posts', label: 'Posts' },
+  { href: '/admin/campaigns', label: 'Campaigns' },
   { href: '/admin/channels', label: 'Channels' },
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/escalations', label: 'Escalations' },
