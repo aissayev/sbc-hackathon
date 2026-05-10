@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getOrder } from '@/lib/api'
+import { trackUrlId } from '@/lib/format'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { OrderStatusView } from '@/components/order/order-status'
 import { Button } from '@/components/ui/button'
@@ -33,7 +34,7 @@ export default async function OrderConfirmPage(props: { params: Params }) {
 
       <p className="mt-6 text-sm text-cocoa-900/70">
         Want to share the live status with someone?{' '}
-        <Link href={`/track/${id}`} className="underline hover:text-cocoa-900">
+        <Link href={`/track/${trackUrlId(order)}`} className="underline hover:text-cocoa-900">
           Use this short link
         </Link>{' '}
         — it shows the same tracker without the rest of the site, so it's easy to drop into a

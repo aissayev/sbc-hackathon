@@ -75,7 +75,8 @@ server.registerTool(
 server.registerTool(
   'create_draft_order',
   {
-    description: 'Create a draft order pending owner approval. Returns order_id and total_cents.',
+    description:
+      'Create a draft order pending owner approval. Returns { order_id (long internal key, never shown to customers), friendly_id (short number like "1042" — quote this to the customer as `#1042`), total_cents }.',
     inputSchema: createDraftOrderSchema.shape,
   },
   async (args) => {
@@ -94,7 +95,8 @@ server.registerTool(
 server.registerTool(
   'get_order_status',
   {
-    description: 'Look up status of a Happy Cake order by id.',
+    description:
+      'Look up status of a HappyCake order. Accepts the friendly number ("1042", "#1042", or legacy "HC-1042") or the full canonical id ("ord_…"). Customers will usually paste the short number.',
     inputSchema: getOrderStatusSchema.shape,
   },
   async (args) => ok(getOrderStatus(args as z.infer<typeof getOrderStatusSchema>)),

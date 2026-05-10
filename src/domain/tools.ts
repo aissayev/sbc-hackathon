@@ -102,9 +102,10 @@ export type CreateDraftOrderResult =
   | {
       ok: true
       order_id: string
-      // Short customer-facing alias (`HC-1042`). Stable per order,
-      // derived from SQLite ROWID. Surface this anywhere a human
-      // would read the id back over the phone.
+      // Short customer-facing alias — digits only, e.g. "1042". Stable
+      // per order (derived from SQLite ROWID). Surface this anywhere a
+      // human would read the id back over the phone or write it down on
+      // a sticky note. UI prefixes a `#` for display.
       friendly_id: string
       total_cents: number
       items: Array<{ sku: string; qty: number; unit_cents: number; line_total_cents: number; name: string }>
@@ -177,9 +178,9 @@ const APPROVAL_REQUIRED_CATEGORIES = new Set(['custom', 'catering'])
 
 interface OrderRowFull {
   // SQLite's auto-assigned ROWID. Used to derive a short customer-friendly
-  // alias (`HC-<rowid+offset>`) so people can read order numbers over the
-  // phone without spelling out a 24-char `ord_<ms>_<rand>` ID. The full
-  // id remains the canonical primary key for internal references.
+  // alias (`<rowid+offset>`, e.g. "1042") so people can read order numbers
+  // over the phone without spelling out a 24-char `ord_<ms>_<rand>` ID.
+  // The full `id` remains the canonical primary key for internal references.
   rowid: number
   id: string
   status: string
@@ -195,21 +196,30 @@ interface OrderRowFull {
 // stable, sequential, and trivially short. We start at 1001 (offset 1000
 // + rowid 1) so the smallest alias is four digits — feels like a real
 // order number, not "order 1 of all time".
+//
+// We deliberately store/return digits-only ("1042"). The UI prefixes a `#`
+// for display, the agent reads it aloud as "ten-forty-two". A grandma or
+// kid can write down `1042` and call back; nobody has to spell out
+// "ord_1778…UG4G4J" any more.
 const FRIENDLY_ID_OFFSET = 1000
 
 export function friendlyOrderId(rowid: number): string {
-  return `HC-${rowid + FRIENDLY_ID_OFFSET}`
+  return String(rowid + FRIENDLY_ID_OFFSET)
 }
 
-// Resolve a customer-typed friendly id back to its rowid. Accepts:
-//   "HC-1042"  · canonical
-//   "hc-1042"  · case-insensitive
-//   "1042"     · plain digits
-//   "#HC-1042" · with leading hash
+// Resolve a customer-typed friendly id back to its rowid. Accepts every
+// shape we've ever shown a customer, plus the obvious typo'd variants:
+//   "1042"     · canonical (digits only)
+//   "#1042"    · with leading hash
+//   "HC-1042"  · legacy prefix from the first cut of this feature
+//   "hc 1042"  · case-insensitive, separator-tolerant
 // Returns null if the input doesn't look like a friendly id, or if the
 // derived rowid is below 1 (offset is the floor).
 export function parseFriendlyOrderId(input: string): number | null {
-  const cleaned = input.trim().replace(/^#+/, '').replace(/^hc[-_]?/i, '')
+  const cleaned = input
+    .trim()
+    .replace(/^#+/, '')
+    .replace(/^hc[\s_-]*/i, '')
   if (!/^\d+$/.test(cleaned)) return null
   const n = Number.parseInt(cleaned, 10)
   if (n <= FRIENDLY_ID_OFFSET) return null
@@ -242,8 +252,10 @@ function shapeOrderStatus(row: OrderRowFull) {
   return {
     id: row.id,
     // Short customer-facing alias. Stable per-order — derived from the
-    // immutable SQLite ROWID — so "HC-1042" prints the same in chat,
-    // confirmation page, tracker, and the owner's TG card.
+    // immutable SQLite ROWID — so "1042" prints the same in chat,
+    // confirmation page, tracker, and the owner's TG card. UI surfaces
+    // it as `#1042`; we store digits-only so the value round-trips
+    // through URL paths (`/track/1042`) without escaping.
     friendly_id: friendlyOrderId(row.rowid),
     status: row.status,
     total_cents: row.total_cents,
@@ -283,9 +295,9 @@ export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
   const exact = db.prepare(`${select} WHERE id = ?`).get(cleaned) as OrderRowFull | undefined
   if (exact) return shapeOrderStatus(exact)
 
-  // 2. Try the friendly alias ("HC-1042" / "1042"). Customers naturally
-  //    quote this back over the phone or paste it from the confirmation
-  //    page. Resolves through SQLite's stable ROWID.
+  // 2. Try the friendly alias ("1042", "#1042", or legacy "HC-1042").
+  //    Customers naturally quote this back over the phone or paste it from
+  //    the confirmation page. Resolves through SQLite's stable ROWID.
   const friendlyRowid = parseFriendlyOrderId(cleaned)
   if (friendlyRowid !== null) {
     const byRowid = db.prepare(`${select} WHERE rowid = ?`).get(friendlyRowid) as OrderRowFull | undefined

@@ -73,7 +73,8 @@ export function TrackOrder() {
         <Input
           value={orderId}
           onChange={(e) => setOrderId(e.target.value)}
-          placeholder="Order id (last 8 characters work)"
+          placeholder="Order number (e.g. 1042)"
+          inputMode="numeric"
           className="bg-bakery"
         />
         <Button type="submit" variant="sky" size="default" shape="pill" className="px-4 shrink-0">
@@ -84,8 +85,9 @@ export function TrackOrder() {
 
       {!submitted && (
         <p className="text-sm text-cocoa-900/65 leading-relaxed">
-          Paste the order id from your confirmation. We'll show the status live and update as the
-          kitchen moves it through.
+          Type the short order number from your confirmation — usually four digits like
+          {' '}<span className="font-mono">1042</span>. We'll show the status live and update as
+          the kitchen moves it through.
         </p>
       )}
 
@@ -101,7 +103,8 @@ export function TrackOrder() {
 
       {submitted && !query.isLoading && query.data === null && (
         <div className="rounded-2xl bg-cream-100 p-5 text-sm text-cocoa-900/75">
-          We couldn't find that order. Double-check the id, or message us in chat — we'll find it.
+          We couldn't find that order. Double-check the number, or message us in chat — we'll
+          find it.
         </div>
       )}
 
@@ -119,10 +122,10 @@ function OrderCard({ order }: { order: OrderStatus }) {
           <Package className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] text-cocoa-900/65 font-medium tabular-nums truncate" title={order.id}>
+          <div className="font-display text-base text-cocoa-900 font-semibold tabular-nums truncate" title={order.id}>
             {displayOrderId(order)}
           </div>
-          <div className="font-medium text-cocoa-900 truncate">{order.customer_name ?? '—'}</div>
+          <div className="text-[12px] text-cocoa-900/70 truncate">{order.customer_name ?? '—'}</div>
         </div>
         <Badge variant={status.tone}>{status.label}</Badge>
       </div>
