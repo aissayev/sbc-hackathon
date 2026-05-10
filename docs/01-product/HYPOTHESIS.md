@@ -57,7 +57,7 @@ Five SKUs are modeled by the sandbox via `marketing_get_margin_by_product` and `
 
 ## Proposed new SKUs (OUR PROPOSAL)
 
-A single $120 entry point is a high commitment for a first-time B2B buyer. The recommendation is to introduce a **tiered offer ladder** — four new SKUs composed from existing inventory items — to broaden the funnel and capture both trial-stage and high-LTV demand. None of the four currently exist in the live catalog.
+A single $120 entry point is a high commitment for a first-time B2B buyer. The recommendation is to introduce a **tiered offer ladder** — three new SKUs composed from existing inventory items — to broaden the funnel and capture both trial-stage and premium demand. None of the three currently exist in the live catalog.
 
 | SKU (new unless tagged) | Tier | Retail | Composition (built on existing) | Margin% | Margin$ | Role |
 |---|---|---|---|---|---|---|
@@ -65,23 +65,18 @@ A single $120 entry point is a high commitment for a first-time B2B buyer. The r
 | Office Dessert Box (existing) | Core | $120 | (no change) | 60% | $72 | Workhorse — 8–10 person team |
 | **Big Day Box** | Premium | **$185** | 12 slices + 1 cake "Honey" + chak-chak + truffles | 58% | $107 | Upsell — 18+ ppl, holidays, realtor closings |
 | **Hotel Welcome Set** | ICP-specific | **$95** | 8 slices in branded packaging | 55% | $52 | Hotel concierge / in-room amenity |
-| **Weekly Corp. Subscription** | Highest LTV | **$108/wk** | Office Box × 0.9 (sub discount) | 56% | $60/wk | Recurring — converts one-off to ~$5,200/yr/account |
 
 **Pricing build-up:**
 - Sampler Box: 6 slices × $8.50 = $51 cost-equivalent → $48 retail (slight bundle discount to drive trial)
 - Big Day Box: 12 slices ($102) + cake "Honey" ($55) + chak-chak ($7) + truffles ($7.50) = $171.50 → $185 retail (premium positioning, branded packaging)
 - Hotel Welcome Set: 8 slices ($68) + branded packaging cost ($10) = $78 → $95 retail (concierge-grade presentation)
-- Subscription: $120 × 0.9 × 4 weeks = $432/mo recurring per subscriber
 
 **Capacity headroom** (sized to fit inside the existing 420-minute kitchen budget):
 - Sampler Box: ~10/day, limited by slice availability
 - Big Day Box: 4/day, limited by the 12/day whole-cake cap
 - Hotel Welcome Set: 8/day baseline
-- Subscription: caps at roughly six active subscribers (each consumes one Office Box slot per week; 8 slots × 5 days ÷ 4 weeks ≈ 10 max with buffer for one-off catering)
 
-**Revenue implication:** at six active subscribers × $432/mo, the subscription tier alone delivers $2,592/mo of recurring revenue — roughly half the $5,000 target before any new acquisition.
-
-> **Implementation prerequisite:** the four new SKUs must be created in Square POS and surfaced on `/api/products` before the campaign goes live. Campaign creative leads with the Sampler and Office tiers as the entry CTA, with Big Day Box positioned for upsell.
+> **Implementation prerequisite:** the three new SKUs must be created in Square POS and surfaced on `/api/products` before the campaign goes live. Campaign creative leads with the Sampler and Office tiers as the entry CTA, with Big Day Box positioned for upsell. A fourth SKU — a **weekly subscription** — is intentionally held back as a month-4+ expansion bet (see *Deferred bets* near the end of this doc) so the headline plan does not depend on a recurring product before any acquisition data exists.
 
 ---
 
@@ -127,7 +122,7 @@ The full $500/mo concentrates here. No split allocation across other channels.
 | 3-yr margin/account | $2,108 | × 60% |
 | **LTV:CAC (3-yr)** | **21×** | $2,108 / $100 |
 
-> A 5:1 LTV:CAC ratio is the standard "excellent" benchmark across subscription and DTC categories. The projected 8.6:1 on year-1 alone clears that comfortably before any retention compounding is factored in.
+> A 5:1 LTV:CAC ratio is the standard "excellent" benchmark cited across DTC and B2B services categories. The projected 8.6:1 on year-1 alone clears that comfortably before any retention compounding is factored in.
 
 ### Attribution model
 
@@ -214,7 +209,34 @@ Four observed signals support the catering recommendation over alternatives:
 | Catering capacity becomes binding | `kitchen_get_production_summary` shows 8/8 daily slots filled | Cap budget; route overflow to next-week pickup |
 | Front-of-house speed still slow | New 1–2★ reviews mentioning wait time | Hold Local Awareness; address operations first |
 | Margin compresses below LIVE values | Office Box margin drops below 50% | Re-run year-1 economics with new inputs |
-| Subscription tier underperforms | Fewer than 1 active subscriber by month 3 | Retire subscription; retain one-off catering |
+
+---
+
+## Deferred bets — month-4+ expansion (do not credit to month-1 plan)
+
+These are explicitly held back from the headline $500 → $5,000 math so the plan does not lean on a non-existent product before there is acquisition data to justify it. Re-evaluate after month 3 with at least 8 acquired catering accounts on file.
+
+### Weekly Corp. Subscription — recurring catering (OUR PROPOSAL)
+
+A standing weekly Office Box for offices that have already ordered ≥3 times one-off in their first 90 days.
+
+| Field | Value | Note |
+|---|---|---|
+| Retail | $108/wk | $120 Office Box × 0.9 (10% recurring discount) |
+| Margin% | 56% | LIVE Office Box margin minus the 10% discount, cost-side fixed |
+| Margin$ | $60/wk | $108 × 56% |
+| Subscriber MRR | $432/mo | $108 × 4 weeks |
+| Capacity ceiling | ~6 active subscribers | each consumes one Office Box slot per week; 8 slots × 5 days ÷ 4 weeks ≈ 10 max, with buffer for one-off catering |
+
+**Why deferred, not promoted:**
+
+- It does not exist as a Square SKU and the sandbox does not model recurring billing.
+- Asking a customer to commit to a $432/mo subscription before any one-off relationship is established is a high-friction sell.
+- The catering offensive's headline math (`$7,500 mo / 9.3× cum ROAS by m6`, see *Recommended strategy*) already clears the $5k target without any subscription contribution. Crediting subscription revenue to month-1 would be double-counting against an unbuilt product.
+
+**When to revisit:** at the end of month 3, if `marketing_get_campaign_metrics` shows ≥8 acquired B2B accounts and at least 2 of them have placed ≥3 reorders, run a single-account pilot with one explicit re-order champion. Promote to the main plan only if the pilot account renews for two consecutive months without churn signals.
+
+**Hard kill:** if no acquired account has placed 3+ reorders by end of month 4, delete this bet entirely.
 
 ---
 
@@ -241,7 +263,8 @@ The sandbox simulator returns a flat ~4.20% CTR and ~$42 average order across al
 | CTR / CPM / CPL / CPC benchmarks | INDUSTRY: WordStream, Triple Whale, AdAmigo (May 2026); cited in [plans.json](../../data/campaigns/plans.json) `industryBenchmarks` |
 | Repeat cadence (5.5/yr corp catering) | INDUSTRY: PeopleLinx catering LTV guide |
 | Retention assumptions (80/80, 60/50) | OUR EST., conservative against industry |
-| New SKU prices (Sampler/Big Day/Hotel/Subscription) | OUR PROPOSAL — built up from LIVE existing-SKU prices, see [plans.json](../../data/campaigns/plans.json) `suggestedNewSkus` |
+| New SKU prices (Sampler / Big Day / Hotel) | OUR PROPOSAL — built up from LIVE existing-SKU prices, see [plans.json](../../data/campaigns/plans.json) `suggestedNewSkus` |
+| Deferred Weekly Subscription tier | OUR PROPOSAL — retained as a month-4+ expansion bet, deliberately not credited to the headline math |
 
 All LIVE figures refresh via `bun run marketing:brief`, which calls 14 sandbox tools in one pass.
 

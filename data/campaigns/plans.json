@@ -44,7 +44,7 @@
   },
   "suggestedNewSkus": {
     "_note": "Proposed new SKUs. Not in HappyCake's live catalog yet — these are recommended for creation in Square POS prior to campaign launch. Each is composed from existing inventory items, with margin held conservatively flat to existing-SKU levels.",
-    "rationale": "A single $120 entry point is a high commitment for a first-time B2B buyer. The $48 Sampler reduces trial friction; the $185 Big Day Box opens upsell room for larger events; the Hotel and Subscription variants serve ICP-specific demand the existing catalog does not address.",
+    "rationale": "A single $120 entry point is a high commitment for a first-time B2B buyer. The $48 Sampler reduces trial friction; the $185 Big Day Box opens upsell room for larger events; the Hotel variant serves ICP-specific demand the existing catalog does not address. The Weekly Subscription is included here for completeness but is held back as a deferred month-4+ expansion bet — see HYPOTHESIS.md `Deferred bets` — and is not credited to the headline $500 → $5,000 math.",
     "skus": [
       {
         "id": "sampler-box-NEW",
@@ -111,13 +111,15 @@
       },
       {
         "id": "weekly-corporate-subscription-NEW",
-        "name": "Weekly Corporate Subscription (suggested)",
+        "name": "Weekly Corporate Subscription (deferred — month-4+ expansion bet)",
         "newOrExisting": "NEW — must be created in Square + website (recurring billing)",
+        "deferred": true,
+        "deferralReason": "Recurring billing does not exist in the live catalog and the sandbox does not model subscription. The B2B Catering Offensive headline math already clears $5k/mo at the expected case without subscription contribution; promoting this SKU now would credit a non-existent product against the target. Re-evaluate after month 3, only if ≥8 acquired accounts and ≥2 with 3+ reorders. See HYPOTHESIS.md `Deferred bets`.",
         "priceUsd": 108,
         "buildup": "Office Box ($120) × 0.9 (subscription discount) = $108/wk = $432/mo recurring",
         "marginPctTarget": 56,
         "marginUsd": 60.48,
-        "campaignRole": "Highest-LTV anchor — converts a one-time B2B account into ~$5,200/yr recurring revenue per subscriber. Drives the LTV math hard.",
+        "campaignRole": "Held back. Pilot only after month 3 with one explicit re-order champion; promote to plan only if pilot renews two consecutive months without churn signals. Hard kill if no acquired account has 3+ reorders by end of month 4.",
         "capacityHint": "Each subscriber consumes 1 Office Box slot/week — caps at ~6 active subscribers (8 slots/day × 5 days / 4 weeks per slot = ~10 max but reserve some for one-off catering)"
       }
     ]
