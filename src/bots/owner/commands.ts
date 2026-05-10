@@ -23,6 +23,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { IncomingMessage } from '../../channels/types.ts'
 import { fmtMoney, hhmm, shortId } from './format.ts'
+import { handleContentCommand, handleDraftsCommand } from './marketing/index.ts'
 
 export interface BotReply {
   text: string
@@ -80,6 +81,13 @@ export function handleOwnerCommand(msg: IncomingMessage): BotReply | null {
       return campaignDetailReply(msg.text.trim())
     case '/brief':
       return briefReply()
+    case '/content':
+      return handleContentCommand()
+    case '/drafts':
+      return handleDraftsCommand()
+    case '/post':
+    case '/reel':
+      return postReelHint(cmd)
     case '/reset':
       // /reset is handled in server.ts (clears thread history); return a
       // placeholder so the slash dispatcher doesn't fall through to the agent.
@@ -112,6 +120,10 @@ function helpReply(): BotReply {
       '/escalations  open escalations',
       '',
       'Marketing & social:',
+      '/content      weekly content plan — calendar of drafted posts/reels',
+      '/drafts       in-flight drafts (approve / schedule / publish)',
+      '/post <text>  free text: "make a post about Friday\'s pistachio batch"',
+      '/reel <text>  draft a reel — owner taps approve → sandbox publish',
       '/campaigns    pick ONE strategy (full $500/mo) + approve/launch',
       '/brief        live MCP brief — sales, margins, GBP demand, reviews',
       '/inbox        open WA + IG threads, 1-tap reply',
@@ -173,6 +185,14 @@ function ordersReply(): BotReply {
           ],
         ]
       : undefined,
+  }
+}
+
+function postReelHint(cmd: string): BotReply {
+  const kind = cmd === '/reel' ? 'reel' : 'post'
+  return {
+    text:
+      `Type the intent and I'll draft it:\n\n  make a ${kind} about Friday's pistachio batch\n\nor pick a starter from /content`,
   }
 }
 

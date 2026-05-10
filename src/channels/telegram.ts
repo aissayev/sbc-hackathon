@@ -113,14 +113,27 @@ export async function editTelegramMessage(
   chatId: string | number,
   messageId: number,
   text: string,
+  keyboardOrParseMode?: InlineKeyboardButton[][] | 'HTML' | 'Markdown' | 'MarkdownV2',
   parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2',
 ): Promise<boolean> {
+  // Backwards-compat: 5th arg used to be parseMode. Now it can be a keyboard
+  // OR a parseMode string. Detect by type.
+  const keyboard = Array.isArray(keyboardOrParseMode) ? keyboardOrParseMode : undefined
+  const mode =
+    typeof keyboardOrParseMode === 'string' ? keyboardOrParseMode : parseMode
   try {
     await tgRequest<SendMessageResponse>(token, 'editMessageText', {
       chat_id: chatId,
       message_id: messageId,
       text,
-      parse_mode: parseMode,
+      parse_mode: mode,
+      reply_markup: keyboard
+        ? {
+            inline_keyboard: keyboard.map((row) =>
+              row.map((b) => ({ text: b.text, callback_data: b.data })),
+            ),
+          }
+        : undefined,
     })
     return true
   } catch {

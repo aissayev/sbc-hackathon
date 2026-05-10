@@ -36,6 +36,14 @@ import {
   logError,
   logSystem,
 } from './bots/owner.ts'
+import {
+  matchPostIntent,
+  matchEditCommand,
+  startDraft,
+  applyEdit,
+  handleStudioCallback,
+} from './bots/owner/marketing/index.ts'
+import { startContentScheduler } from './domain/content-studio/scheduler.ts'
 import { clearHistory } from './db/threads.ts'
 import { startCatalogSync } from './domain/catalog-sync.ts'
 
@@ -68,6 +76,36 @@ const onMessage: MessageHandler = async (msg) => {
     if (asyncReply) {
       await sendOwnerReply(msg.threadId, asyncReply)
       return
+    }
+  }
+
+  // Owner free-text content-studio shortcuts. These run BEFORE the agent so
+  // we don't burn `claude -p` on a deterministic intent. The drafter itself
+  // calls `claude -p` once for the caption — see src/agent/drafter.ts.
+  if (msg.channel === 'telegram' && msg.roleHint === 'owner') {
+    const editMatch = matchEditCommand(msg.text)
+    if (editMatch) {
+      const token = config.telegram.owner.token
+      if (token) {
+        await applyEdit(editMatch.draftId, editMatch.caption, {
+          token,
+          chatId: msg.threadId,
+        })
+        return
+      }
+    }
+    const intent = matchPostIntent(msg.text)
+    if (intent) {
+      const token = config.telegram.owner.token
+      if (token) {
+        const thinkingId = await sendOwnerThinking(msg.threadId)
+        await startDraft(intent, {
+          token,
+          chatId: msg.threadId,
+          thinkingMsgId: thinkingId,
+        })
+        return
+      }
     }
   }
 
@@ -189,6 +227,18 @@ if (config.sandbox.teamToken && config.catalog.syncIntervalMs > 0) {
   console.log('[server] catalog sync: disabled (no token or interval=0)')
 }
 
+// Content-studio scheduler: publishes drafts whose `scheduled_for` has passed.
+// Runs every 5 min by default. Owner sees a "🚀 auto-published" card in TG.
+{
+  const intervalMs = Number(process.env.CONTENT_SCHEDULER_INTERVAL_MS ?? 5 * 60 * 1000)
+  if (intervalMs > 0) {
+    startContentScheduler({ intervalMs })
+    console.log(`[server] content scheduler: every ${intervalMs}ms`)
+  } else {
+    console.log('[server] content scheduler: disabled (interval=0)')
+  }
+}
+
 // One-shot boot ping so the owner sees the server come up. Verbose-only by
 // default — set TG_OWNER_LOG_LEVEL=verbose to see system events in TG.
 logSystem(`server up · channels: ${configuredChannels().join(',')} · agent: ${config.agent.enabled ? config.agent.model : 'disabled'}`)
@@ -213,6 +263,12 @@ startTelegramPollers({
     // Owner-bot taps run deterministic orchestration (approve/reject/view_esc),
     // bypassing `claude -p`. "Press a button → cake is ordered" is not LLM-gated.
     if (bot.role === 'owner') {
+      // Content studio (`cs_*`) taps run BEFORE the order/escalation callbacks
+      // so they don't fall through to the LLM.
+      if (cq.data.startsWith('cs_')) {
+        const csHandled = await handleStudioCallback(cq.data, String(cq.message.chat.id))
+        if (csHandled) return
+      }
       const handled = await handleOwnerCallback(
         bot.token,
         String(cq.message.chat.id),

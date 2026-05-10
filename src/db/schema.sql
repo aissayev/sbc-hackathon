@@ -122,3 +122,67 @@ CREATE TABLE IF NOT EXISTS agent_invocations (
   error       TEXT,
   created_at  INTEGER NOT NULL
 );
+
+-- ─── Content studio ─────────────────────────────────────────────────────
+-- Owner-side content lifecycle: free-text intent → drafted caption →
+-- brand-checked → approved → scheduled → published. Sandbox MCP
+-- (`gb_simulate_post`, `marketing_create_campaign`) is the publish target
+-- during the hackathon. Real Meta/GBP would be a swap of the adapter at
+-- src/agent/mcp/adapters/* — this table is platform-agnostic.
+
+CREATE TABLE IF NOT EXISTS content_drafts (
+  id              TEXT PRIMARY KEY,
+  -- post | reel | story | gbp_post | comment_reply | review_reply | wa_broadcast
+  kind            TEXT NOT NULL,
+  -- ig | fb | gbp | wa | multi
+  channel         TEXT NOT NULL,
+  -- draft | brand_pending | approved | scheduled | publishing
+  -- | published | failed | discarded | expired
+  status          TEXT NOT NULL DEFAULT 'draft',
+  caption         TEXT,
+  -- JSON: { hook, voiceover, b_roll[], thumbnail_idea } for reels
+  brief_json      TEXT,
+  -- Comma-separated DO Spaces URLs (or local /uploads paths)
+  media_urls      TEXT,
+  -- Comma-separated SKU ids — drives inventory awareness in posts
+  sku_refs        TEXT,
+  -- Brand-checker output JSON: { ok, score, issues:[{severity,code,msg,fix}] }
+  brand_check_json TEXT,
+  owner_note      TEXT,
+  -- Epoch ms the owner wants this published. NULL = not yet scheduled.
+  scheduled_for   INTEGER,
+  -- Publish receipt JSON: { tool, tool_input, tool_output, remote_id, ts }
+  publish_receipt_json TEXT,
+  -- Telegram message id of the owner card so callbacks can update it in place
+  tg_card_msg_id  INTEGER,
+  -- Free-text intent that started this draft (audit trail)
+  source_intent   TEXT,
+  -- Linked plan slot (one slot ↔ at most one active draft)
+  slot_id         TEXT,
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_drafts_status ON content_drafts(status);
+CREATE INDEX IF NOT EXISTS idx_drafts_scheduled ON content_drafts(scheduled_for);
+CREATE INDEX IF NOT EXISTS idx_drafts_kind ON content_drafts(kind);
+
+-- Weekly plan rhythm. One slot per (iso_week, day, hour, channel, kind).
+-- Slots can be empty (suggestion) or filled by a draft (in-flight content).
+CREATE TABLE IF NOT EXISTS content_plan_slots (
+  id              TEXT PRIMARY KEY,
+  iso_week        TEXT NOT NULL,                 -- e.g. "2026-W19"
+  day_of_week     INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  hour            INTEGER NOT NULL CHECK (hour BETWEEN 0 AND 23),
+  channel         TEXT NOT NULL,
+  kind            TEXT NOT NULL,
+  topic_hint      TEXT,
+  draft_id        TEXT,
+  -- pending | drafted | approved | published | skipped
+  status          TEXT NOT NULL DEFAULT 'pending',
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_slots_week ON content_plan_slots(iso_week);
+CREATE INDEX IF NOT EXISTS idx_slots_status ON content_plan_slots(status);
