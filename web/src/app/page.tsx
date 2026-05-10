@@ -84,24 +84,28 @@ export default async function HomePage() {
 }
 
 function Hero({ products }: { products: Product[] }) {
+  // Image-led hero. Three layers, back-to-front:
+  //   1. Cream base    — sits behind everything so any transparent edges
+  //                      of the photo blend with the rest of the page.
+  //   2. Real food photo — full-bleed on every breakpoint (was hidden on
+  //                      mobile; the user's brief specifically wants the
+  //                      bakery image to read as a poster on phones too).
+  //                      Crisp, no blur — see globals.css
+  //                      .hero-photo-atmospheric.
+  //   3. Cream veil    — gradient that protects headline contrast on the
+  //                      LEFT half on desktop, fades toward the right so
+  //                      the photo stays visible behind the order card.
+  //                      Mobile gets a top-to-bottom version.
+  //
+  // Vertical rhythm: tighter than before (pt-10 / pb-12 → about 18%
+  // less empty space on desktop) and a min-h that keeps the hero a real
+  // viewport-anchored band without dominating it. The next section's
+  // edge peeks ~64px on desktop (so the user sees there's more below).
   return (
-    <section className="relative overflow-hidden">
-      {/* Atmospheric backdrop, Seed-style:
-          1. Cream base — sets the brand wash
-          2. Heavily-blurred dining-room photo — full-bleed, gives the
-             hero real depth without competing with type. The photo is
-             our actual interior, not stock.
-          3. Cream + sky overlay — preserves text contrast on the left
-             and softens the photo into a gradient atmosphere.
-          The form gets a glass-morphism treatment further down so it
-          reads as placed in the scene, not pasted on top. */}
+    <section className="relative overflow-hidden isolate">
       <div className="absolute inset-0 bg-cream pointer-events-none" aria-hidden />
 
-      {/* Full-bleed honey-cake photo — heavy blur turns the warm amber/
-          cream tones into Seed-style depth-of-field bokeh that's already
-          on-brand. Better than the dining-room shot (which was cool grey)
-          for our cream/cocoa palette. Hidden on mobile. */}
-      <div className="absolute inset-0 hidden md:block pointer-events-none" aria-hidden>
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
         <Image
           src={ASSETS.hero[0]}
           alt=""
@@ -112,12 +116,9 @@ function Hero({ products }: { products: Product[] }) {
         />
       </div>
 
-      {/* Cream-to-warm overlay — strongest on the left where type lives,
-          fades toward the right so the photo retains some life behind
-          the form column. */}
       <div className="absolute inset-0 hero-overlay-veil pointer-events-none" aria-hidden />
 
-      <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
+      <div className="container relative pt-10 pb-12 md:pt-14 md:pb-16 grid gap-8 lg:grid-cols-12 lg:gap-12 items-center min-h-[min(78vh,720px)]">
         <div className="lg:col-span-7">
           <Eyebrow>Family-owned cake shop &amp; coffee bar</Eyebrow>
           <h1
@@ -126,7 +127,7 @@ function Hero({ products }: { products: Product[] }) {
           >
             Cakes worth <span className="text-sky">driving for</span>.
           </h1>
-          <p className="mt-5 text-lg text-cocoa-900/75 max-w-xl leading-relaxed">
+          <p className="mt-5 text-lg text-cocoa-900/80 max-w-xl leading-relaxed">
             Small-batch cakes and pastries, baked from scratch every morning.
           </p>
 
@@ -135,7 +136,7 @@ function Hero({ products }: { products: Product[] }) {
               href={BRAND.mapsUrl}
               target="_blank"
               rel="noopener"
-              className="inline-flex items-center gap-1.5 text-cocoa-900/70 hover:text-cocoa-900"
+              className="inline-flex items-center gap-1.5 text-cocoa-900/75 hover:text-cocoa-900"
             >
               <MapPin className="h-4 w-4" /> {BRAND.address.line1}
             </a>

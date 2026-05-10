@@ -38,6 +38,9 @@ const nextConfig = {
       // Career applications — public submission endpoint. Admin-side list +
       // status updates ride the /api/admin/:path* rewrite below.
       { source: '/api/careers/apply', destination: `${backend}/api/careers/apply` },
+      // Checkout-funnel heartbeat. Fired by the OrderForm wizard on every
+      // step change + on submit so we can track abandoned carts.
+      { source: '/api/checkout/heartbeat', destination: `${backend}/api/checkout/heartbeat` },
       { source: '/api/uploads', destination: `${backend}/api/uploads` },
       { source: '/api/admin/:path*', destination: `${backend}/api/admin/:path*` },
       // Policies — backed by getPolicies() in src/domain/policies.ts.

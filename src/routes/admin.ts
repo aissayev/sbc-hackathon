@@ -59,6 +59,13 @@ import {
   type ApplicationRole,
   type ApplicationStatus,
 } from '../domain/applications.ts'
+import {
+  listCheckouts,
+  getCheckout,
+  checkoutCounts,
+  type CheckoutStep,
+  type CheckoutStatus,
+} from '../domain/checkouts.ts'
 
 export const adminRoutes = new Hono()
 
@@ -372,4 +379,26 @@ adminRoutes.patch('/api/admin/applications/:id', async (c) => {
     result: parsed.data.status ? `status=${parsed.data.status}` : 'notes',
   })
   return c.json({ ok: true })
+})
+
+// ─── Checkout funnel (abandoned cart tracking) ─────────────────────────
+// Public submission endpoint is /api/checkout/heartbeat (src/routes/checkouts.ts);
+// these admin endpoints surface counts by step + a list with logical
+// status (active / abandoned / submitted).
+
+adminRoutes.get('/api/admin/checkouts', (c) => {
+  const statusQ = c.req.query('status') as CheckoutStatus | 'all' | undefined
+  const stepQ = c.req.query('step') as CheckoutStep | 'all' | undefined
+  const limitQ = c.req.query('limit')
+  const limit = limitQ ? Math.max(1, Math.min(500, Number.parseInt(limitQ, 10))) : 100
+  return c.json({
+    checkouts: listCheckouts({ status: statusQ, step: stepQ, limit }),
+    counts: checkoutCounts(),
+  })
+})
+
+adminRoutes.get('/api/admin/checkouts/:id', (c) => {
+  const row = getCheckout(c.req.param('id'))
+  if (!row) return c.json({ ok: false, reason: 'not_found' }, 404)
+  return c.json(row)
 })
