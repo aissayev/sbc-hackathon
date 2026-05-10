@@ -48,7 +48,8 @@ directly via JSON. ${BRAND.tagline} ${BRAND.slogan}
 
 ## Order intent flow
 1. GET /api/products  — find a product id
-2. POST /api/orders/draft with { items, scheduled_at_iso, customer_name, customer_phone, channel: "web" }
+2. POST /api/orders/draft with { items, scheduled_at_iso, customer_name, customer_phone, channel: "web", referral_source? }
+   - referral_source is the campaign tag — e.g. an order originating from a URL with ?ref=ig should send "ig". Capped at 64 chars, lowercased.
 3. GET /api/orders/{id} to poll status. The owner approves in Telegram before the kitchen starts.
 
 ## Catalog (live sample)

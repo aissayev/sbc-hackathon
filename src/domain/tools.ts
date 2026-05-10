@@ -90,6 +90,11 @@ export const createDraftOrderSchema = z.object({
   scheduled_at_iso: z.string().optional(),
   pickup_or_delivery: z.enum(['pickup', 'delivery']).default('pickup'),
   notes: z.string().optional(),
+  // Attribution. Comes from `?ref=<token>` on the campaign URL the customer
+  // landed on. Free-form short slug — `ig`, `gbp`, `email-2026-05`, partner
+  // codes — capped at 64 chars and normalized to lowercase. Logged so the
+  // owner can answer "where did this customer come from".
+  referral_source: z.string().min(1).max(64).optional(),
 })
 
 export type CreateDraftOrderResult =
@@ -123,8 +128,8 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
   getDb()
     .prepare(
       `INSERT INTO orders
-       (id, thread_id, channel, status, customer_name, customer_phone, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, created_at, updated_at)
-       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, thread_id, channel, status, customer_name, customer_phone, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, referral_source, created_at, updated_at)
+       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -137,6 +142,7 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       args.scheduled_at_iso ?? null,
       args.pickup_or_delivery,
       args.notes ?? null,
+      args.referral_source ? args.referral_source.toLowerCase().slice(0, 64) : null,
       now,
       now,
     )
@@ -326,6 +332,65 @@ export function dailyReport(): {
     revenue_cents: orders.rev,
     pending_approval: pending.n,
     escalations_open: escs.n,
+  }
+}
+
+// ─── Referral attribution ────────────────────────────────────────────────
+//
+// Reads `?ref=<token>` tags off the orders table (set on draft creation) and
+// rolls them up so the owner can see which campaigns / partners are landing
+// real revenue. Window defaults to month-to-date but is callable for any
+// time range (`since` ms epoch).
+
+export interface ReferralRow {
+  source: string
+  orders: number
+  revenue_cents: number
+}
+
+export function referralSummary(opts?: { since?: number; limit?: number }): {
+  rows: ReferralRow[]
+  total_orders: number
+  total_revenue_cents: number
+  attributed_orders: number
+  attributed_revenue_cents: number
+} {
+  const limit = opts?.limit ?? 10
+  // Default: month-to-date.
+  const since = opts?.since ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()
+  const db = getDb()
+  const totals = db
+    .prepare(
+      `SELECT COUNT(*) AS n, COALESCE(SUM(total_cents), 0) AS rev
+       FROM orders
+       WHERE created_at >= ? AND status NOT IN ('rejected','cancelled')`,
+    )
+    .get(since) as { n: number; rev: number }
+  const attributed = db
+    .prepare(
+      `SELECT COUNT(*) AS n, COALESCE(SUM(total_cents), 0) AS rev
+       FROM orders
+       WHERE created_at >= ? AND status NOT IN ('rejected','cancelled')
+         AND referral_source IS NOT NULL`,
+    )
+    .get(since) as { n: number; rev: number }
+  const rows = db
+    .prepare(
+      `SELECT referral_source AS source, COUNT(*) AS orders, COALESCE(SUM(total_cents), 0) AS revenue_cents
+       FROM orders
+       WHERE created_at >= ? AND referral_source IS NOT NULL
+         AND status NOT IN ('rejected','cancelled')
+       GROUP BY referral_source
+       ORDER BY revenue_cents DESC, orders DESC
+       LIMIT ?`,
+    )
+    .all(since, limit) as ReferralRow[]
+  return {
+    rows,
+    total_orders: totals.n,
+    total_revenue_cents: totals.rev,
+    attributed_orders: attributed.n,
+    attributed_revenue_cents: attributed.rev,
   }
 }
 

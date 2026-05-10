@@ -204,6 +204,8 @@ export function CustomCakeFunnel() {
       // Persist URLs back into the form so the formatted summary includes them.
       form.setValue('reference_photo_urls', photoUrls)
       const values = { ...form.getValues(), reference_photo_urls: photoUrls }
+      const { getReferral } = await import('@/lib/referral')
+      const ref = getReferral()
       const payload = {
         contact: values.customer_phone || values.customer_email || values.customer_name,
         meta: {
@@ -217,6 +219,7 @@ export function CustomCakeFunnel() {
           notes: values.notes,
           reference_photo_urls: photoUrls,
           formatted: formatCustomSpec(values),
+          ...(ref ? { referral_source: ref } : {}),
         },
       }
       const res = await fetch('/api/leads/custom-cake', {
