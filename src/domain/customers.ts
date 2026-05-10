@@ -212,6 +212,12 @@ function linkThreadToCustomer(threadId: string, customerId: string): void {
 
 // Roll up an order's total into the customer's denormalized counters.
 // Called from createDraftOrder right after the orders row is inserted.
+//
+// Side effect: triggers a fire-and-forget Square customer sync. The first
+// order is the natural moment to push our customer to Square — we now
+// have name + phone (web checkout requires both) and a real reason to
+// have them in the POS. Subsequent orders are no-ops at the sync side
+// (square_customer_id is already set). Errors are logged, not thrown.
 export function recordOrderForCustomer(customerId: string, orderTotalCents: number): void {
   const now = Date.now()
   getDb()
@@ -224,6 +230,14 @@ export function recordOrderForCustomer(customerId: string, orderTotalCents: numb
        WHERE id = ?`,
     )
     .run(orderTotalCents, now, now, customerId)
+
+  // Fire-and-forget. Lazy import keeps this module's deps clean (sync
+  // pulls in sandbox-mcp transitively). The .catch is the safety net
+  // for the import itself — the sync function already swallows runtime
+  // errors internally.
+  import('./customer-sync.ts')
+    .then(({ syncCustomerToSquare }) => syncCustomerToSquare(customerId))
+    .catch((err) => console.warn('[customers] sync import failed:', (err as Error).message))
 }
 
 // One-shot: upsert customer from order data, link the thread, return id.
