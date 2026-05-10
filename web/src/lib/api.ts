@@ -78,10 +78,24 @@ export interface DailyReport {
 const BACKEND =
   process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3000'
 
+// Server-only — never exposed to the browser. When set, paired with the same
+// value in the backend's WEB_BACKEND_SECRET, it authenticates Next.js SSR
+// against /api/admin/* without requiring Mini App init-data. Browser-side
+// code authenticates separately via X-Telegram-Init-Data (see TgAppProvider).
+const BACKEND_SECRET = process.env.WEB_BACKEND_SECRET
+
+function withBackendSecret(init: RequestInit | undefined, url: string): RequestInit {
+  if (!BACKEND_SECRET) return init ?? {}
+  if (!url.includes('/api/admin/')) return init ?? {}
+  const headers = new Headers(init?.headers)
+  headers.set('X-Backend-Secret', BACKEND_SECRET)
+  return { ...init, headers }
+}
+
 async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
     const res = await fetch(url, {
-      ...init,
+      ...withBackendSecret(init, url),
       next: { revalidate: process.env.NODE_ENV === 'production' ? 60 : 0 },
     })
     if (!res.ok) return null

@@ -148,6 +148,23 @@ console.log(`[server] agent=${config.agent.enabled ? config.agent.model : 'disab
 console.log(`[server] sandbox_mcp=${config.sandbox.mcpUrl} token=${config.sandbox.teamToken ? 'set' : 'MISSING'}`)
 console.log(`[server] telegram bots: ${configuredBots().map((b) => b.role).join(', ') || '(none)'}`)
 
+// Admin auth visibility. With either secret configured the middleware fences
+// /api/admin/*; without both, /api/admin/* is open (one-time warning fires
+// from the middleware when the first call lands).
+{
+  const hasBackendSecret = Boolean(config.web.backendSecret)
+  const hasOwnerToken = Boolean(config.telegram.owner.token)
+  if (hasBackendSecret && hasOwnerToken) {
+    console.log('[server] admin auth: shared-secret + Mini App init-data')
+  } else if (hasBackendSecret) {
+    console.log('[server] admin auth: shared-secret only (set TG_OWNER_BOT_TOKEN to also accept Mini App init-data)')
+  } else if (hasOwnerToken) {
+    console.log('[server] admin auth: Mini App init-data only (set WEB_BACKEND_SECRET to also accept Next.js SSR)')
+  } else {
+    console.warn('[server] ⚠️  ADMIN: OPEN MODE — /api/admin/* is unauthenticated (set WEB_BACKEND_SECRET or TG_OWNER_BOT_TOKEN)')
+  }
+}
+
 // Multi-owner whitelist visibility. Open mode is intentional during the
 // hackathon (so we can collect team chat ids by having them message the bot
 // and reading the logs) but it MUST be closed before any public deploy —
