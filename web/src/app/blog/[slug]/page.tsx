@@ -100,7 +100,6 @@ export default async function BlogPostPage(props: { params: Params }) {
             sizes="(max-width: 1024px) 100vw, 768px"
             className="object-cover"
             priority
-            unoptimized
           />
         </div>
 
