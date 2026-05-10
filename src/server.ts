@@ -31,6 +31,7 @@ import {
   sendOwnerThinking,
   finalizeOwnerThinking,
   makeOwnerStreamSink,
+  tryHandlePendingRefundDenial,
   logInbound,
   logOutbound,
   logError,
@@ -51,6 +52,15 @@ const adapters: Record<string, ChannelAdapter> = {
 const MCP_CONFIG = resolve('.mcp.json')
 
 const onMessage: MessageHandler = async (msg) => {
+  // Pending refund denial — when the owner just tapped "Deny" on a refund
+  // card, their next free-text message is the customer-facing reason. We
+  // consume it here BEFORE the slash / agent paths to keep the deny flow
+  // deterministic (no LLM in the critical path).
+  if (msg.channel === 'telegram' && msg.roleHint === 'owner') {
+    const consumed = await tryHandlePendingRefundDenial(msg.threadId, msg.text)
+    if (consumed) return
+  }
+
   // Owner slash commands are DB-backed: instant, free, no `claude -p` spend.
   // Free text from the operator falls through to the agent below.
   if (isOwnerSlashCommand(msg)) {

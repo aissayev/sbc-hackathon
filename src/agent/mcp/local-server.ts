@@ -33,9 +33,20 @@ import {
 } from '../../domain/tools.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { getPolicies } from '../../domain/policies.ts'
-import { postDraftOrderCard, postEscalationCard } from '../../bots/owner/index.ts'
+import {
+  postDraftOrderCard,
+  postEscalationCard,
+  postRefundRequestCard,
+} from '../../bots/owner/index.ts'
 import { brandLookup, brandLookupSchema } from './brand-rag.ts'
 import { createApproval } from '../../domain/approvals.ts'
+import {
+  requestRefund,
+  requestRefundSchema,
+  approveRefund,
+  denyRefund,
+  listRefunds,
+} from '../../domain/refunds.ts'
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] }
@@ -155,6 +166,77 @@ server.registerTool(
     const result = await rejectDraft(order_id, reason)
     return ok(result)
   },
+)
+
+// ─── Refund flow ────────────────────────────────────────────────────────
+//
+// Customer-initiated refunds. The concierge agent calls `request_refund`
+// when a customer asks; the owner approves or denies via the TG card
+// posted by `postRefundRequestCard`. `approve_refund` / `deny_refund`
+// are owner-only and intended for the TG callback path, but exposing them
+// as MCP tools makes them scriptable + lets the owner agent reason about
+// pending refunds in free-text turns.
+
+server.registerTool(
+  'request_refund',
+  {
+    description:
+      'Customer-initiated refund. Use when a customer asks for a refund on a specific order. Pass the EXACT order_id (starts with `ord_`), the customer\'s thread_id + channel, and a short reason quoting the customer. Creates a pending refund request, flips the order to `refund_pending`, and posts an Approve/Deny card to Askhat in Telegram. NEVER promise the refund will be granted — Askhat decides. If the order is already in refund_pending or refunded, the tool returns the existing refund_id (idempotent).',
+    inputSchema: requestRefundSchema.shape,
+  },
+  async (args) => {
+    const parsed = args as z.infer<typeof requestRefundSchema>
+    const result = requestRefund(parsed)
+    if (result.ok && !result.deduplicated) {
+      // Fire-and-forget: notify the owner. Non-fatal if TG isn't configured.
+      postRefundRequestCard(result.refund_id).catch((err) =>
+        console.error('[local-mcp] postRefundRequestCard failed:', (err as Error).message),
+      )
+    }
+    return ok(result)
+  },
+)
+
+server.registerTool(
+  'approve_refund',
+  {
+    description:
+      'Owner-only. Approve a pending refund request. Updates the order status to `refunded`, attempts a Square sandbox CANCELED status update, and notifies the customer on their original channel. Idempotent — re-approving an already-approved refund is a no-op.',
+    inputSchema: { refund_id: z.string(), note: z.string().optional() },
+  },
+  async (args) => {
+    const { refund_id, note } = args as { refund_id: string; note?: string }
+    const result = await approveRefund(refund_id, note)
+    return ok(result)
+  },
+)
+
+server.registerTool(
+  'deny_refund',
+  {
+    description:
+      'Owner-only. Deny a pending refund request. Requires a customer-facing reason (≥ 3 chars) — it will be sent verbatim back on the original channel after a brand-voice intro. Reverts the order to its prior status (so kitchen flow continues if applicable). Idempotent.',
+    inputSchema: { refund_id: z.string(), reason: z.string() },
+  },
+  async (args) => {
+    const { refund_id, reason } = args as { refund_id: string; reason: string }
+    const result = await denyRefund(refund_id, reason)
+    return ok(result)
+  },
+)
+
+server.registerTool(
+  'list_refunds',
+  {
+    description:
+      'Owner-only. List recent refund requests. Filter by status (pending/approved/denied). Useful for /refunds slash command and the owner agent reasoning about open refund work.',
+    inputSchema: {
+      status: z.enum(['pending', 'approved', 'denied']).optional(),
+      limit: z.number().int().positive().optional(),
+    },
+  },
+  async (args) =>
+    ok(listRefunds(args as { status?: 'pending' | 'approved' | 'denied'; limit?: number })),
 )
 
 server.registerTool(
