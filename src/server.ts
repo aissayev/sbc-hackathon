@@ -20,6 +20,7 @@ import { adminRoutes } from './routes/admin.ts'
 import { authRoutes } from './routes/auth.ts'
 import { leadRoutes } from './routes/leads.ts'
 import { careerRoutes } from './routes/careers.ts'
+import { checkoutRoutes } from './routes/checkouts.ts'
 import { uploadRoutes } from './routes/uploads.ts'
 import { metaRoutes } from './routes/meta.ts'
 import { createTestRoutes } from './routes/test.ts'
@@ -189,6 +190,7 @@ app.route('/', catalogRoutes)
 app.route('/', orderRoutes)
 app.route('/', leadRoutes)
 app.route('/', careerRoutes)
+app.route('/', checkoutRoutes)
 app.route('/', uploadRoutes)
 app.route('/', adminRoutes)
 app.route('/', authRoutes)

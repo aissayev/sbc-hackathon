@@ -342,6 +342,85 @@ export async function getAdminApplication(id: string): Promise<AdminApplication 
   )
 }
 
+// ─── Checkout sessions / abandoned cart ──────────────────────────────
+export type AdminCheckoutStep = 'cakes' | 'when' | 'contact' | 'payment' | 'submitted'
+export type AdminCheckoutStatus = 'active' | 'abandoned' | 'submitted'
+
+export interface AdminCheckoutItem {
+  product_id: string
+  quantity: number
+  name: string
+  price_cents: number
+}
+
+export interface AdminCheckout {
+  id: string
+  thread_id: string
+  channel: string
+  last_step: AdminCheckoutStep
+  status: AdminCheckoutStatus
+  items_json: string | null
+  total_cents: number
+  customer_name: string | null
+  customer_email: string | null
+  customer_phone: string | null
+  pickup_or_delivery: string | null
+  scheduled_at: string | null
+  referral_source: string | null
+  order_id: string | null
+  started_at: number
+  last_seen_at: number
+  notes: string | null
+}
+
+export interface AdminCheckoutCounts {
+  total: number
+  active: number
+  abandoned: number
+  submitted: number
+  by_step: Record<AdminCheckoutStep, { active: number; abandoned: number; submitted: number }>
+  recent_completion_rate: number | null
+}
+
+export interface AdminCheckoutsResponse {
+  checkouts: AdminCheckout[]
+  counts: AdminCheckoutCounts
+}
+
+export async function listAdminCheckouts(opts: {
+  status?: AdminCheckoutStatus | 'all'
+  step?: AdminCheckoutStep | 'all'
+  limit?: number
+} = {}): Promise<AdminCheckoutsResponse> {
+  const params = new URLSearchParams()
+  if (opts.status) params.set('status', opts.status)
+  if (opts.step) params.set('step', opts.step)
+  if (opts.limit) params.set('limit', String(opts.limit))
+  const qs = params.toString()
+  const data = await safeFetch<AdminCheckoutsResponse>(
+    `${BACKEND}/api/admin/checkouts${qs ? `?${qs}` : ''}`,
+  )
+  return (
+    data ?? {
+      checkouts: [],
+      counts: {
+        total: 0,
+        active: 0,
+        abandoned: 0,
+        submitted: 0,
+        by_step: {
+          cakes: { active: 0, abandoned: 0, submitted: 0 },
+          when: { active: 0, abandoned: 0, submitted: 0 },
+          contact: { active: 0, abandoned: 0, submitted: 0 },
+          payment: { active: 0, abandoned: 0, submitted: 0 },
+          submitted: { active: 0, abandoned: 0, submitted: 0 },
+        },
+        recent_completion_rate: null,
+      },
+    }
+  )
+}
+
 export async function listAdminOrders(): Promise<OrderStatus[]> {
   const data = await safeFetch<{ orders: OrderStatus[] }>(`${BACKEND}/api/admin/orders`)
   return data?.orders ?? []

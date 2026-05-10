@@ -11,6 +11,7 @@ const ITEMS = [
   { href: '/admin/campaigns', label: 'Campaigns' },
   { href: '/admin/channels', label: 'Channels' },
   { href: '/admin/orders', label: 'Orders' },
+  { href: '/admin/checkouts', label: 'Checkouts' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/careers', label: 'Careers' },
   { href: '/admin/escalations', label: 'Escalations' },

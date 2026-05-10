@@ -36,6 +36,7 @@ import { Badge } from '@/components/ui/badge'
 import { CakePhoto } from '@/components/product/cake-photo'
 import { cn } from '@/lib/utils'
 import { DELIVERY_CITIES, validateZipForDelivery } from '@/lib/delivery'
+import { sendHeartbeat, resetSession, type HeartbeatStep } from '@/lib/checkout-heartbeat'
 import { AddressAutocomplete } from './address-autocomplete'
 import { DateTimePicker } from './date-time-picker'
 
@@ -312,7 +313,33 @@ export function OrderForm({ products }: { products: Product[] }) {
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'items' })
   const watchItems = form.watch('items')
   const mode = form.watch('pickup_or_delivery')
+  const watchedScheduled = form.watch('scheduled_at_iso')
+  const watchedName = form.watch('customer_name')
+  const watchedEmail = form.watch('customer_email')
+  const watchedPhone = form.watch('customer_phone')
   const step = STEPS[stepIdx]
+
+  // Checkout heartbeat. Fires on every step change (and on first mount,
+  // skipped for empty carts via sendHeartbeat's own guard) so the
+  // backend's checkout_sessions table reflects exactly where the
+  // customer is in the funnel. Step values map 1:1 with the wizard
+  // STEPS keys; 'submitted' is fired separately in onSubmit.
+  React.useEffect(() => {
+    sendHeartbeat({
+      step: step.key as HeartbeatStep,
+      items: watchItems,
+      thread_id: threadId,
+      customer_name: watchedName || undefined,
+      customer_email: watchedEmail || undefined,
+      customer_phone: watchedPhone || undefined,
+      pickup_or_delivery: mode,
+      scheduled_at: watchedScheduled || undefined,
+    })
+    // Intentionally narrow deps: only fire on step transitions, not on
+    // every keystroke — a heartbeat per character would flood the table.
+    // The submit path captures the latest values via its own call.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.key, threadId])
 
   const total = React.useMemo(() => {
     return watchItems.reduce((acc, it) => {
@@ -415,6 +442,22 @@ export function OrderForm({ products }: { products: Product[] }) {
       setError(result.reason)
       return
     }
+    // Funnel completion: link the order back to the checkout session
+    // (so /admin/checkouts shows it as 'submitted') and reset the
+    // session id so reopening /order starts a fresh funnel.
+    sendHeartbeat({
+      step: 'submitted',
+      items: values.items,
+      thread_id: threadId,
+      customer_name: values.customer_name,
+      customer_email: values.customer_email?.trim() || undefined,
+      customer_phone: values.customer_phone,
+      pickup_or_delivery: values.pickup_or_delivery,
+      scheduled_at: payload.scheduled_at_iso,
+      referral_source,
+      order_id: result.data.order_id,
+    })
+    resetSession()
     router.push(`/order/confirm/${result.data.friendly_id ?? result.data.order_id}`)
   }
 

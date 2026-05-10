@@ -108,35 +108,47 @@
     -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 85%);
   }
 
-  /* Atmospheric photo treatment — Seed-style depth-of-field bokeh.
-     Pulled blur back from 36 → 28px so the honey-cake's horizontal
-     layered structure barely registers as soft warmth-banding. That
-     micro-detail is the difference between "nice gradient" and "feels
-     like real bakery light." Scale prevents blur's edge halo. */
+  /* Hero food photo. Crisp, not blurred — the brand pivot is "real
+     bakery, real cake on the counter," and that only reads if the
+     photo itself is legible. Slight saturation + warmth bumps the
+     amber/cream tones so the image feels like morning light through
+     the shop window rather than a cool studio shot. The 1.02 scale
+     hides any 1px subpixel seams from the parent's overflow-hidden. */
   .hero-photo-atmospheric {
-    filter: blur(28px) saturate(1.00) brightness(1.07) hue-rotate(-2deg);
-    transform: scale(1.05);
-    opacity: 0.82;
+    filter: saturate(1.06) brightness(1.04) contrast(1.02);
+    transform: scale(1.02);
+    opacity: 1;
   }
 
-  /* Veil overlay — cream gradient that protects type contrast on the
-     left while letting the blurred photo bloom on the right. Tuned so
-     the right side keeps real photographic warmth (Seed-like) while
-     the left stays clean for the headline. */
+  /* Cream veil that protects headline contrast on the LEFT only. The
+     right half keeps the real food photography visible behind the
+     order card, so the hero reads as a bakery poster, not a generic
+     gradient with a floating form. Subtle bottom fade at the right
+     edge feeds the eye into the next section. */
   .hero-overlay-veil {
     background:
       linear-gradient(
         to right,
-        rgba(255, 247, 234, 0.85) 0%,
-        rgba(255, 247, 234, 0.65) 28%,
-        rgba(255, 247, 234, 0.30) 55%,
-        rgba(255, 247, 234, 0.20) 100%
-      ),
-      linear-gradient(
-        to bottom,
-        transparent 55%,
-        rgba(251, 226, 235, 0.35) 100%
+        rgba(255, 247, 234, 0.92) 0%,
+        rgba(255, 247, 234, 0.78) 32%,
+        rgba(255, 247, 234, 0.40) 56%,
+        rgba(255, 247, 234, 0.10) 78%,
+        rgba(255, 247, 234, 0.00) 100%
       );
+  }
+
+  /* Mobile veil — stacks the hero, so the photo sits BEHIND the whole
+     column and we need a uniform protective wash for legibility. Less
+     contrast loss on the photo than the desktop side-fade. */
+  @media (max-width: 767px) {
+    .hero-overlay-veil {
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 247, 234, 0.55) 0%,
+        rgba(255, 247, 234, 0.78) 65%,
+        rgba(255, 247, 234, 0.92) 100%
+      );
+    }
   }
 
 

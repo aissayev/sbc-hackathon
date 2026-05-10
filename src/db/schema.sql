@@ -371,3 +371,56 @@ CREATE TABLE IF NOT EXISTS applications (
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_applications_role ON applications(role);
 CREATE INDEX IF NOT EXISTS idx_applications_created ON applications(created_at DESC);
+
+-- ─── Checkout sessions (abandoned-cart tracking) ───────────────────────
+-- Captures progress through the /order funnel so the owner sees exactly
+-- where customers drop off. Each browser session POSTs a heartbeat on
+-- step entry; the backend upserts into this table. A session is
+-- "abandoned" when last_seen_at is > ABANDON_AFTER_MS old AND last_step
+-- isn't 'submitted'.
+--
+-- Why a separate table from `orders`: most checkout sessions never
+-- become orders (that's the whole point of tracking them). Only on
+-- submit do we link the resulting order_id back here.
+CREATE TABLE IF NOT EXISTS checkout_sessions (
+  id              TEXT PRIMARY KEY,         -- "co_<ms>_<6char>" generated client-side
+  thread_id       TEXT NOT NULL,            -- browser-side persistent id (hc_thread_id)
+  channel         TEXT NOT NULL DEFAULT 'web',
+  -- Funnel stages — mirror the OrderForm wizard steps. The ordering matters
+  -- for the admin funnel chart so keep it stable.
+  --   cakes      → step 1: customer is choosing items
+  --   when       → step 2: scheduling + pickup/delivery
+  --   contact    → step 3: name + phone + (optional) email
+  --   payment    → step 4: card capture
+  --   submitted  → POST /api/orders/draft succeeded; order_id is set
+  --   abandoned  → resolved server-side by listAbandonedCheckouts(); not
+  --                stored as a row state but useful conceptually
+  last_step       TEXT NOT NULL DEFAULT 'cakes'
+                  CHECK (last_step IN ('cakes','when','contact','payment','submitted')),
+  -- Cart snapshot at the moment of the latest heartbeat. JSON array of
+  -- { product_id, quantity, name, price_cents }.
+  items_json      TEXT,
+  total_cents     INTEGER NOT NULL DEFAULT 0,
+  -- Captured when the customer reaches each stage. Stored even on
+  -- abandoned sessions so the owner has someone to follow up with.
+  customer_name   TEXT,
+  customer_email  TEXT,
+  customer_phone  TEXT,
+  pickup_or_delivery TEXT,
+  scheduled_at    TEXT,
+  -- Attribution captured from the same `?ref=` URL token the order
+  -- table tracks; lets the owner see "which campaign abandons the
+  -- most carts at the payment step."
+  referral_source TEXT,
+  -- Set when the funnel completes — links back into orders.id.
+  order_id        TEXT,
+  started_at      INTEGER NOT NULL,
+  last_seen_at    INTEGER NOT NULL,
+  -- Owner annotation surface — same as customers.notes.
+  notes           TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkouts_thread ON checkout_sessions(thread_id);
+CREATE INDEX IF NOT EXISTS idx_checkouts_step ON checkout_sessions(last_step);
+CREATE INDEX IF NOT EXISTS idx_checkouts_last_seen ON checkout_sessions(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_checkouts_order ON checkout_sessions(order_id);
