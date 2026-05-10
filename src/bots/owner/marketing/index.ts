@@ -27,6 +27,12 @@ export {
   renderBrandCheck,
 } from './presenter.ts'
 
+export {
+  handleCommentsCommand,
+  handleReviewsCommand as handleRichReviewsCommand,
+  handleEngagementCallback,
+} from './engagement-inbox.ts'
+
 import { isoWeekOf } from '../../../domain/content-studio/index.ts'
 import { draftService, planService } from './post-studio.ts'
 import { renderPlanWeek, renderDraftsList } from './presenter.ts'

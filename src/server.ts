@@ -42,6 +42,7 @@ import {
   startDraft,
   applyEdit,
   handleStudioCallback,
+  handleEngagementCallback,
 } from './bots/owner/marketing/index.ts'
 import { startContentScheduler } from './domain/content-studio/scheduler.ts'
 import { clearHistory } from './db/threads.ts'
@@ -263,11 +264,15 @@ startTelegramPollers({
     // Owner-bot taps run deterministic orchestration (approve/reject/view_esc),
     // bypassing `claude -p`. "Press a button → cake is ordered" is not LLM-gated.
     if (bot.role === 'owner') {
-      // Content studio (`cs_*`) taps run BEFORE the order/escalation callbacks
-      // so they don't fall through to the LLM.
+      // Content studio (`cs_*`) and engagement (`eg_*`) taps run BEFORE the
+      // order/escalation callbacks so they don't fall through to the LLM.
       if (cq.data.startsWith('cs_')) {
         const csHandled = await handleStudioCallback(cq.data, String(cq.message.chat.id))
         if (csHandled) return
+      }
+      if (cq.data.startsWith('eg_')) {
+        const egHandled = await handleEngagementCallback(cq.data, String(cq.message.chat.id))
+        if (egHandled) return
       }
       const handled = await handleOwnerCallback(
         bot.token,
