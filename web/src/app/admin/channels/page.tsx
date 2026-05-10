@@ -57,11 +57,29 @@ function ChannelCard({ channel }: { channel: ChannelStatus }) {
               </span>
               <ChevronRight className="h-4 w-4 text-cocoa-900/30 ml-auto group-hover:text-sky-700 group-hover:translate-x-0.5 transition-all" />
             </div>
-            <div className="mt-1 flex items-center gap-1.5">
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
               <span className={cn('h-1.5 w-1.5 rounded-full', modeDot(channel.mode))} />
               <span className="text-xs uppercase tracking-[0.14em] text-cocoa-900/55">
                 {modeLabel(channel.mode)}
               </span>
+              {/* Real-Meta credential pill — only shown for channels that
+                  HAVE a real-Meta path (WA, IG). Tells the operator at a
+                  glance whether real customers would actually be reached. */}
+              {channel.liveMeta && channel.liveMeta.state !== 'unsupported' && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2 h-5 text-[10px] uppercase tracking-[0.12em] font-medium',
+                    channel.liveMeta.state === 'complete' && 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                    channel.liveMeta.state === 'partial' && 'bg-amber-50 text-amber-800 border border-amber-200',
+                    channel.liveMeta.state === 'unset' && 'bg-cocoa-100 text-cocoa-900/65 border border-cocoa-700/15',
+                  )}
+                  title={channel.liveMeta.summary}
+                >
+                  {channel.liveMeta.state === 'complete' && '● Live Meta'}
+                  {channel.liveMeta.state === 'partial' && '◑ Partial creds'}
+                  {channel.liveMeta.state === 'unset' && '○ Sandbox only'}
+                </span>
+              )}
               <span className="text-xs text-cocoa-900/40">·</span>
               <span className="text-xs text-cocoa-900/55">
                 {channel.threadCount} {channel.threadCount === 1 ? 'thread' : 'threads'}
@@ -74,12 +92,15 @@ function ChannelCard({ channel }: { channel: ChannelStatus }) {
           {meta.description}
         </p>
 
-        <div className="mt-4 pt-3 border-t border-cocoa-700/8 flex items-center justify-between text-xs text-cocoa-900/55">
-          <span>
+        <div className="mt-4 pt-3 border-t border-cocoa-700/8 flex items-center justify-between text-xs text-cocoa-900/55 gap-3">
+          <span className="shrink-0">
             {channel.lastEventAt > 0 ? `Last event ${fmtRelativeTime(channel.lastEventAt)}` : 'No events yet'}
           </span>
-          {channel.notes && channel.mode === 'down' && (
-            <span className="text-amber-700">⚠ {channel.notes.slice(0, 36)}…</span>
+          {/* Surface notes whenever something is off — sandbox down OR real
+              Meta partially wired. The detail page shows the full summary;
+              here we truncate. */}
+          {channel.notes && (channel.mode === 'down' || channel.liveMeta?.state === 'partial') && (
+            <span className="text-amber-700 truncate">⚠ {channel.notes.slice(0, 60)}…</span>
           )}
         </div>
       </Link>

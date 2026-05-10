@@ -67,6 +67,55 @@ export default async function ChannelDetailPage(props: PageProps) {
         </div>
       </div>
 
+      {/* Real-Meta credential block — only for channels that have one (WA, IG).
+          Shows the operator exactly which env vars are missing so they don't
+          have to dig through .env.example or the LIVE-CHANNELS doc. */}
+      {channel.liveMeta && channel.liveMeta.state !== 'unsupported' && (
+        <section className="mt-6">
+          <h3 className="text-xs uppercase tracking-[0.14em] text-cocoa-900/50">
+            Real Meta credentials
+          </h3>
+          <div
+            className={cn(
+              'mt-3 rounded-xl border p-4',
+              channel.liveMeta.state === 'complete' && 'border-emerald-200 bg-emerald-50',
+              channel.liveMeta.state === 'partial' && 'border-amber-200 bg-amber-50',
+              channel.liveMeta.state === 'unset' && 'border-cocoa-700/12 bg-cream-50',
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-cocoa-900">
+                {channel.liveMeta.state === 'complete' && '● Live wired'}
+                {channel.liveMeta.state === 'partial' && '◑ Partially wired'}
+                {channel.liveMeta.state === 'unset' && '○ Sandbox only'}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-cocoa-900/75 leading-relaxed">
+              {channel.liveMeta.summary}
+            </p>
+            {channel.liveMeta.missing.length > 0 && (
+              <div className="mt-3">
+                <div className="text-xs uppercase tracking-[0.14em] text-cocoa-900/55">Missing env vars</div>
+                <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                  {channel.liveMeta.missing.map((k) => (
+                    <li
+                      key={k}
+                      className="inline-flex items-center rounded-md bg-white border border-cocoa-700/15 px-2 h-6 text-[11px] font-mono text-cocoa-900"
+                    >
+                      {k}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[11px] text-cocoa-900/55">
+                  Set these in the backend&apos;s <code className="px-1 rounded bg-cocoa-100">.env.local</code> and restart.
+                  Full runbook: <Link href="/admin/channels" className="underline">docs/05-deploy/LIVE-CHANNELS.md</Link>.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="mt-6">
         <h3 className="text-xs uppercase tracking-[0.14em] text-cocoa-900/50">
           Webhook & app

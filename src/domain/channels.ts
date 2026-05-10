@@ -21,6 +21,25 @@ export interface ChannelStatus {
   threadCount: number
   lastEventAt: number   // ms epoch, 0 if unknown
   notes?: string
+  // Real-Meta credential state — independent of the sandbox `mode`. Lets the
+  // cockpit truthfully say "yes the sandbox is replying, but real customers
+  // on real WhatsApp/Instagram are NOT being reached because PHONE_NUMBER_ID
+  // is missing", without that being hidden behind the same "sandbox" label.
+  //   'complete'    — every env var needed for live Meta send + signed
+  //                   webhook is set; PUBLIC_URL is also set so Meta can
+  //                   reach us. The dual-path 'both' mode actually does both.
+  //   'partial'     — some Meta vars set, others missing. Outbound real
+  //                   calls SILENTLY no-op (early-return inside the channel
+  //                   adapter); customer never sees our reply on real Meta.
+  //   'unset'       — no Meta credentials at all. Pure sandbox.
+  //   'unsupported' — channel doesn't have a real-Meta path (e.g. web).
+  liveMeta?: {
+    state: 'complete' | 'partial' | 'unset' | 'unsupported'
+    /** Env-var names that need to be set for `state` to graduate to 'complete'. */
+    missing: string[]
+    /** Plain-English summary the cockpit notes line shows verbatim. */
+    summary: string
+  }
 }
 
 interface SandboxThreadShape {
@@ -61,7 +80,61 @@ function publicWebhook(path: string): string | undefined {
   return `${base.replace(/\/$/, '')}${path}`
 }
 
+// Real-Meta credential introspection. Reads the same env vars the channel
+// adapters consult before firing a real Cloud / Graph API call. Outputs the
+// liveMeta shape exposed on ChannelStatus.
+function whatsappLiveMeta(): NonNullable<ChannelStatus['liveMeta']> {
+  const checks: Array<{ key: string; present: boolean }> = [
+    { key: 'WA_TOKEN', present: Boolean(config.whatsapp.token) },
+    { key: 'WA_PHONE_NUMBER_ID', present: Boolean(config.whatsapp.phoneNumberId) },
+    { key: 'WA_APP_SECRET', present: Boolean(config.whatsapp.appSecret) },
+    { key: 'PUBLIC_URL', present: Boolean(config.publicUrl) },
+  ]
+  const missing = checks.filter((c) => !c.present).map((c) => c.key)
+  const setCount = checks.length - missing.length
+  if (setCount === 0) {
+    return { state: 'unset', missing, summary: 'No real-WhatsApp credentials set. Sandbox-only.' }
+  }
+  if (missing.length === 0) {
+    return {
+      state: 'complete', missing,
+      summary: 'Live WhatsApp Cloud API wired. Real customer messages get a real reply.',
+    }
+  }
+  // Partial. Real outbound calls will silently no-op inside whatsappAdapter.
+  return {
+    state: 'partial', missing,
+    summary: `Real WhatsApp partially wired. Real customers will NOT receive replies until you set: ${missing.join(', ')}. Sandbox replies still work.`,
+  }
+}
+
+function instagramLiveMeta(): NonNullable<ChannelStatus['liveMeta']> {
+  const checks: Array<{ key: string; present: boolean }> = [
+    { key: 'IG_TOKEN', present: Boolean(config.instagram.token) },
+    { key: 'IG_USER_ID', present: Boolean(config.instagram.userId) },
+    { key: 'IG_APP_ID', present: Boolean(config.instagram.appId) },
+    { key: 'IG_APP_SECRET', present: Boolean(config.instagram.appSecret) },
+    { key: 'PUBLIC_URL', present: Boolean(config.publicUrl) },
+  ]
+  const missing = checks.filter((c) => !c.present).map((c) => c.key)
+  const setCount = checks.length - missing.length
+  if (setCount === 0) {
+    return { state: 'unset', missing, summary: 'No real-Instagram credentials set. Sandbox-only.' }
+  }
+  if (missing.length === 0) {
+    return {
+      state: 'complete', missing,
+      summary: 'Live Instagram Graph API wired. Real DMs and comments get a real reply.',
+    }
+  }
+  return {
+    state: 'partial', missing,
+    summary: `Real Instagram partially wired. Real DMs will NOT receive replies until you set: ${missing.join(', ')}. Sandbox replies still work.`,
+  }
+}
+
 async function whatsappStatus(): Promise<ChannelStatus> {
+  const liveMeta = whatsappLiveMeta()
   const r = await tryCallSandboxTool<SandboxThreadList>('whatsapp_list_threads', {})
   if (!r) {
     return {
@@ -69,6 +142,7 @@ async function whatsappStatus(): Promise<ChannelStatus> {
       webhookUrl: publicWebhook('/webhooks/whatsapp'),
       threadCount: 0, lastEventAt: 0,
       notes: 'Sandbox unreachable — SBC_TEAM_TOKEN may be unset.',
+      liveMeta,
     }
   }
   const threads = (Array.isArray(r) ? r : (r.threads ?? r.inbound ?? [])) as SandboxThreadShape[]
@@ -78,10 +152,13 @@ async function whatsappStatus(): Promise<ChannelStatus> {
     webhookUrl: publicWebhook('/webhooks/whatsapp'),
     threadCount: threads.length,
     lastEventAt: maxLastSeen(threads),
+    notes: liveMeta.state === 'complete' ? undefined : liveMeta.summary,
+    liveMeta,
   }
 }
 
 async function instagramStatus(): Promise<ChannelStatus> {
+  const liveMeta = instagramLiveMeta()
   const r = await tryCallSandboxTool<SandboxThreadList>('instagram_list_dm_threads', {})
   if (!r) {
     return {
@@ -89,6 +166,7 @@ async function instagramStatus(): Promise<ChannelStatus> {
       webhookUrl: publicWebhook('/webhooks/instagram'),
       threadCount: 0, lastEventAt: 0,
       notes: 'Sandbox unreachable — SBC_TEAM_TOKEN may be unset.',
+      liveMeta,
     }
   }
   const threads = (Array.isArray(r) ? r : (r.threads ?? [])) as SandboxThreadShape[]
@@ -98,6 +176,8 @@ async function instagramStatus(): Promise<ChannelStatus> {
     webhookUrl: publicWebhook('/webhooks/instagram'),
     threadCount: threads.length,
     lastEventAt: maxLastSeen(threads),
+    notes: liveMeta.state === 'complete' ? undefined : liveMeta.summary,
+    liveMeta,
   }
 }
 
@@ -109,11 +189,19 @@ function webChatStatus(): ChannelStatus {
     id: 'web', label: 'Website chat', connected: true, mode: 'local',
     threadCount: row.c, lastEventAt: row.max,
     notes: 'Lives in our SQLite — no external webhook to register.',
+    liveMeta: { state: 'unsupported', missing: [], summary: '' },
   }
 }
 
 function telegramStatus(): ChannelStatus {
-  const hasBotToken = Boolean(process.env.OWNER_BOT_TOKEN ?? process.env.TELEGRAM_BOT_TOKEN)
+  // Read the same env names config.ts uses (TG_OWNER_BOT_TOKEN). The legacy
+  // names below are kept as fallbacks so an older .env.local without the TG_
+  // prefix still resolves to "connected".
+  const hasBotToken = Boolean(
+    process.env.TG_OWNER_BOT_TOKEN ??
+      process.env.OWNER_BOT_TOKEN ??
+      process.env.TELEGRAM_BOT_TOKEN,
+  )
   const row = getDb()
     .prepare("SELECT COUNT(*) as c, COALESCE(MAX(updated_at), 0) as max FROM threads WHERE channel = 'telegram'")
     .get() as { c: number; max: number }
@@ -125,7 +213,8 @@ function telegramStatus(): ChannelStatus {
     threadCount: row.c, lastEventAt: row.max,
     notes: hasBotToken
       ? 'Owner bot online — handles approvals, escalations, async commands.'
-      : 'OWNER_BOT_TOKEN not set. The owner bot won\'t respond.',
+      : 'TG_OWNER_BOT_TOKEN not set. The owner bot won\'t respond.',
+    liveMeta: { state: 'unsupported', missing: [], summary: '' },
   }
 }
 
@@ -150,6 +239,7 @@ async function gbpStatus(): Promise<ChannelStatus> {
     id: 'gbp', label: 'Google Business', connected: true, mode: 'sandbox',
     threadCount: reviews.length, lastEventAt,
     notes: 'Reviews + posts via sandbox.',
+    liveMeta: { state: 'unsupported', missing: [], summary: '' },
   }
 }
 
