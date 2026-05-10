@@ -55,7 +55,7 @@ export function ChatBubble({
   const padX = size === 'compact' ? 'px-3' : 'px-4'
   const padY = size === 'compact' ? 'py-2' : 'py-2.5'
   const text = size === 'compact' ? 'text-[13px]' : 'text-sm'
-  const labelText = isUser ? 'You' : 'Happy Cake'
+  const labelText = isUser ? 'You' : 'HappyCake'
   const time = formatChatTime(message.ts)
   const { body, urls } = extractImages(message.text)
 
@@ -125,7 +125,10 @@ export function ChatBubble({
     <div className={cn('flex flex-col gap-1 animate-fade-in', isUser ? 'items-end' : 'items-start')}>
       <div className="flex items-center gap-2 px-1">
         {!isUser && <AssistantAvatar size={size} />}
-        <span className={cn('text-[10px] uppercase tracking-[0.14em] font-medium', isUser ? 'text-cocoa-900/55' : 'text-sky-700')}>
+        {/* Brand book §2: never render the wordmark in all-caps. We keep
+            the eyebrow tracking + small size for visual rhythm but drop
+            `uppercase` so "HappyCake" reads as the wordmark, not "HAPPYCAKE". */}
+        <span className={cn('text-[10px] tracking-[0.14em] font-medium', isUser ? 'text-cocoa-900/55 uppercase' : 'text-sky-700')}>
           {labelText}
         </span>
         <span className="text-[10px] text-cocoa-900/40">{time}</span>
@@ -177,7 +180,7 @@ export function ChatBubble({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
-                      alt={isUser ? 'Photo you sent to Happy Cake' : 'Photo from Happy Cake'}
+                      alt={isUser ? 'Photo you sent to HappyCake' : 'Photo from HappyCake'}
                       className={cn(
                         'rounded-lg object-cover',
                         urls.length === 1 ? 'max-h-56 w-auto' : 'h-20 w-20',
@@ -195,9 +198,9 @@ export function ChatBubble({
   )
 }
 
-// "HC" mark in brand colors. Tiny, sits in the label row beside "Happy Cake"
+// "HC" mark in brand colors. Tiny, sits in the label row beside "HappyCake"
 // — it's the equivalent of an Intercom-style operator avatar without needing
-// a real photo of Askhat. The compact size shrinks it for the widget.
+// a personal photo. The compact size shrinks it for the widget.
 function AssistantAvatar({ size }: { size: 'default' | 'compact' }) {
   const dim = size === 'compact' ? 'h-4 w-4 text-[8px]' : 'h-5 w-5 text-[9px]'
   return (

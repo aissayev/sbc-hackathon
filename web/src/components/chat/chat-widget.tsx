@@ -179,7 +179,7 @@ export function ChatWidget({
             />
           </span>
           <div>
-            <div className="text-sm font-medium text-cocoa-900">Happy Cake — live</div>
+            <div className="text-sm font-medium text-cocoa-900">HappyCake — live</div>
             <div className="text-[11px] text-cocoa-900/55">Real cake people · usually under a minute</div>
           </div>
         </div>

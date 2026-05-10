@@ -237,7 +237,7 @@ function AutoPop({ onOpen, onDismiss }: { onOpen: () => void; onDismiss: () => v
         onClick={onOpen}
         className="block w-full text-left px-4 py-4 pr-10"
       >
-        <div className="text-xs uppercase tracking-[0.16em] text-sky-700 font-medium">Hi from Happy Cake</div>
+        <div className="text-xs uppercase tracking-[0.16em] text-sky-700 font-medium">Hi from HappyCake</div>
         <p className="mt-1.5 text-sm text-cocoa-900 leading-relaxed">
           Need a hand finding a cake or planning a custom order? <span className="text-sky-700 underline">Tap to chat.</span>
         </p>

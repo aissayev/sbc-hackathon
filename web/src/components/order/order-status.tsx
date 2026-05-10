@@ -20,23 +20,25 @@ import { cn } from '@/lib/utils'
 // Cake-themed status copy. Two flows fan out from here:
 //
 //   - Standard catalog (slices, whole cakes, pastries): auto-approves on
-//     submit, so the customer never sees a "draft / awaiting Askhat" state
+//     submit, so the customer never sees a "draft / under review" state
 //     in normal conditions. The tracker shows 3 steps:
 //     Order received → In the kitchen → Ready.
 //
-//   - Custom designs / catering: needs Askhat to approve before the
-//     kitchen starts. Tracker shows the full 4-step rail with the
-//     explicit "Approved" gate. Status copy on the badge changes
-//     accordingly.
+//   - Custom designs / catering: needs the team to review (date, headcount,
+//     allergens) before the kitchen starts. Tracker shows the full 4-step
+//     rail with the explicit "Approved" gate. Status copy on the badge
+//     changes accordingly.
 //
 // The split is driven by `order.requires_approval` from the backend.
+// Customer-facing copy never names the owner — staff or counter team
+// might step in. The TG owner cockpit is the only surface that does.
 type StatusTone = 'default' | 'blue' | 'sage' | 'coral'
 
 function statusLabel(status: string, requiresApproval: boolean): { label: string; tone: StatusTone } {
   switch (status) {
     case 'draft':
       return requiresApproval
-        ? { label: 'Sent · awaiting Askhat', tone: 'blue' }
+        ? { label: 'Sent · the team is reviewing', tone: 'blue' }
         : { label: 'Order received · queueing kitchen', tone: 'blue' }
     case 'approved':
       return requiresApproval
@@ -68,10 +70,10 @@ interface Step {
   icon: React.ComponentType<{ className?: string }>
 }
 
-// 4-step rail for orders that need Askhat to approve first.
+// 4-step rail for orders that need the team to review first.
 const STEPS_WITH_APPROVAL: Step[] = [
-  { key: 'draft', label: 'Order received', hint: 'Askhat will look within the hour', icon: Clock },
-  { key: 'approved', label: 'Approved', hint: 'Confirmed by phone or WhatsApp', icon: CheckCircle2 },
+  { key: 'draft', label: 'Order received', hint: 'Our team will reply within the hour', icon: Clock },
+  { key: 'approved', label: 'Approved', hint: 'Confirmed by phone or chat', icon: CheckCircle2 },
   { key: 'in_kitchen', label: 'In the kitchen', hint: 'Layered, custarded, decorated', icon: ChefHat },
   { key: 'ready', label: 'Ready', hint: 'Pick up at Promenade Way', icon: Package },
 ]
@@ -255,7 +257,7 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
             {order.scheduled_at
               ? `Ready around ${fmtRelativeDate(order.scheduled_at)}`
               : requiresApproval
-              ? 'Askhat reviews custom and catering orders within an hour during open hours.'
+              ? 'Our team reviews custom and catering orders within an hour during open hours.'
               : "We're queueing the kitchen now — we'll text you when it's ready."}
           </p>
         </>

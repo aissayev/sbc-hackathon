@@ -69,7 +69,7 @@ export const WIDGET_COLLECTIONS: WidgetCollection[] = [
   {
     id: 'custom',
     title: 'Custom cakes',
-    description: 'Birthday, wedding, themed — five quick steps then Askhat quotes.',
+    description: 'Birthday, wedding, themed — five quick steps and our team quotes you back.',
     icon: 'sparkles',
     faqs: [],
     cta: {
@@ -105,7 +105,7 @@ export const WIDGET_COLLECTIONS: WidgetCollection[] = [
 ]
 
 export const ORDER_STATUS_LABEL: Record<string, { label: string; tone: 'sky' | 'sage' | 'berry' | 'cocoa' }> = {
-  draft: { label: 'Sent — awaiting Askhat', tone: 'sky' },
+  draft: { label: 'Sent — under review', tone: 'sky' },
   approved: { label: 'Approved — in the kitchen', tone: 'sky' },
   in_kitchen: { label: 'Baking', tone: 'sky' },
   ready: { label: 'Ready for pickup', tone: 'sage' },
