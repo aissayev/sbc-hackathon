@@ -40,6 +40,9 @@ const allowList = new Set([
   'src/scripts/setup-mcp.ts',
   'src/scripts/close-channels.ts',
   'src/scripts/owner-bot.ts',
+  // Test harness — synthetic phone numbers are the whole point. Not a path
+  // any customer-facing agent reasoning runs through.
+  'src/scripts/demo-smoke.ts',
   // Domain bridge mappings between SKU and Square variation IDs are deliberate
   'src/domain/order-orchestration.ts',
   // Catalog seed is the source of truth, not a hardcode
