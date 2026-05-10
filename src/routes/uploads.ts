@@ -1,13 +1,29 @@
-// Multipart upload endpoint for chat attachments + admin photos.
+// Multipart upload endpoint — customer chat attachments + custom-cake
+// reference photos + (when enabled) admin marketing uploads.
 //
-// Two backends, picked at request time based on env wiring:
-//   - DigitalOcean Spaces (production): SPACES_KEY + SPACES_SECRET set.
-//     Files go to <bucket>/uploads/<scope>s/<scope_id>/<file>; CDN URL
-//     in the response.
-//   - Local disk fallback (dev): when SPACES_* unset. Files go to
-//     .data/uploads/<key> and we serve them back at /uploads/<key>
-//     so the chat bubble renders the same way as in prod. Lets dev /
-//     hackathon environments work without DO credentials.
+// Callers (web side):
+//   - web/src/components/chat/chat-widget.tsx
+//   - web/src/components/help-widget/chat-view.tsx
+//   - web/src/components/order/custom-cake-funnel.tsx
+//
+// Storage tiers, picked at request time based on env wiring:
+//   PROD  — SPACES_KEY + SPACES_SECRET set → DigitalOcean Spaces
+//           (S3-compatible). Files go to <bucket>/uploads/<scope>s/<scope_id>/
+//           <file>; the response carries a public CDN URL backed by Spaces'
+//           own CDN edge (immutable + cached for a year). Survives backend
+//           restarts, scales horizontally, sharable across instances.
+//   DEV / HACKATHON — SPACES_* unset → backend local disk at
+//           .data/uploads/<key>. The GET handler below serves them at
+//           /uploads/<key> so the chat bubble's <img> tag works the same
+//           shape as prod. Files DO NOT survive container/droplet
+//           replacement and are NOT shared across instances — fine for
+//           a single-laptop demo, NOT fine for real production. The boot
+//           log warns on this state. See docs/05-deploy/STORAGE.md.
+//
+// Brand / product / hero / social images don't go through this route —
+// those are read-only assets on the hackathon CDN, addressed via
+// NEXT_PUBLIC_CDN_BASE in the website. This endpoint is for user-supplied
+// content only.
 //
 // Auth: open to anonymous callers; rate limit is the 10 MB-per-file ceiling
 // + the implicit "one request per UI click" cap on the chat. If we ever ship

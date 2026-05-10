@@ -54,6 +54,7 @@ External materials we can't change. Treat as truth.
 
 - [DEPLOY.md](./05-deploy/DEPLOY.md) — laptop + ngrok (canonical) + droplet options
 - [PRODUCTION.md](./05-deploy/PRODUCTION.md) — post-hackathon path (stub)
+- [STORAGE.md](./05-deploy/STORAGE.md) — where uploads + brand assets actually live, how to flip Spaces on
 
 ## _archive — kept for reference, not load-bearing
 

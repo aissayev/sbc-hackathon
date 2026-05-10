@@ -1,19 +1,31 @@
-// DigitalOcean Spaces client. Spaces is S3-compatible, so we use the AWS SDK
-// pointed at DO's regional endpoint. Credentials are S3-style access keys
-// (separate from the DO Personal Access Token) — get them from
+// DigitalOcean Spaces client — production storage for customer-supplied
+// uploads (chat attachments + custom-cake reference photos). Spaces is
+// S3-compatible, so we use the AWS SDK pointed at DO's regional endpoint.
+// Credentials are S3-style access keys (separate from the DO Personal
+// Access Token) — get them from
 // https://cloud.digitalocean.com/account/api/spaces and put them in
-// .env.local. Never committed.
+// the backend's .env.local. NEVER committed.
 //
-// Folder layout (mirrored by the migration script):
-//   <bucket>/brand/{logo,hero,social}/...     — committed brand assets
-//   <bucket>/products/<sku>.webp              — canonical product photos
-//   <bucket>/team/<name>.jpg                  — owner + family
-//   <bucket>/uploads/threads/<thread>/...     — chat attachments
-//   <bucket>/uploads/orders/<order>/...       — custom-cake / B2B order refs
-//   <bucket>/uploads/admin/...                — owner-uploaded marketing
+// What this client is used for:
+//   ✓ /api/uploads — customer chat + custom-cake photos (src/routes/uploads.ts)
+//   ✗ Brand / product / hero / social images — those are read-only on the
+//     hackathon CDN, never written by us. See web/src/lib/brand.ts ASSETS.
 //
-// Public reads: bucket ACL is set to public-read in the migration script,
-// so all <CDN>/<key> URLs work without signed access.
+// Bucket folder layout (the upload endpoint owns its own keys via
+// buildUploadKey below; the rest is reserved for the optional brand-asset
+// migration script at scripts/migrate-images-to-spaces.sh):
+//   <bucket>/uploads/threads/<thread>/<date>_<rand>.<ext>   — chat
+//   <bucket>/uploads/orders/<order>/<date>_<rand>.<ext>     — custom orders
+//   <bucket>/uploads/admin/<date>_<rand>.<ext>              — owner uploads
+//   <bucket>/brand/{logo,hero,social}/...                   — (migration only)
+//   <bucket>/products/<sku>.webp                            — (migration only)
+//   <bucket>/team/<name>.jpg                                — (migration only)
+//
+// Public reads: bucket ACL is set to public-read so <CDN>/<key> URLs work
+// without signing. If you ever need private uploads (e.g. owner-only docs),
+// pass acl: 'private' to uploadToSpaces and serve via presigned URLs instead.
+//
+// Storage decision lives in docs/05-deploy/STORAGE.md.
 
 import { S3Client, PutObjectCommand, type PutObjectCommandInput } from '@aws-sdk/client-s3'
 import { randomBytes } from 'node:crypto'
