@@ -352,14 +352,28 @@ export async function invokeAgent(opts: InvokeOptions): Promise<AgentResult> {
     })
   })
 
-  if (result.exit_code === 0 && result.reply) {
-    const newHistory: HistoryEntry[] = [
-      ...history,
-      { role: 'user', content: msg.text, ts: msg.timestamp },
-      { role: 'assistant', content: result.reply, ts: Date.now() },
-    ]
-    saveHistory(msg.threadId, msg.channel, newHistory, msg.senderName, msg.senderId)
+  // Persist the turn so /api/chat/history can hydrate a fresh page load.
+  //
+  // We save BOTH on success and on agent failure: even when the agent fails
+  // or returns empty (claude CLI not configured locally, subprocess timeout,
+  // empty reply), the customer's message must survive a reload — otherwise
+  // re-opening the chat shows the greeting and looks like the message
+  // vanished. On failure we record an empty assistant turn so the UI's
+  // fallback line ("Chat's taking a moment to wake up…") is consistent
+  // across reloads instead of replaying as if it had never happened.
+  const userTurn: HistoryEntry = { role: 'user', content: msg.text, ts: msg.timestamp }
+  const assistantTurn: HistoryEntry = {
+    role: 'assistant',
+    content: result.exit_code === 0 && result.reply ? result.reply : '',
+    ts: Date.now(),
   }
+  saveHistory(
+    msg.threadId,
+    msg.channel,
+    [...history, userTurn, assistantTurn],
+    msg.senderName,
+    msg.senderId,
+  )
 
   return result
 }

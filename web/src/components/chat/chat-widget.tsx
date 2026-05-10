@@ -140,11 +140,26 @@ export function ChatWidget({
     const trimmed = input.trim()
     if ((!trimmed && attachments.length === 0) || sending) return
 
+    // Snapshot the staged values, then clear the composer optimistically.
+    // `await send()` can take seconds (network + agent + typewriter chunk
+    // scheduling); leaving the input populated until it resolves makes the
+    // composer feel frozen. Clearing first → user sees their bubble, the
+    // pending dots, and an empty input ready for the next message.
+    const stagedAttachments = attachments
+    setInput('')
+    setAttachments([])
+    setAttachError(null)
+    inputRef.current?.focus()
+
     let uploaded: UploadedFile[] = []
-    if (attachments.length > 0) {
+    if (stagedAttachments.length > 0) {
       try {
-        uploaded = await uploadAttachments(attachments)
+        uploaded = await uploadAttachments(stagedAttachments)
       } catch (err) {
+        // Restore the composer so the customer can retry instead of losing
+        // their message + photos to a network blip.
+        setInput(trimmed)
+        setAttachments(stagedAttachments)
         setAttachError((err as Error).message || 'Upload failed — try again.')
         return
       }
@@ -160,9 +175,7 @@ export function ChatWidget({
     const text = [trimmed, ...photoLines].filter(Boolean).join('\n\n')
 
     await send(text)
-    setInput('')
-    attachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl))
-    setAttachments([])
+    stagedAttachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl))
   }
 
   const canSend = !sending && (input.trim().length > 0 || attachments.length > 0)

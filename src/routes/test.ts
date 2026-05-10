@@ -50,16 +50,22 @@ export function createTestRoutes(onMessage: MessageHandler) {
   // widget AND the full /chat page hydrate from the same thread so the
   // user sees one continuous conversation no matter which surface they
   // opened. The threadId comes from localStorage on the client.
+  //
+  // Empty assistant entries are dropped — invoke.ts records them as
+  // placeholders when the agent failed mid-turn (so the user message is
+  // never lost), but the chat UI shouldn't render an empty bubble.
   r.get('/api/chat/history', (c) => {
     const threadId = c.req.query('thread_id')
     if (!threadId) return c.json({ thread_id: null, messages: [] })
     const history = loadHistory(threadId)
-    const messages = history.map((h, i) => ({
-      id: `h_${i}`,
-      role: h.role,             // 'user' | 'assistant'
-      text: h.content,
-      ts: h.ts,
-    }))
+    const messages = history
+      .filter((h) => h.content && h.content.trim().length > 0)
+      .map((h, i) => ({
+        id: `h_${i}`,
+        role: h.role,             // 'user' | 'assistant'
+        text: h.content,
+        ts: h.ts,
+      }))
     return c.json({ thread_id: threadId, messages })
   })
 

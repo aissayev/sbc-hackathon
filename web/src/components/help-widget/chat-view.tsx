@@ -137,11 +137,23 @@ export function ChatView({
     const trimmed = input.trim()
     if ((!trimmed && attachments.length === 0) || sending) return
 
+    // Optimistic clear — same rationale as the full ChatWidget: `await send()`
+    // can take a few seconds, so we clear immediately and let the bubble +
+    // pending dots carry the feedback. On upload error we restore the
+    // composer so the customer doesn't lose their note.
+    const stagedAttachments = attachments
+    setInput('')
+    setAttachments([])
+    setAttachError(null)
+    inputRef.current?.focus()
+
     let uploaded: UploadedFile[] = []
-    if (attachments.length > 0) {
+    if (stagedAttachments.length > 0) {
       try {
-        uploaded = await uploadAttachments(attachments)
+        uploaded = await uploadAttachments(stagedAttachments)
       } catch (err) {
+        setInput(trimmed)
+        setAttachments(stagedAttachments)
         setAttachError((err as Error).message || 'Upload failed — try again.')
         return
       }
@@ -153,9 +165,7 @@ export function ChatView({
     const text = [trimmed, ...lines].filter(Boolean).join('\n\n')
 
     await send(text)
-    setInput('')
-    attachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl))
-    setAttachments([])
+    stagedAttachments.forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl))
   }
 
   const canSend = !sending && (input.trim().length > 0 || attachments.length > 0)
