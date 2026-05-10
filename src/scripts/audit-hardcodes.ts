@@ -45,6 +45,10 @@ const allowList = new Set([
   'src/scripts/demo-smoke.ts',
   // Domain bridge mappings between SKU and Square variation IDs are deliberate
   'src/domain/order-orchestration.ts',
+  // Admin-cockpit smoke action: a single synthetic phone fed into the sandbox
+  // `whatsapp_inject_inbound` so the owner can test the inbox view from /admin.
+  // Not a path any customer-facing agent reasoning runs through.
+  'src/domain/channels.ts',
   // Catalog seed is the source of truth, not a hardcode
   'data/catalog/happycake.seed.json',
 ])

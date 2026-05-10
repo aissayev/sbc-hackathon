@@ -112,6 +112,20 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
 // - Skill discovery:     Skill (broad — could resolve arbitrary skill packs)
 // - Bookkeeping:         TodoWrite (no value in a one-shot subprocess)
 //
+// Plus MCP tools the deterministic orchestration owns, NOT the agent:
+// - mcp__happycake__square_create_order  — order-orchestration.ts
+//                  (approveDraftAndPromote) calls this via direct HTTP after
+//                  the owner taps Approve. Agents must NEVER write a Square
+//                  order directly; that bypasses the owner-approval invariant.
+//                  The agent uses mcp__local__create_draft_order instead.
+//
+// Why deny-list and not just allow-list: --allowedTools in `claude -p` is a
+// permission allowlist (auto-approves these without prompting), NOT a tool-
+// discovery filter. With --dangerously-skip-permissions on, the MCP server
+// exposes all its tools and the agent can call any of them. --disallowedTools
+// IS enforced. Verified live: e2e S04 showed the agent calling square_create
+// _order even after we removed it from the concierge allowlist.
+//
 // Intentionally NOT denied (benign + required):
 // - ToolSearch  — Claude Code uses this internally to hydrate deferred MCP
 //                 schemas when the tool list is large. Filtered from our trace.
@@ -127,4 +141,5 @@ export const DENY_ALWAYS = [
   'AskUserQuestion', 'EnterPlanMode', 'ExitPlanMode',
   'Skill',
   'TodoWrite',
+  'mcp__happycake__square_create_order',
 ]
