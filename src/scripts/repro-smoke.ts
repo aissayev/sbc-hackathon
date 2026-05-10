@@ -4,10 +4,14 @@
 //
 // Run: bun run repro
 
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { execSync, spawn } from 'node:child_process'
 import { config } from '../config.ts'
 import { getDb } from '../db/db.ts'
+
+function fileBytes(path: string): number {
+  try { return statSync(path).size } catch { return 0 }
+}
 
 interface Check {
   name: string
@@ -17,7 +21,13 @@ interface Check {
 const checks: Check[] = [
   {
     name: '.env.local present',
-    fn: async () => ({ ok: existsSync('.env.local'), detail: '(must exist; cp from .env.example)' }),
+    fn: async () => {
+      const ok = existsSync('.env.local')
+      return {
+        ok,
+        detail: ok ? `${fileBytes('.env.local')} bytes` : '(missing — cp .env.example .env.local)',
+      }
+    },
   },
   {
     name: 'SBC_TEAM_TOKEN set',
@@ -28,10 +38,15 @@ const checks: Check[] = [
   },
   {
     name: '.mcp.json rendered',
-    fn: async () => ({
-      ok: existsSync('.mcp.json'),
-      detail: '(missing — run `bun run setup:mcp`)',
-    }),
+    fn: async () => {
+      const ok = existsSync('.mcp.json')
+      return {
+        ok,
+        detail: ok
+          ? `${fileBytes('.mcp.json')} bytes — sandbox + local stdio servers wired`
+          : '(missing — run `bun run setup:mcp`)',
+      }
+    },
   },
   {
     name: 'SQLite seeded with catalog',
