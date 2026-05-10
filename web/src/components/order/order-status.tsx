@@ -4,7 +4,7 @@ import * as React from 'react'
 import type { OrderStatus } from '@/lib/api'
 import { fmtUsd, fmtRelativeDate } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, Clock, ChefHat, Package, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, ChefHat, Package, XCircle, Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STATUS_LABEL: Record<string, { label: string; tone: 'default' | 'blue' | 'sage' | 'coral' }> = {
@@ -62,7 +62,7 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
     <div className="rounded-lg border border-cocoa-700/15 bg-white p-6 md:p-8">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <p className="eyebrow">Order #{order.id.slice(-8)}</p>
+          <p className="eyebrow">Order received</p>
           <h2 className="display-h2 mt-1">
             {order.status === 'draft'
               ? 'Order received!'
@@ -75,6 +75,11 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
         </div>
         <Badge variant={status.tone}>{status.label}</Badge>
       </div>
+      {/* Full reference id, copy-able. Prior version showed only the last
+          eight chars (`#4_UG4G4J`) which left the chat agent unable to
+          match the value the customer pasted back — backend now also
+          tolerates suffix lookup as a safety net. */}
+      <OrderIdRef id={order.id} />
 
       {!failed && (
         <ol className="mt-8 grid grid-cols-4 gap-3">
@@ -157,6 +162,57 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
           Live status — this page refreshes every few seconds.
         </p>
       )}
+    </div>
+  )
+}
+
+// Reference / copy widget for the full order id. Customers paste this
+// back into chat or the /track form; the input must be the *exact* id
+// for an unambiguous lookup, so we make it impossible to mis-truncate.
+function OrderIdRef({ id }: { id: string }) {
+  const [copied, setCopied] = React.useState(false)
+  React.useEffect(() => {
+    if (!copied) return
+    const t = setTimeout(() => setCopied(false), 1600)
+    return () => clearTimeout(t)
+  }, [copied])
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(id)
+      setCopied(true)
+    } catch {
+      // Clipboard API blocked (older browsers / iframe). Select the
+      // text so the user can hit ⌘C themselves.
+      const el = document.getElementById('order-id-ref')
+      if (el && 'select' in el && typeof (el as HTMLInputElement).select === 'function') {
+        (el as HTMLInputElement).select()
+      }
+    }
+  }
+  return (
+    <div className="mt-3 flex items-center gap-2 text-xs">
+      <span className="text-cocoa-900/55">Order id</span>
+      <input
+        id="order-id-ref"
+        readOnly
+        value={id}
+        onFocus={(e) => e.currentTarget.select()}
+        className="flex-1 min-w-0 rounded-md border border-cocoa-700/15 bg-cream-50 px-2.5 py-1 font-mono text-[12px] text-cocoa-900/85"
+      />
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? 'Copied' : 'Copy order id'}
+        className={cn(
+          'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors shrink-0',
+          copied
+            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+            : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
+        )}
+      >
+        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        {copied ? 'Copied' : 'Copy'}
+      </button>
     </div>
   )
 }

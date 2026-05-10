@@ -147,13 +147,37 @@ export const getOrderStatusSchema = z.object({
   order_id: z.string(),
 })
 
+// Customer-facing surfaces show only the trailing chunk of the order id
+// (e.g. "#4_UG4G4J" — the last 8 chars of "ord_<ms>_UG4G4J"). When that's
+// the value the customer pastes back into chat or the /track form, the
+// strict `WHERE id = ?` lookup misses. Try the exact match first; if
+// nothing comes back AND the input looks like a partial code, retry with
+// a suffix LIKE. We require at least 6 chars to keep collisions extremely
+// improbable (the random suffix alone is base36-6 ≈ 2 billion).
 export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
-  const row = getDb()
-    .prepare(
-      'SELECT id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id FROM orders WHERE id = ?',
-    )
-    .get(args.order_id)
-  return row ?? { ok: false, reason: 'order not found' }
+  const db = getDb()
+  const select =
+    'SELECT id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id FROM orders'
+
+  // Customers often paste the displayed code with a leading `#` and
+  // surrounding whitespace; strip both before matching.
+  const cleaned = args.order_id.trim().replace(/^#+/, '')
+  const exact = db.prepare(`${select} WHERE id = ?`).get(cleaned)
+  if (exact) return exact
+
+  if (cleaned.length >= 6 && !cleaned.startsWith('ord_')) {
+    const candidates = db
+      .prepare(`${select} WHERE id LIKE ? ORDER BY created_at DESC LIMIT 2`)
+      .all(`%${cleaned}`) as Array<{ id: string }>
+    if (candidates.length === 1) return candidates[0]
+    // Ambiguous: the same suffix matches multiple orders. Force the
+    // customer (or agent) to use the full id rather than guess.
+    if (candidates.length > 1) {
+      return { ok: false, reason: 'short code matches multiple orders — use the full id starting with `ord_`' }
+    }
+  }
+
+  return { ok: false, reason: 'order not found' }
 }
 
 export function listOrders(filter?: { status?: string; limit?: number }) {
