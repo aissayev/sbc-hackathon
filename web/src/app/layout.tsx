@@ -60,9 +60,10 @@ export const metadata: Metadata = {
     images: [ASSETS.store.coffeeAndCake],
   },
   // Icons resolve via the App Router file convention:
-  //   app/favicon.ico   → /favicon.ico (auto-linked as <link rel="icon">)
-  //   app/icon.svg      → /icon.svg
-  //   app/apple-icon.png → /apple-icon.png (drop a file to enable)
+  //   app/favicon.ico    → /favicon.ico (legacy fallback for old browsers)
+  //   app/icon.png       → /icon.png   (256×256, official Happy Cake logo from
+  //                        the hackathon CDN — same source the header + hero use)
+  //   app/apple-icon.png → /apple-icon.png (512×512)
   // No `icons` block needed; Next picks them up automatically.
   robots: { index: true, follow: true },
 }
