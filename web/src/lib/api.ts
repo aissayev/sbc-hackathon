@@ -65,6 +65,11 @@ export interface OrderStatus {
   pickup_or_delivery: 'pickup' | 'delivery'
   items?: OrderItem[]
   kitchen_ticket_id?: string | null
+  // True when ANY item needs explicit owner approval (custom design / catering
+  // volume). Drives the tracker timeline: when false we render a 3-step rail
+  // (Order received → In the kitchen → Ready) since the order auto-promotes;
+  // when true we render the 4-step rail with the explicit "Approved" gate.
+  requires_approval?: boolean
 }
 
 export interface DailyReport {
