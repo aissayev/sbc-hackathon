@@ -3,7 +3,16 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Phone } from 'lucide-react'
+import {
+  Menu,
+  X,
+  Phone,
+  Mail,
+  MapPin,
+  Instagram,
+  ShoppingBag,
+  ChevronRight,
+} from 'lucide-react'
 import { BRAND } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 import { Wordmark } from './wordmark'
@@ -27,6 +36,7 @@ const NAV_SECONDARY = [
 export function SiteHeader() {
   const [open, setOpen] = React.useState(false)
   const pathname = usePathname()
+  const status = isOpenNow()
 
   // Close the drawer on route change so the user lands on a fresh page.
   React.useEffect(() => { setOpen(false) }, [pathname])
@@ -38,55 +48,58 @@ export function SiteHeader() {
   return (
     <>
       <header className="sticky top-0 z-30 bg-cream/85 backdrop-blur supports-[backdrop-filter]:bg-cream/70 border-b border-cocoa-700/10">
-      <div className="container flex items-center justify-between gap-4 py-2.5 md:py-3">
-        <Link href="/" aria-label={`${BRAND.name} home`} className="flex items-center -my-1">
-          <Wordmark />
-        </Link>
-        <nav className="hidden md:flex items-center gap-1 text-sm text-cocoa-900">
-          {NAV.map((n) => {
-            const active = pathname === n.href || pathname.startsWith(n.href + '/')
-            return (
-              <Link
-                key={n.href}
-                href={n.href}
-                className={cn(
-                  'inline-flex items-center h-10 px-3 rounded-full font-medium transition-colors',
-                  active
-                    ? 'bg-sky/10 text-sky-700'
-                    : 'text-cocoa-900/85 hover:bg-cream-200 hover:text-cocoa-900',
-                )}
-              >
-                {n.label}
-              </Link>
-            )
-          })}
-        </nav>
-        <div className="hidden md:flex items-center gap-3">
-          <HeaderStatus />
-          <a
-            href={BRAND.phone.hrefTel}
-            className="hidden lg:inline-flex items-center gap-1.5 text-sm text-cocoa-900/75 hover:text-cocoa-900 transition-colors"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            {BRAND.phone.display}
-          </a>
-          <Link
-            href="/order"
-            className="inline-flex items-center rounded-full bg-cocoa-700 text-cream text-sm font-medium px-5 h-10 hover:bg-cocoa-900 transition-colors shrink-0"
-          >
-            Order a cake
+        <div className="container flex items-center justify-between gap-4 py-2.5 md:py-3">
+          {/* Logo uses size="lg" — wordmark renders ~30% bigger via negative
+              vertical margins so the row height stays the same as before
+              (driven by the 40px nav links + button). */}
+          <Link href="/" aria-label={`${BRAND.name} home`} className="flex items-center">
+            <Wordmark size="lg" />
           </Link>
+          <nav className="hidden md:flex items-center gap-1 text-sm text-cocoa-900">
+            {NAV.map((n) => {
+              const active = pathname === n.href || pathname.startsWith(n.href + '/')
+              return (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  className={cn(
+                    'inline-flex items-center h-10 px-3 rounded-full font-medium transition-colors',
+                    active
+                      ? 'bg-sky/10 text-sky-700'
+                      : 'text-cocoa-900/85 hover:bg-cream-200 hover:text-cocoa-900',
+                  )}
+                >
+                  {n.label}
+                </Link>
+              )
+            })}
+          </nav>
+          <div className="hidden md:flex items-center gap-3">
+            <HeaderStatus />
+            <a
+              href={BRAND.phone.hrefTel}
+              className="hidden lg:inline-flex items-center gap-1.5 text-sm text-cocoa-900/75 hover:text-cocoa-900 transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              {BRAND.phone.display}
+            </a>
+            <Link
+              href="/order"
+              className="inline-flex items-center rounded-full bg-cocoa-700 text-cream text-sm font-medium px-5 h-10 hover:bg-cocoa-900 transition-colors shrink-0"
+            >
+              Order a cake
+            </Link>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+            className="md:hidden inline-flex items-center justify-center h-11 w-11 rounded-full bg-cream-100 text-cocoa-900 hover:bg-cream-200 transition-colors"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-          className="md:hidden inline-flex items-center justify-center h-11 w-11 rounded-full bg-cream-100 text-cocoa-900 hover:bg-cream-200"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-      </div>
       </header>
 
       {/* Mobile drawer — rendered as a sibling of <header> because the
@@ -96,34 +109,103 @@ export function SiteHeader() {
           element's collapsed bbox and leaked the menu through). */}
       <div
         className={cn(
-          'md:hidden fixed inset-x-0 top-[60px] z-40 bg-cream overflow-y-auto transition-opacity duration-200 ease-out',
+          'md:hidden fixed inset-x-0 top-[64px] z-40 bg-cream overflow-y-auto transition-opacity duration-200 ease-out',
           open ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none',
         )}
-        style={{ height: 'calc(100dvh - 60px)' }}
+        style={{ height: 'calc(100dvh - 64px)' }}
       >
-        <nav className="container pt-6 pb-8 flex flex-col gap-1">
-          {[...NAV, ...NAV_SECONDARY].map((n) => (
+        <div className="container pt-5 pb-10 flex flex-col gap-6">
+          {/* Live open-now indicator at the top — answers the first question a
+              touch user has when they pop the drawer ("are you open right now?"). */}
+          <div
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium self-start',
+              status.open ? 'bg-emerald-100 text-emerald-800' : 'bg-cream-200 text-cocoa-900/75',
+            )}
+          >
+            <span
+              className={cn(
+                'h-2 w-2 rounded-full',
+                status.open ? 'bg-emerald-600 animate-pulse' : 'bg-cocoa-700/45',
+              )}
+              aria-hidden
+            />
+            {status.open ? 'Open now' : 'Closed'} · {status.nextChange}
+          </div>
+
+          <nav>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-cocoa-900/55 font-medium mb-2 px-2">
+              Browse
+            </p>
+            <ul className="grid">
+              {[...NAV, ...NAV_SECONDARY].map((n) => {
+                const active = pathname === n.href || pathname.startsWith(n.href + '/')
+                return (
+                  <li key={n.href}>
+                    <Link
+                      href={n.href}
+                      className={cn(
+                        'flex items-center justify-between gap-3 px-3 py-3.5 rounded-xl text-lg font-medium transition-colors',
+                        active
+                          ? 'bg-sky/10 text-sky-800'
+                          : 'text-cocoa-900 hover:bg-cream-200',
+                      )}
+                    >
+                      <span>{n.label}</span>
+                      <ChevronRight
+                        className={cn('h-4 w-4', active ? 'text-sky-700' : 'text-cocoa-900/35')}
+                      />
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+
+          <div className="grid gap-3">
             <Link
-              key={n.href}
-              href={n.href}
-              className="px-3 py-3 rounded-xl text-cocoa-900 hover:bg-cream-200 text-lg font-medium border-b border-cocoa-700/10"
+              href="/order"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-cocoa-700 text-cream text-base font-medium px-5 h-12 hover:bg-cocoa-900"
             >
-              {n.label}
+              <ShoppingBag className="h-4 w-4" />
+              Order a cake
             </Link>
-          ))}
-          <Link
-            href="/order"
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-cocoa-700 text-cream text-base font-medium px-5 h-12 hover:bg-cocoa-900"
-          >
-            Order a cake
-          </Link>
-          <a
-            href={BRAND.phone.hrefTel}
-            className="mt-3 inline-flex items-center justify-center rounded-full border border-cocoa-700/30 text-cocoa-900 text-base font-medium px-5 h-12"
-          >
-            <Phone className="mr-2 h-4 w-4" /> {BRAND.phone.display}
-          </a>
-        </nav>
+            <a
+              href={BRAND.phone.hrefTel}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-cocoa-700/25 text-cocoa-900 text-base font-medium px-5 h-12 hover:bg-cream-200"
+            >
+              <Phone className="h-4 w-4" /> {BRAND.phone.display}
+            </a>
+          </div>
+
+          <div className="pt-4 border-t border-cocoa-700/10 text-sm text-cocoa-900/75 grid gap-2.5">
+            <a
+              href={BRAND.mapsUrl}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-2 hover:text-cocoa-900"
+            >
+              <MapPin className="h-4 w-4 text-cocoa-900/55" />
+              {BRAND.address.line1}, {BRAND.address.city}
+            </a>
+            <a
+              href={`mailto:${BRAND.email}`}
+              className="inline-flex items-center gap-2 hover:text-cocoa-900"
+            >
+              <Mail className="h-4 w-4 text-cocoa-900/55" />
+              {BRAND.email}
+            </a>
+            <a
+              href={BRAND.instagram}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-2 hover:text-cocoa-900"
+            >
+              <Instagram className="h-4 w-4 text-cocoa-900/55" />
+              {BRAND.instagramHandle}
+            </a>
+          </div>
+        </div>
       </div>
     </>
   )

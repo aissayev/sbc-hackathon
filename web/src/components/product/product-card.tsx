@@ -88,15 +88,20 @@ const TRADITION_THEME: Record<
   },
 }
 
-// Translates lead-time + kind into a single customer-facing status. The
-// agent prompt teaches concierge to use the same plain-English wording when
-// it cites availability, so the card and the chat reply line up.
-function statusFor(product: Product): { text: string; tone: 'sage' | 'sky' | 'cocoa' } {
+// Translates lead-time + kind + stock into a single customer-facing status.
+// Wording mirrors what the concierge prompt teaches the agent so the card
+// and the chat reply about the same product line up. Kept short so the pill
+// always fits on one line — long copy used to wrap and push the See-details
+// link out of horizontal alignment with sibling cards.
+function statusFor(product: Product): { text: string; tone: 'sage' | 'sky' | 'cocoa' | 'berry' } {
+  if (!product.in_stock) {
+    return { text: 'Out today · back tomorrow', tone: 'berry' }
+  }
   if (product.kind === 'custom') {
-    return { text: 'Designed with you · 24h', tone: 'cocoa' }
+    return { text: '24h notice', tone: 'cocoa' }
   }
   if (product.kind === 'catering') {
-    return { text: 'Order 3h+ ahead', tone: 'cocoa' }
+    return { text: '3h+ notice', tone: 'cocoa' }
   }
   if (product.kind === 'whole') {
     return { text: 'Ready in ~1 hour', tone: 'sky' }
@@ -108,17 +113,18 @@ function statusFor(product: Product): { text: string; tone: 'sage' | 'sky' | 'co
   return { text: `Ready in ~${product.lead_time_hours}h`, tone: 'sky' }
 }
 
-const STATUS_PILL: Record<'sage' | 'sky' | 'cocoa', string> = {
+const STATUS_PILL: Record<'sage' | 'sky' | 'cocoa' | 'berry', string> = {
   sage: 'bg-sage/30 text-emerald-800',
   sky: 'bg-sky/15 text-sky-800',
   cocoa: 'bg-cocoa-700/10 text-cocoa-900',
+  berry: 'bg-berry/15 text-berry',
 }
 
 function StatusPill({ status }: { status: ReturnType<typeof statusFor> }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium',
+        'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap',
         STATUS_PILL[status.tone],
       )}
     >
@@ -128,6 +134,7 @@ function StatusPill({ status }: { status: ReturnType<typeof statusFor> }) {
           status.tone === 'sage' && 'bg-emerald-600',
           status.tone === 'sky' && 'bg-sky-700',
           status.tone === 'cocoa' && 'bg-cocoa-900',
+          status.tone === 'berry' && 'bg-berry',
         )}
         aria-hidden
       />
@@ -315,12 +322,15 @@ function ShowcaseCard({ product, className }: { product: Product; className?: st
   const traditionLabel = TRADITION_LABELS[tradition].short
   const kindLabel = kindLabelOf(product)
   const tagline = product.tagline ?? product.description ?? ''
+  const oos = !product.in_stock
   return (
     <Link
       href={`/menu/${product.id}`}
+      aria-disabled={oos || undefined}
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-3xl bg-cream border border-cocoa-700/10 shadow-sm',
         'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99]',
+        oos && 'opacity-75 saturate-[0.6]',
         className,
       )}
     >
@@ -338,13 +348,13 @@ function ShowcaseCard({ product, className }: { product: Product; className?: st
         <div className="flex items-center justify-between gap-3">
           <span
             className={cn(
-              'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ring-1',
+              'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 shrink-0',
               theme.chip,
             )}
           >
             {traditionLabel}
           </span>
-          <span className="text-sm font-medium text-cocoa-900/80 tabular-nums">
+          <span className="text-sm font-medium text-cocoa-900/80 tabular-nums shrink-0">
             {fmtUsd(product.price_cents)}
           </span>
         </div>
@@ -358,6 +368,11 @@ function ShowcaseCard({ product, className }: { product: Product; className?: st
           aspect="square"
           className="!rounded-2xl"
         />
+        {oos && (
+          <span className="absolute top-3 left-3 inline-flex items-center rounded-full bg-cream/95 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-berry shadow-sm ring-1 ring-berry/30">
+            Out today
+          </span>
+        )}
       </div>
 
       <div className="relative px-5 pt-5 pb-5 flex flex-col gap-3 flex-1">
@@ -365,16 +380,20 @@ function ShowcaseCard({ product, className }: { product: Product; className?: st
           {product.name}
         </h3>
         {product.flavor_notes && (
-          <p className="text-[11px] uppercase tracking-[0.14em] text-cocoa-900/60 leading-relaxed">
+          <p className="text-[11px] uppercase tracking-[0.14em] text-cocoa-900/60 leading-relaxed line-clamp-2">
             {product.flavor_notes}
           </p>
         )}
         {tagline && (
           <p className="text-sm text-cocoa-900/75 leading-relaxed line-clamp-2">{tagline}</p>
         )}
+        {/* Footer rail anchored bottom: status pill (truncates to one line)
+            on the left, See details on the right (shrink-0 so it never gets
+            pushed out by a long status). All sibling cards line up because
+            border-t + py are constant. */}
         <div className="mt-auto pt-3 flex items-center justify-between gap-3 border-t border-cocoa-700/10">
           <StatusPill status={status} />
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-cocoa-900/60 group-hover:text-sky-700 transition-colors">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-cocoa-900/60 group-hover:text-sky-700 transition-colors shrink-0 whitespace-nowrap">
             See details
             <ArrowUpRight className="h-3.5 w-3.5" />
           </span>
