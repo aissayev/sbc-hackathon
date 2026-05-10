@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { listProducts } from '@/lib/api'
 import { BRAND } from '@/lib/brand'
 import { Eyebrow } from '@/components/brand/eyebrow'
@@ -51,7 +52,20 @@ export default async function MenuPage() {
         </div>
       </section>
 
-      <MenuGrid products={all} />
+      {/* MenuGrid reads useSearchParams() — must sit inside <Suspense> so
+          Next 15 can statically prerender the surrounding page while this
+          island hydrates client-side. The fallback reserves a chunk of
+          height so the page doesn't jump on hydration. */}
+      <Suspense
+        fallback={
+          <div
+            className="container mt-6 mb-16 h-[60vh] rounded-2xl bg-cream-100 animate-pulse"
+            aria-hidden
+          />
+        }
+      >
+        <MenuGrid products={all} />
+      </Suspense>
     </>
   )
 }
