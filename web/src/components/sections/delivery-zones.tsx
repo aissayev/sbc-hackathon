@@ -21,7 +21,7 @@ export function DeliveryZones() {
       <div className="max-w-3xl">
         <Eyebrow>Pickup or delivery</Eyebrow>
         <h2 id="delivery-heading" className="display-h2 mt-3">
-          Free local delivery in Sugar Land. Greater Houston, too.
+          Free local delivery in Sugar Land. Greater Houston for a small fee.
         </h2>
         <p className="mt-3 text-cocoa-900/75 leading-relaxed">
           Pickup is always free at our shop on Promenade Way. For delivery, we cover the
