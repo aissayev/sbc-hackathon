@@ -5,11 +5,14 @@ import Image from 'next/image'
 import { ASSETS } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
-// "Happy Cake" wordmark. The official logo asset is a 1024×1024 square
-// containing the "Family sweets / Happy Cake" lockup (cake illustration
-// arc, "Happy" in sky, "Cake" in cocoa). It's an emblem, not a horizontal
+// "HappyCake" wordmark (one word, two capitals — brand book §2). The
+// official logo asset is a 1024×1024 square containing the "Family sweets
+// / HappyCake" lockup (cake illustration arc, "Happy" in sky, "Cake" in
+// cocoa, rendered without a space). It's an emblem, not a horizontal
 // wordmark — there's no wide variant in the asset pack — so the header
-// renders it as a chunky icon at one consistent size on every page.
+// renders it as a chunky icon at one consistent size on every page. The
+// typographic fallback below also renders "HappyCake" as one word so
+// screen readers and search snippets read it correctly.
 //
 // Variants:
 //   horizontal     — header / footer chrome (default; emblem-as-icon)
@@ -36,13 +39,16 @@ export function Wordmark({
     return (
       <span
         className={cn(
-          'font-display tracking-tight font-semibold leading-none flex items-baseline gap-1.5',
+          'font-display tracking-tight font-semibold leading-none inline-flex items-baseline',
           text,
           className,
         )}
+        aria-label="HappyCake"
       >
-        <span className="text-sky">Happy</span>
-        <span>Cake</span>
+        {/* Two coloured spans render as one continuous word — no whitespace
+            or gap between them — so the wordmark reads "HappyCake" to a
+            screen reader (and to a copy/paste). */}
+        <span className="text-sky">Happy</span><span>Cake</span>
       </span>
     )
   }
@@ -60,7 +66,7 @@ export function Wordmark({
     size === 'sm' ? 'h-10 md:h-12' : size === 'lg' ? 'h-16 md:h-20 -my-3 md:-my-4' : 'h-12 md:h-14'
   const pxSize = size === 'sm' ? 48 : size === 'lg' ? 80 : 56
   return (
-    <span className={cn('inline-flex items-center', className)} aria-label="Happy Cake">
+    <span className={cn('inline-flex items-center', className)} aria-label="HappyCake">
       <LogoImage pxSize={pxSize} className={cn(heightClass, 'w-auto shrink-0')} priority />
     </span>
   )
@@ -82,12 +88,12 @@ function LogoImage({
     return (
       <span
         className={cn(
-          'font-display tracking-tight font-semibold leading-none flex items-baseline gap-1.5 text-cocoa-700',
+          'font-display tracking-tight font-semibold leading-none inline-flex items-baseline text-cocoa-700',
           className,
         )}
+        aria-label="HappyCake"
       >
-        <span className="text-sky">Happy</span>
-        <span>Cake</span>
+        <span className="text-sky">Happy</span><span>Cake</span>
       </span>
     )
   }
@@ -97,7 +103,7 @@ function LogoImage({
   return (
     <Image
       src={src}
-      alt="Happy Cake"
+      alt="HappyCake"
       width={Math.round(pxSize * 2.4)}
       height={pxSize}
       className={cn('object-contain', className)}

@@ -209,7 +209,7 @@ const STEPS: Array<{ key: StepKey; index: number; label: string; subtitle: strin
   { key: 'cakes', index: 1, label: 'What would you like?', subtitle: 'Pick the cakes and quantities.', icon: Cake },
   { key: 'when', index: 2, label: 'When + how', subtitle: 'Time, pickup or delivery, address.', icon: Clock },
   { key: 'contact', index: 3, label: 'Your details', subtitle: 'Where to reach you, plus any kitchen notes.', icon: UserRound },
-  { key: 'payment', index: 4, label: 'Payment', subtitle: 'Card on file — we charge after Askhat approves.', icon: CreditCard },
+  { key: 'payment', index: 4, label: 'Payment', subtitle: 'Card on file — we charge once the team confirms.', icon: CreditCard },
 ]
 
 type StepFields = ReadonlyArray<keyof FormValues | `items.${number}.${'product_id' | 'quantity'}`>
@@ -983,8 +983,8 @@ function PaymentStep({
         <div className="text-sm text-cocoa-900/85 leading-relaxed">
           <p className="font-medium text-cocoa-900">Test mode · no charge yet</p>
           <p className="mt-1 text-cocoa-900/70">
-            Card details are captured here so Askhat sees them with the order. The actual
-            charge happens via Square <strong>after</strong> he approves the draft and confirms
+            Card details are captured here so the team sees them with the order. The actual
+            charge happens via Square <strong>after</strong> we approve the draft and confirm
             the cake by phone — never before.
           </p>
           <button
@@ -1131,7 +1131,7 @@ function PaymentStep({
           <span className="text-2xl font-medium text-cocoa-900 tabular-nums">{fmtUsd(total)}</span>
         </div>
         <p className="mt-2 text-xs text-cocoa-900/60 leading-relaxed">
-          Authorisation only. Captured after Askhat approves and confirms by phone — usually
+          Authorisation only. Captured after our team approves and confirms by phone — usually
           within the hour during open hours. Cancel free until capture.
         </p>
       </div>
@@ -1291,7 +1291,7 @@ function BasketAside({
       <p className="mt-4 text-xs text-cocoa-900/55">
         Step {stepIdx + 1} of {STEPS.length} —{' '}
         {requiresApproval
-          ? 'Askhat reviews custom and catering orders within an hour during open hours.'
+          ? 'Our team reviews custom and catering orders within an hour during open hours.'
           : "We'll queue the kitchen as soon as we open — no need to wait for an approval."}
       </p>
     </aside>

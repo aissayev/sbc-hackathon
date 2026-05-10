@@ -248,7 +248,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: 'sugar-land-bakery-neighborhood-guide',
     title: 'A Sugar Land afternoon — Promenade Way, parking, and what to pair with a slice',
     description:
-      'Where to find Happy Cake in Sugar Land, where to park, what\'s nearby, and how to plan a walking afternoon around a slice of honey cake on Promenade Way.',
+      'Where to find HappyCake in Sugar Land, where to park, what\'s nearby, and how to plan a walking afternoon around a slice of honey cake on Promenade Way.',
     hero_url: ASSETS.hero[0],
     published_at: '2026-05-09',
     read_minutes: 3,

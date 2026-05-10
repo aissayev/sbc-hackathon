@@ -3,6 +3,7 @@
 import * as React from 'react'
 import type { OrderStatus } from '@/lib/api'
 import { fmtUsd, fmtRelativeDate, displayOrderId, trackUrlId } from '@/lib/format'
+import { computeOrderEta, type OrderEtaTone } from '@/lib/order-eta'
 import { Badge } from '@/components/ui/badge'
 import {
   CheckCircle2,
@@ -14,6 +15,8 @@ import {
   Check,
   Cake,
   Share2,
+  Moon,
+  Hourglass,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -163,6 +166,18 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
   const stepIdx = stepIndexFor(order.status, requiresApproval)
   const failed = order.status === 'rejected' || order.status === 'cancelled'
 
+  // Post-order context banner: explains "after hours" / "long lead time"
+  // / "the team is reviewing" in the customer's own words. Only relevant
+  // for fresh orders that haven't started moving through the kitchen yet
+  // — once we're in_kitchen / ready / completed, the rail tells the
+  // story and the banner becomes noise. Computed once per render off the
+  // catalog-derived lead time.
+  const showEtaBanner = !failed && (order.status === 'draft' || order.status === 'approved')
+  const eta = React.useMemo(
+    () => (showEtaBanner ? computeOrderEta(order) : null),
+    [order, showEtaBanner],
+  )
+
   return (
     <div className="rounded-2xl border border-cocoa-700/15 bg-white p-6 md:p-8 shadow-sm">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -191,6 +206,8 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
           tolerates the friendly alias, the canonical id, and the legacy
           `HC-` prefix interchangeably. */}
       <OrderIdRef order={order} />
+
+      {eta && eta.tone !== 'open' && <EtaBanner eta={eta} />}
 
       {!failed && (
         <>
@@ -269,7 +286,7 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
           <div>
             <p className="font-medium">{status.label}</p>
             <p className="text-sm mt-1">
-              We sent you a message with the reason. If anything's unclear, reply on WhatsApp and
+              We sent you a message with the reason. If anything's unclear, message us in chat and
               we'll make it right.
             </p>
           </div>
@@ -330,6 +347,43 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
 // only has 4 digits to copy. The 24-char `ord_<ms>_<rand>` primary key
 // is intentionally hidden from this surface — it exists for the backend,
 // not for humans.
+// Post-order context callout. Sits between the order-id pill and the
+// step rail, so the customer reads the "what to expect" line before the
+// tracker. Three tones, matching `computeOrderEta` output:
+//
+//   closed     · we're shut right now (after-hours submit) — moon icon,
+//                amber background to flag the wait without alarming
+//   lead-time  · long lead-time product or custom review — hourglass,
+//                same amber tone (it's a heads-up, not an error)
+//   open       · normal path — we render NOTHING; the existing inline
+//                ETA below the rail covers it
+//
+// Brand voice: short headline, plain detail line, one icon. No emoji,
+// no "we're sorry but…", just a specific time and a clear next step.
+function EtaBanner({ eta }: { eta: { tone: OrderEtaTone; headline: string; detail?: string } }) {
+  const Icon = eta.tone === 'closed' ? Moon : Hourglass
+  return (
+    <div
+      role="status"
+      className={cn(
+        'mt-4 flex items-start gap-3 rounded-2xl border px-4 py-3',
+        'border-amber-300/70 bg-amber-50 text-amber-900',
+      )}
+    >
+      <span
+        aria-hidden
+        className="h-8 w-8 shrink-0 rounded-full bg-white/70 inline-flex items-center justify-center text-amber-700"
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-medium leading-snug">{eta.headline}</p>
+        {eta.detail && <p className="mt-0.5 text-xs text-amber-900/85 leading-relaxed">{eta.detail}</p>}
+      </div>
+    </div>
+  )
+}
+
 function OrderIdRef({ order }: { order: { id: string; friendly_id?: string } }) {
   const [copied, setCopied] = React.useState(false)
   React.useEffect(() => {

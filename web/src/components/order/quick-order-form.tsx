@@ -519,7 +519,7 @@ function CustomCakeBrief() {
           <Sparkles className="h-4 w-4 text-sky-700" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-cocoa-900">Designed with Askhat, our owner</p>
+          <p className="text-sm font-medium text-cocoa-900">Designed with our team</p>
           <p className="mt-0.5 text-xs text-cocoa-900/65 leading-relaxed">
             Quick brief next, then a phone call to lock the price and timing. Most quotes back
             within the hour during open hours.

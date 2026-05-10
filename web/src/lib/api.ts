@@ -1,7 +1,7 @@
 // Server-side data fetcher. Talks to the Hono backend at BACKEND_URL.
 //
 // Catalog policy: the website's source of truth for `listProducts` /
-// `getProduct` is `lib/catalog.ts` — the canonical Happy Cake product list
+// `getProduct` is `lib/catalog.ts` — the canonical HappyCake product list
 // paired with approved photos. The backend's SQLite seed currently has
 // generic placeholder SKUs (sku-classic-1kg, etc.); ignoring it for the
 // menu surface is intentional. We still call the backend for live signals

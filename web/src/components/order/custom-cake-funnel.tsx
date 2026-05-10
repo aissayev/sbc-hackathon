@@ -79,7 +79,7 @@ const STEPS: Array<{ key: StepKey; label: string; subtitle: string }> = [
   { key: 'about', label: 'About the cake', subtitle: 'What is it for, and how many people?' },
   { key: 'flavor', label: 'Flavor & decoration', subtitle: 'Tell us what it should taste like and look like.' },
   { key: 'when', label: 'When + where', subtitle: 'Date, time, and pickup or delivery.' },
-  { key: 'contact', label: 'How to reach you', subtitle: 'Final step — Askhat will confirm by phone.' },
+  { key: 'contact', label: 'How to reach you', subtitle: 'Final step — our team will confirm by phone.' },
   { key: 'review', label: 'Review & send', subtitle: 'Quick scan before we ping the kitchen.' },
 ]
 
@@ -500,8 +500,8 @@ function FlavorStep({
       <div>
         <Label className="text-base">Reference photos (optional)</Label>
         <p className="mt-1 text-sm text-cocoa-900/65">
-          A photo of a cake you love, a sketch, an inspo image — anything that helps Askhat picture
-          what you have in mind. Up to 5 images, 8 MB each.
+          A photo of a cake you love, a sketch, an inspo image — anything that helps our team
+          picture what you have in mind. Up to 5 images, 8 MB each.
         </p>
         <input
           ref={fileInputRef}
@@ -670,8 +670,8 @@ function ReviewStep({
   return (
     <div>
       <p className="text-sm text-cocoa-900/70">
-        Looks good? Send it to Askhat. He&apos;ll confirm by phone within an hour during open hours
-        and give you the final price after he sees the design.
+        Looks good? Send it over. Our team will confirm by phone within an hour during open hours
+        and give you the final price after we see the design.
       </p>
       {photos.length > 0 && (
         <div className="mt-5">
