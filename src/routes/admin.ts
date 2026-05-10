@@ -42,6 +42,13 @@ import {
 } from '../domain/approvals.ts'
 import { recordAuditEvent, listAuditEvents, auditCounts } from '../domain/audit.ts'
 import { getCockpitSettings } from '../domain/settings.ts'
+import {
+  listCustomers,
+  getCustomerById,
+  listCustomerOrders,
+  updateCustomerNotes,
+  mergeCustomers,
+} from '../domain/customers.ts'
 
 export const adminRoutes = new Hono()
 
@@ -57,6 +64,58 @@ adminRoutes.get('/api/admin/orders/:id', (c) => {
   const status = getOrderStatus({ order_id: id }) as Record<string, unknown>
   if (status && 'ok' in status && status.ok === false) return c.json(status, 404)
   return c.json(status)
+})
+
+// ── CRM ────────────────────────────────────────────────────────────
+//
+// List + detail + notes-edit for the customers table. Mirrors the
+// shape of the /customer Telegram command and adds the "browse all"
+// path that Telegram can't easily do.
+
+adminRoutes.get('/api/admin/customers', (c) => {
+  const q = c.req.query('q')?.trim() || undefined
+  const limitRaw = c.req.query('limit')
+  const offsetRaw = c.req.query('offset')
+  const limit = limitRaw ? Math.max(1, Math.min(200, parseInt(limitRaw, 10) || 50)) : 50
+  const offset = offsetRaw ? Math.max(0, parseInt(offsetRaw, 10) || 0) : 0
+  const { rows, total } = listCustomers({ q, limit, offset })
+  return c.json({ customers: rows, total, limit, offset })
+})
+
+adminRoutes.get('/api/admin/customers/:id', (c) => {
+  const id = c.req.param('id')
+  const customer = getCustomerById(id)
+  if (!customer) return c.json({ ok: false, reason: 'customer not found' }, 404)
+  return c.json({ customer, recent_orders: listCustomerOrders(id, 50) })
+})
+
+adminRoutes.put('/api/admin/customers/:id/notes', async (c) => {
+  const id = c.req.param('id')
+  let body: { notes?: string | null } = {}
+  try { body = (await c.req.json()) as { notes?: string | null } } catch {}
+  const updated = updateCustomerNotes(id, body.notes ?? null)
+  if (!updated) return c.json({ ok: false, reason: 'customer not found' }, 404)
+  recordAuditEvent({
+    action: 'customer_notes_update', targetId: id,
+    result: (updated.notes ?? '').slice(0, 80),
+    outcome: 'ok',
+  })
+  return c.json({ ok: true, customer: updated })
+})
+
+adminRoutes.post('/api/admin/customers/merge', async (c) => {
+  let body: { source_id?: string; target_id?: string } = {}
+  try { body = (await c.req.json()) as { source_id?: string; target_id?: string } } catch {}
+  if (!body.source_id || !body.target_id) {
+    return c.json({ ok: false, reason: 'source_id and target_id required' }, 400)
+  }
+  const result = mergeCustomers(body.source_id, body.target_id)
+  recordAuditEvent({
+    action: 'customer_merge', targetId: body.target_id,
+    result: result.ok ? `merged source=${body.source_id} → target=${body.target_id}` : (result.reason ?? 'failed'),
+    outcome: result.ok ? 'ok' : 'error',
+  })
+  return c.json(result, result.ok ? 200 : 400)
 })
 
 adminRoutes.get('/api/admin/escalations', (c) => {

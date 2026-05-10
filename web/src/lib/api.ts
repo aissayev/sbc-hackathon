@@ -68,6 +68,10 @@ export interface OrderStatus {
   total_cents: number
   scheduled_at: string | null
   customer_name: string | null
+  // CRM link, populated by createDraftOrder via upsertCustomerForOrder.
+  // Null on legacy rows or chat-started drafts before phone is collected.
+  customer_id?: string | null
+  customer_email?: string | null
   pickup_or_delivery: 'pickup' | 'delivery'
   items?: OrderItem[]
   kitchen_ticket_id?: string | null
@@ -80,6 +84,38 @@ export interface OrderStatus {
   // or ['catering', 'custom']. Empty when order auto-promoted. Used by the
   // admin orders list to label each draft with the WHY at a glance.
   approval_reasons?: string[]
+}
+
+// CRM record. Mirrors the backend `customers` table 1:1 — same fields,
+// same types. Counters are denormalized so the list page renders the
+// "12th order · $189 lifetime" badge without an aggregate query.
+export interface AdminCustomer {
+  id: string
+  name: string | null
+  phone: string | null
+  email: string | null
+  square_customer_id: string | null
+  first_seen_at: number
+  last_seen_at: number
+  order_count: number
+  total_spent_cents: number
+  notes: string | null
+  created_at: number
+  updated_at: number
+}
+
+export interface AdminCustomerOrder {
+  id: string
+  status: string
+  total_cents: number
+  items_summary: string
+  scheduled_at: string | null
+  created_at: number
+}
+
+export interface AdminCustomerDetail {
+  customer: AdminCustomer
+  recent_orders: AdminCustomerOrder[]
 }
 
 export interface DailyReport {
@@ -232,6 +268,26 @@ export async function createDraftOrder(input: DraftOrderInput): Promise<DraftOrd
 // participate in authentication.
 export async function getDailyReport(): Promise<DailyReport | null> {
   return safeFetch<DailyReport>(`${BACKEND}/api/admin/today`)
+}
+
+export async function listAdminCustomers(opts: {
+  q?: string
+  limit?: number
+  offset?: number
+} = {}): Promise<{ customers: AdminCustomer[]; total: number }> {
+  const params = new URLSearchParams()
+  if (opts.q) params.set('q', opts.q)
+  if (opts.limit) params.set('limit', String(opts.limit))
+  if (opts.offset) params.set('offset', String(opts.offset))
+  const qs = params.toString()
+  const data = await safeFetch<{ customers: AdminCustomer[]; total: number }>(
+    `${BACKEND}/api/admin/customers${qs ? `?${qs}` : ''}`,
+  )
+  return data ?? { customers: [], total: 0 }
+}
+
+export async function getAdminCustomer(id: string): Promise<AdminCustomerDetail | null> {
+  return safeFetch<AdminCustomerDetail>(`${BACKEND}/api/admin/customers/${encodeURIComponent(id)}`)
 }
 
 export async function listAdminOrders(): Promise<OrderStatus[]> {
