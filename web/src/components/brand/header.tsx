@@ -7,6 +7,7 @@ import { Menu, X, Phone } from 'lucide-react'
 import { BRAND } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 import { Wordmark } from './wordmark'
+import { isOpenNow } from './hours'
 
 // Primary nav. Kept to four items on purpose — Stories + Chat live in the
 // footer / inline links so the top bar can breathe. Mobile drawer mirrors
@@ -60,10 +61,18 @@ export function SiteHeader() {
             )
           })}
         </nav>
-        <div className="hidden md:flex items-center">
+        <div className="hidden md:flex items-center gap-3">
+          <HeaderStatus />
+          <a
+            href={BRAND.phone.hrefTel}
+            className="hidden lg:inline-flex items-center gap-1.5 text-sm text-cocoa-900/75 hover:text-cocoa-900 transition-colors"
+          >
+            <Phone className="h-3.5 w-3.5" />
+            {BRAND.phone.display}
+          </a>
           <Link
             href="/order"
-            className="inline-flex items-center rounded-full bg-cocoa-700 text-cream text-sm font-medium px-5 h-10 hover:bg-cocoa-900 transition-colors"
+            className="inline-flex items-center rounded-full bg-cocoa-700 text-cream text-sm font-medium px-5 h-10 hover:bg-cocoa-900 transition-colors shrink-0"
           >
             Order a cake
           </Link>
@@ -117,5 +126,43 @@ export function SiteHeader() {
         </nav>
       </div>
     </>
+  )
+}
+
+// "Open now · 11–7" pill in the header. Mounts client-side because the
+// open/closed math depends on the current time in America/Chicago — SSR
+// would freeze the badge to whatever it was at build time. We hide the
+// pill until the first client tick so we don't flash a stale state.
+function HeaderStatus() {
+  const [status, setStatus] = React.useState<{ open: boolean; nextChange?: string } | null>(null)
+  React.useEffect(() => {
+    setStatus(isOpenNow())
+    // Re-check every minute so the pill flips at opening / closing time
+    // without a page refresh.
+    const id = setInterval(() => setStatus(isOpenNow()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  if (!status) {
+    // Reserve the same approximate width during hydration so the layout
+    // doesn't shift when the pill mounts.
+    return <span aria-hidden className="hidden lg:inline-block w-44 h-7" />
+  }
+  return (
+    <Link
+      href="/policies#hours"
+      title="Tap for full hours"
+      className="hidden lg:inline-flex items-center gap-2 rounded-full border border-cocoa-700/15 bg-white/60 backdrop-blur px-3 h-8 text-xs text-cocoa-900/85 hover:text-cocoa-900 hover:bg-white transition-colors"
+    >
+      <span
+        className={cn(
+          'h-1.5 w-1.5 rounded-full',
+          status.open ? 'bg-emerald-500' : 'bg-cocoa-700/45',
+        )}
+      />
+      <span className="font-medium">{status.open ? 'Open now' : 'Closed'}</span>
+      {status.nextChange && (
+        <span className="text-cocoa-900/55">· {status.nextChange}</span>
+      )}
+    </Link>
   )
 }

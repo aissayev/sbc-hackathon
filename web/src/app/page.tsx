@@ -6,8 +6,7 @@ import { BLOG_POSTS } from '@/lib/blog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { HoursTable, isOpenNow } from '@/components/brand/hours'
+import { HoursTable } from '@/components/brand/hours'
 import { QuickOrderForm } from '@/components/order/quick-order-form'
 import { HeroDecor } from '@/components/sections/hero-decor'
 import { PlaceToGather } from '@/components/sections/place-to-gather'
@@ -46,7 +45,6 @@ export default async function HomePage() {
     pickByKind('pastry'),
     pickByKind('custom'),
   ].filter((p): p is NonNullable<typeof p> => Boolean(p))
-  const status = isOpenNow()
 
   const localBusinessJsonLd = {
     '@context': 'https://schema.org',
@@ -90,7 +88,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
-      <Hero status={status} products={products} />
+      <Hero products={products} />
       <Pillars />
 
       <section className="container mt-24">
@@ -135,13 +133,7 @@ export default async function HomePage() {
   )
 }
 
-function Hero({
-  status,
-  products,
-}: {
-  status: { open: boolean; nextChange?: string }
-  products: Product[]
-}) {
+function Hero({ products }: { products: Product[] }) {
   return (
     <section className="relative overflow-hidden">
       {/* Layered backdrop: warm cream wash + sky / berry corner glows + a faint
@@ -185,11 +177,10 @@ function Hero({
             </li>
           </ul>
 
+          {/* Hours + phone live in the header now (HeaderStatus + tel link).
+              Hero meta row keeps just the address — the one piece the
+              header doesn't surface. */}
           <div className="mt-7 flex flex-wrap items-center gap-4 text-sm">
-            <Badge variant={status.open ? 'sage' : 'sky'} className="px-3 py-1">
-              <span className={`h-1.5 w-1.5 rounded-full mr-2 ${status.open ? 'bg-emerald-600' : 'bg-sky-700'}`} />
-              {status.open ? 'Open now' : 'Closed'} · {status.nextChange}
-            </Badge>
             <a
               href={BRAND.mapsUrl}
               target="_blank"
@@ -197,12 +188,6 @@ function Hero({
               className="inline-flex items-center gap-1.5 text-cocoa-900/70 hover:text-cocoa-900"
             >
               <MapPin className="h-4 w-4" /> {BRAND.address.line1}
-            </a>
-            <a
-              href={BRAND.phone.hrefTel}
-              className="inline-flex items-center gap-1.5 text-cocoa-900/70 hover:text-cocoa-900"
-            >
-              <Phone className="h-4 w-4" /> {BRAND.phone.display}
             </a>
           </div>
         </div>
@@ -217,24 +202,49 @@ function Hero({
 
 function Pillars() {
   return (
-    <section className="container mt-12 md:mt-20">
-      <div className="text-center max-w-2xl mx-auto">
-        <Eyebrow>Why guests come back</Eyebrow>
-        <h2 className="display-h2 mt-3">Made with heart, served with soul</h2>
-      </div>
-      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {PILLARS.map((p) => {
-          const Icon = PILLAR_ICONS[p.icon as keyof typeof PILLAR_ICONS] ?? Sparkles
-          return (
-            <div key={p.title} className="bakery-card p-6 text-center">
-              <div className="h-12 w-12 mx-auto rounded-full bg-sky-100 text-sky flex items-center justify-center">
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="display-h3 mt-4 text-lg">{p.title}</h3>
-              <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed">{p.body}</p>
-            </div>
-          )
-        })}
+    <section className="container mt-16 md:mt-24">
+      <div className="grid gap-10 lg:grid-cols-12 lg:gap-14 items-start">
+        {/* Editorial left rail — anchors the section instead of yet another
+            centered title block. The h2 doubles as the section anchor; the
+            paragraph sets up the four pillars on the right. */}
+        <div className="lg:col-span-4 lg:sticky lg:top-24">
+          <Eyebrow>Why guests come back</Eyebrow>
+          <h2 className="display-h2 mt-3 [text-wrap:balance]">
+            Small bakery. <span className="text-sky">Big care</span> in every slice.
+          </h2>
+          <p className="mt-4 text-cocoa-900/70 leading-relaxed">
+            Four things we promise and four things we deliver, every day. The same recipes that
+            opened the shop, the same hands that decorate the boxes, the same welcome at the
+            counter.
+          </p>
+        </div>
+
+        {/* Numbered pillar list. Each row reads as a row not a card — less
+            grid-of-cards corporate, more "things we believe" editorial. */}
+        <ol className="lg:col-span-8 grid gap-px bg-cocoa-700/8 rounded-3xl overflow-hidden border border-cocoa-700/8">
+          {PILLARS.map((p, i) => {
+            const Icon = PILLAR_ICONS[p.icon as keyof typeof PILLAR_ICONS] ?? Sparkles
+            return (
+              <li
+                key={p.title}
+                className="group relative flex items-start gap-5 bg-bakery p-6 md:p-7 transition-colors hover:bg-cream-50"
+              >
+                <div className="shrink-0 flex flex-col items-center gap-2">
+                  <span className="text-[11px] tracking-[0.18em] uppercase text-cocoa-900/45 font-medium tabular-nums">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span className="h-12 w-12 rounded-2xl bg-sky-100 text-sky inline-flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="display-h3 text-lg">{p.title}</h3>
+                  <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed">{p.body}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
       </div>
     </section>
   )

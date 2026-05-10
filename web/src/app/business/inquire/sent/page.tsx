@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, Mail } from 'lucide-react'
+import { formatOrderId } from '@/lib/format'
 import { BRAND } from '@/lib/brand'
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export default async function BusinessInquirySentPage(props: { searchParams?: Se
       </p>
       {id && (
         <p className="mt-6 text-xs text-cocoa-900/60">
-          Reference: <code className="bg-cream-100 rounded px-2 py-0.5">{id.slice(-8)}</code>
+          Reference: <code className="bg-cream-100 rounded px-2 py-0.5">{formatOrderId(id)}</code>
         </p>
       )}
       <div className="mt-10 flex flex-wrap gap-3 justify-center">

@@ -1,5 +1,5 @@
 import { getDailyReport, listAdminOrders } from '@/lib/api'
-import { fmtUsd, fmtRelativeDate } from '@/lib/format'
+import { fmtUsd, fmtRelativeDate, formatOrderId } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
@@ -41,8 +41,8 @@ export default async function AdminTodayPage() {
             {orders.slice(0, 8).map((o) => (
               <li key={o.id} className="p-4 flex items-center gap-3 justify-between flex-wrap">
                 <div>
-                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-cocoa-900 hover:text-cocoa-700">
-                    #{o.id.slice(-8)}
+                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-cocoa-900 hover:text-cocoa-700 font-mono text-xs" title={o.id}>
+                    {formatOrderId(o.id, 'short')}
                   </Link>
                   <span className="ml-3 text-sm text-cocoa-900/70">{o.customer_name ?? '—'}</span>
                 </div>

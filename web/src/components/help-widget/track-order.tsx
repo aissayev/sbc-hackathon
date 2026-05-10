@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { OrderStatus } from '@/lib/api'
 import { ORDER_STATUS_LABEL } from '@/lib/widget'
-import { fmtUsd, fmtRelativeDate } from '@/lib/format'
+import { fmtUsd, fmtRelativeDate, formatOrderId } from '@/lib/format'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -100,7 +100,7 @@ function OrderCard({ order }: { order: OrderStatus }) {
           <Package className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-cocoa-900/55">Order #{order.id.slice(-8)}</div>
+          <div className="text-[10px] text-cocoa-900/55 font-mono truncate" title={order.id}>{formatOrderId(order.id)}</div>
           <div className="font-medium text-cocoa-900 truncate">{order.customer_name ?? '—'}</div>
         </div>
         <Badge variant={status.tone}>{status.label}</Badge>
