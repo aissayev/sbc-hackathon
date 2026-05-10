@@ -73,10 +73,53 @@ function loadPrompt(role: AgentRole): string {
   return `${brand_md}\n\n---\n\n${role_md}`
 }
 
+// Surface the current local time + open/closed state so the agent stops
+// guessing whether we're open. Without this, asks like "is the kitchen
+// open right now?" got answered against a static brand-rules schedule
+// with no idea what time it actually is — usually wrong, often "the
+// kitchen is closed" when we're actually open.
+function buildClockTag(): string {
+  const now = new Date()
+  const human = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(now)
+  // Open/closed math against BRAND.openingHoursSpec; hard-coded here to
+  // avoid pulling the web/lib package over to backend code.
+  const cstParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(now)
+  const weekday = cstParts.find((p) => p.type === 'weekday')?.value ?? 'Mon'
+  const hour = parseInt(cstParts.find((p) => p.type === 'hour')?.value ?? '0', 10)
+  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday)
+  let openness: string
+  if (day === 1) openness = 'closed today (Mondays). Opens Tuesday 11 AM.'
+  else if (day === 0)
+    openness =
+      hour < 12
+        ? 'closed (Sunday opens at noon).'
+        : hour < 18
+          ? 'OPEN now (Sun 12-6).'
+          : 'closed for the day.'
+  else if (hour < 11) openness = `closed (opens at 11 AM).`
+  else if (hour < 19) openness = `OPEN now (Tue-Sat 11-7).`
+  else openness = `closed for the day (opens tomorrow 11 AM).`
+  return `<current_time>America/Chicago: ${human}. Shop is ${openness}</current_time>`
+}
+
 function buildPrompt(msg: IncomingMessage, history: HistoryEntry[]): string {
   const transcript = history.map((h) => `[${h.role}] ${h.content}`).join('\n')
   return [
     transcript ? `<conversation_history>\n${transcript}\n</conversation_history>` : '',
+    buildClockTag(),
     `<thread_meta>channel=${msg.channel} thread_id=${msg.threadId} sender=${msg.senderName ?? msg.senderId}</thread_meta>`,
     `<customer_message>\n${msg.text}\n</customer_message>`,
     'Reply to the customer. Use tools as needed. Do NOT include the tags above in your reply.',
