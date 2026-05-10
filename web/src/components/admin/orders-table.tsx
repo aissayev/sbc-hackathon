@@ -136,6 +136,7 @@ function statusTone(status: string): 'default' | 'blue' | 'sage' | 'coral' {
     case 'refund_pending':
       return 'blue'
     case 'approved':
+    case 'approved_manual':
     case 'in_kitchen':
     case 'ready':
     case 'out_for_delivery':

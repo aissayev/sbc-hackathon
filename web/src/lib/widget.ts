@@ -107,6 +107,7 @@ export const WIDGET_COLLECTIONS: WidgetCollection[] = [
 export const ORDER_STATUS_LABEL: Record<string, { label: string; tone: 'sky' | 'sage' | 'berry' | 'cocoa' }> = {
   draft: { label: 'Sent — under review', tone: 'sky' },
   approved: { label: 'Approved — in the kitchen', tone: 'sky' },
+  approved_manual: { label: 'Confirmed — Askhat is handling this one personally', tone: 'sky' },
   in_kitchen: { label: 'Baking', tone: 'sky' },
   ready: { label: 'Ready for pickup', tone: 'sage' },
   out_for_delivery: { label: 'On the way', tone: 'sage' },

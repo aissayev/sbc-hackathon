@@ -23,6 +23,7 @@
 
 import { getDb } from '../db/db.ts'
 import { callSandboxTool, SandboxMcpError } from '../lib/sandbox-mcp.ts'
+import { isMcpBackedStrict } from '../lib/mcp-catalog-cache.ts'
 
 interface OrderRow {
   id: string
@@ -58,7 +59,11 @@ export interface ApproveResult {
   square_order_id?: string
   kitchen_ticket_id?: string
   error?: string
-  stage?: 'read_local' | 'square_create' | 'kitchen_create' | 'persist'
+  stage?: 'read_local' | 'pre_check' | 'square_create' | 'kitchen_create' | 'persist'
+  /** Items in the draft that aren't in the sandbox MCP catalog. Owner needs to fulfill manually. */
+  unsupported_skus?: string[]
+  /** True when the order took the manual-fulfillment path (no Square / kitchen call). */
+  manual_fulfillment?: boolean
 }
 
 export async function approveDraftAndPromote(orderId: string): Promise<ApproveResult> {
@@ -84,6 +89,39 @@ export async function approveDraftAndPromote(orderId: string): Promise<ApproveRe
     line_total_cents: number
     name?: string
   }>
+
+  // Pre-check: every SKU must exist in the sandbox MCP catalog before we can
+  // call square_create_order. The local catalog (10 items) is a superset of
+  // the sandbox catalog (5 items + the occasional parallel-agent addition).
+  // Custom cakes typed in by the agent or the admin UI typically don't have
+  // a Square variation. Without this pre-check, the approval call fails with
+  // a cryptic `Unknown variationId: sq_var_<sku>` and the order gets stuck
+  // — which is exactly the bug a custom-cake test surfaces.
+  //
+  // Items that don't have a sandbox match take the **manual-fulfillment**
+  // path: locally approved, no Square/kitchen call, owner sees a clear
+  // status indicating offline handling is needed.
+  const unsupported: string[] = []
+  for (const it of items) {
+    if (!(await isMcpBackedStrict(it.sku))) {
+      unsupported.push(it.sku)
+    }
+  }
+  if (unsupported.length > 0) {
+    const now = Date.now()
+    getDb()
+      .prepare(
+        `UPDATE orders SET status = 'approved_manual', updated_at = ? WHERE id = ? AND status = 'draft'`,
+      )
+      .run(now, orderId)
+    return {
+      ok: true,
+      order_id: orderId,
+      manual_fulfillment: true,
+      unsupported_skus: unsupported,
+      stage: 'pre_check',
+    }
+  }
 
   // Step 1: Square POS order. The simulator catalog uses `sq_var_<id-with-underscores>`
   // for variation IDs. Response shape (verified live):

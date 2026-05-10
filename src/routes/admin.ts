@@ -143,9 +143,14 @@ adminRoutes.get('/api/admin/escalations', (c) => {
 adminRoutes.post('/api/admin/orders/:id/approve', async (c) => {
   const id = c.req.param('id')
   const result = await approveDraftAndPromote(id)
+  const auditResult = result.ok
+    ? result.manual_fulfillment
+      ? `approved (manual fulfillment — unsupported SKUs: ${(result.unsupported_skus ?? []).join(', ')})`
+      : 'approved + promoted to kitchen'
+    : (result.error ?? 'failed')
   recordAuditEvent({
     action: 'order_approve', targetId: id,
-    result: result.ok ? 'approved + promoted to kitchen' : (result.error ?? 'failed'),
+    result: auditResult,
     outcome: result.ok ? 'ok' : 'error',
   })
   return c.json(result, result.ok ? 200 : 400)
