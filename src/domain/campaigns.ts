@@ -1,59 +1,89 @@
-// Read-only loader for the marketing plan (data/campaigns/plans.json).
+// Read-only loader for the marketing strategy plan (data/campaigns/plans.json).
+//
+// Schema v4: $500/mo deploys to ONE strategy at a time. Each strategy is a
+// complete $500 deployment with its own 3- and 6-month rollout. The owner
+// picks ONE in Telegram /campaigns and that one launches.
 //
 // Two callers:
-//   1. src/scripts/marketing-run.ts — uses the structured plan to drive
-//      `marketing_create_campaign` + `marketing_launch_simulated_campaign`.
-//   2. src/bots/owner/commands.ts — surfaces the plan in Telegram via
-//      /campaigns so the operator sees what's planned, what's launched,
-//      and can one-tap approve.
+//   1. src/scripts/marketing-run.ts — launches the chosen strategy via
+//      marketing_create_campaign + marketing_launch_simulated_campaign.
+//   2. src/bots/owner/commands.ts — surfaces the strategies in Telegram via
+//      /campaigns so the operator picks one and approves.
 //
-// Status comes from data/campaigns/.state/last-run.json (written after
-// `bun run marketing:run` and after each owner-approved Telegram launch).
+// Status comes from data/campaigns/.state/last-run.json (written after a
+// strategy is launched, either via the CLI script or the Telegram approve
+// callback).
 //
-// Pure loader — no MCP calls here. The HTTP MCP transport lives in
-// src/lib/sandbox-mcp.ts and is used by callers (not by this module).
+// Pure loader — no MCP calls here.
 
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-export interface CampaignPlan {
+export interface MonthlyRolloutPhase {
+  phase: string
+  spendUsd?: number
+  subAllocation?: Record<string, number>
+  creativeStrategy?: string
+  expectedOutcomes?: Record<string, number | string>
+  killScaleRules?: string
+}
+
+export interface CampaignStrategy {
   id: string
   name: string
-  lever: string
-  channel: 'instagram' | 'google_local' | 'whatsapp' | 'website' | 'mixed'
-  objective: string
-  budgetUsd: number
-  icp: string[]
+  recommended: boolean
+  alternativeNote?: string
+  fullBudgetUsd: number
+  primaryChannel: 'instagram' | 'google_local' | 'whatsapp' | 'website' | 'mixed'
+  secondaryChannel?: 'instagram' | 'google_local' | 'whatsapp' | 'website' | 'mixed'
   anchorSku: string
   supportingSkus: string[]
-  offer: string
-  landingPath: string
-  creativeStrategy: string
-  audienceSizing?: string
-  hypothesis: Record<string, unknown>
-  killThreshold: string
-  scaleThreshold: string
+  icp: string[]
+  thesis: string
+  monthlyRollout: {
+    month1?: MonthlyRolloutPhase
+    month2?: MonthlyRolloutPhase
+    month3?: MonthlyRolloutPhase
+    month6?: MonthlyRolloutPhase
+  }
+  killThresholdsBlended: string
+  scaleThresholdsBlended: string
   ownerApprovalRequired: boolean
+}
+
+export interface OrganicTrack {
+  id: string
+  name: string
+  budgetUsd: 0
+  effortRequired: string
+  purpose: string
+  tracks: Record<string, { deliverable: string; expectedOutcome: string }>
+  monthlyTimeline: Record<string, string>
 }
 
 export interface CampaignsFile {
   version: number
   lastReviewed: string
+  liveMargins: Record<string, number>
   constraint: {
     monthlyBudgetUsd: number
     targetEffectUsd: number
     challenge: string
+    deploymentRule: string
   }
-  campaigns: CampaignPlan[]
-  totalAllocatedUsd: number
-  reservedUsd: number
-  budgetSummary: Record<string, number>
+  recommendation: {
+    primary: string
+    rationale: string
+  }
+  strategies: CampaignStrategy[]
+  alwaysOnOrganic: OrganicTrack
 }
 
 export interface CampaignRunState {
   ranAt: string
+  chosenStrategyId?: string
   launched: Array<{
-    planId: string
+    strategyId: string
     campaignId: string | null
     leadsGenerated: number
   }>
@@ -76,22 +106,27 @@ export function loadCampaignRunState(): CampaignRunState | null {
   }
 }
 
-export type CampaignStatus = 'planned' | 'launched' | 'unknown'
+export type StrategyStatus = 'planned' | 'chosen' | 'launched' | 'unknown'
 
-export function statusForPlan(planId: string, state: CampaignRunState | null): {
-  status: CampaignStatus
+export function statusForStrategy(
+  strategyId: string,
+  state: CampaignRunState | null,
+): {
+  status: StrategyStatus
   campaignId: string | null
   leadsGenerated: number
 } {
   if (!state) return { status: 'planned', campaignId: null, leadsGenerated: 0 }
-  const entry = state.launched.find((l) => l.planId === planId)
-  if (!entry) return { status: 'planned', campaignId: null, leadsGenerated: 0 }
-  if (entry.campaignId) {
+  const entry = state.launched.find((l) => l.strategyId === strategyId)
+  if (entry?.campaignId) {
     return {
       status: 'launched',
       campaignId: entry.campaignId,
       leadsGenerated: entry.leadsGenerated,
     }
   }
-  return { status: 'unknown', campaignId: null, leadsGenerated: entry.leadsGenerated }
+  if (state.chosenStrategyId === strategyId) {
+    return { status: 'chosen', campaignId: null, leadsGenerated: 0 }
+  }
+  return { status: 'planned', campaignId: null, leadsGenerated: 0 }
 }

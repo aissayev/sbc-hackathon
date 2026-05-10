@@ -1,7 +1,7 @@
 {
-  "_note": "Source of truth for the marketing portfolio. Read by both src/scripts/marketing-run.ts (creates + launches in sandbox) and src/bots/owner/commands.ts (/campaigns command in Telegram). The doc at docs/01-product/HYPOTHESIS.md is the human-readable narrative that quotes these specs. Margins below are live values pulled via marketing_get_margin_by_product on 2026-05-09; refresh by running `bun run marketing:brief`.",
-  "version": 3,
-  "lastReviewed": "2026-05-09",
+  "_note": "Source of truth for the marketing strategy. We deploy the FULL $500/mo to ONE strategy at a time — splitting a $500 budget across 5 channels guarantees zero learning per channel. Each strategy below is a complete $500 deployment with its own 3- and 6-month rollout. The owner picks ONE in Telegram /campaigns and that one launches. Organic is a separate always-on track that runs alongside whichever paid strategy is chosen.",
+  "version": 4,
+  "lastReviewed": "2026-05-10",
   "liveMarginsPulledAt": "2026-05-09T23:59Z",
   "liveMargins": {
     "honey-cake-slice": 68,
@@ -14,175 +14,321 @@
     "monthlyBudgetUsd": 500,
     "targetEffectUsd": 5000,
     "challenge": "10× ROAS attributable to the $500 spend",
-    "trustedFor": "Numbers below are hypotheses anchored on industry benchmarks (Meta food/bev CTR, food/bev CPL, retargeting uplift). Live sandbox data overrides them after the first launch."
+    "deploymentRule": "ONE strategy at a time — full $500 to chosen strategy, not split."
   },
-  "audienceLevers": {
-    "primary": "b2b_catering",
-    "secondary": "b2c_anchor",
-    "amplifier": "retargeting",
-    "earned": "organic_local_seo"
+  "recommendation": {
+    "primary": "b2b-catering-offensive",
+    "rationale": "Highest first-order value ($240) × highest repeat cadence (catering corporate accounts) × validated by real customer (review rev_004 — already a repeat office-birthday client). At $500 against a 10× ROAS target the only unit economics that close are B2B catering."
   },
-  "campaigns": [
+  "strategies": [
     {
-      "id": "b2b-catering-meta-leadgen",
-      "name": "B2B catering — Meta Lead Gen (Sugar Land + W Houston)",
-      "lever": "primary",
-      "channel": "instagram",
-      "objective": "lead_gen",
-      "budgetUsd": 250,
-      "icp": [
-        "Office managers / EAs at 30–300 person Sugar Land + Energy Corridor offices",
-        "Boutique hotels & extended-stay (welcome amenity, in-room gifting)",
-        "Independent coffee shops (wholesale slice supply)",
-        "Event planners & realtors (housewarming, milestone closings)",
-        "Medical offices (patient appreciation, referral gifts)"
-      ],
+      "id": "b2b-catering-offensive",
+      "name": "B2B Catering Offensive — Office + Hotel + Coffee Shop",
+      "recommended": true,
+      "fullBudgetUsd": 500,
+      "primaryChannel": "instagram",
+      "secondaryChannel": "google_local",
       "anchorSku": "office-dessert-box",
       "supportingSkus": ["morning-pastry-mix", "whole-honey-cake"],
-      "offer": "Office Dessert Box — same-day for 6+ guests, $120 starting, 3h lead time. Free first delivery within 5 mi for first booking.",
-      "landingPath": "/menu/office-dessert-box",
-      "creativeStrategy": "Broad-net A/B/C learn-then-scale. 6 ad sets × 4 creatives each = 24 ads in week 1. Themes: (1) Monday-morning team treat, (2) client meeting, (3) staff appreciation, (4) holiday office party, (5) realtor closing gift, (6) hotel welcome.",
-      "audienceSizing": "~85k matched profiles (Houston-Sugar Land DMA, job titles: HR, Office Mgr, EA, Office Coordinator; interests: corporate gifting, event planning).",
-      "hypothesis": {
-        "expectedCpmUsd": 12,
-        "expectedCtrPct": 1.4,
-        "expectedLeadCvrPct": 8.5,
-        "expectedSqlRatePct": 28,
-        "expectedAvgFirstOrderUsd": 240,
-        "expectedRepeatOrdersYear1": 5,
-        "expectedYr1RevPerClientUsd": 1440,
-        "yr1MarginPctLive": 60
+      "icp": [
+        "Office managers / EAs at 30–300 person Sugar Land + Energy Corridor offices (~85k matched profiles in Meta)",
+        "Boutique hotels & extended-stay properties (welcome amenity, in-room gifting)",
+        "Independent coffee shops (wholesale slice supply)",
+        "Event planners & realtors (closing gifts, milestone events)",
+        "Medical / dental offices (patient appreciation, referral gifts)"
+      ],
+      "thesis": "Catering carries $72/box margin and 4–12 reorders/year per acquired account. One acquired office account = $1,440/year revenue. We need 4 wins to clear $5k yr-1.",
+      "monthlyRollout": {
+        "month1": {
+          "phase": "Data acquisition (testing breadth)",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaLeadGen": 400,
+            "googleLocal": 100
+          },
+          "creativeStrategy": "6 ad sets × 4 creatives = 24 ads in market week 1. Themes: Monday team treat, client meeting, staff appreciation, holiday office party, realtor closing gift, hotel welcome. Each lead-form ad highlights free-first-delivery in 5 mi radius.",
+          "expectedOutcomes": {
+            "impressions": 33000,
+            "clicks": 460,
+            "leads": 32,
+            "sqls": 9,
+            "firstOrders": 5,
+            "firstMonthRevenueUsd": 1200,
+            "yr1RevenueProjectionUsd": 6800
+          },
+          "killScaleRules": "After $50/ad-set: kill if CTR < 1.0% OR CPL > $35. Scale 50% on any ad set with CPL < $20 + SQL rate > 25%."
+        },
+        "month2": {
+          "phase": "Optimization (concentrate on winners)",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaLeadGenWinners": 300,
+            "metaRetargetingWarmPool": 100,
+            "googleLocal": 100
+          },
+          "creativeStrategy": "Pause kills from month 1. Top 2 ad sets get 70% of ads budget. Add 2 fresh creatives per surviving set. Retargeting layer launches now (warm pool from month 1 prospecting).",
+          "expectedOutcomes": {
+            "impressions": 41000,
+            "clicks": 700,
+            "leads": 50,
+            "sqls": 16,
+            "firstOrders": 9,
+            "reorders": 3,
+            "monthRevenueUsd": 2400,
+            "cumulativeRevenueUsd": 3600
+          }
+        },
+        "month3": {
+          "phase": "Scale (lookalikes + repeat compound)",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaLookalikes": 250,
+            "metaRetargeting": 150,
+            "googleLocal": 100
+          },
+          "creativeStrategy": "Lookalike-1% off acquired catering customer list. Retargeting now hits engagers from m1+m2. Rotate 1 fresh creative per ad set weekly to fight fatigue (frequency > 3.5/wk trigger).",
+          "expectedOutcomes": {
+            "impressions": 50000,
+            "clicks": 950,
+            "leads": 70,
+            "sqls": 22,
+            "firstOrders": 13,
+            "reorders": 8,
+            "monthRevenueUsd": 4400,
+            "cumulativeRevenueUsd": 8000,
+            "blendedRoasMonth3": 5.3
+          }
+        },
+        "month6": {
+          "phase": "Compounding (cohort LTV realized)",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaLookalikes": 200,
+            "metaRetargeting": 200,
+            "googleLocal": 100
+          },
+          "creativeStrategy": "Repeat-cycle is the engine now. Month 6 revenue is ~70% from month 1–4 cohorts reordering, ~30% from new acquisition.",
+          "expectedOutcomes": {
+            "monthRevenueUsd": 7500,
+            "cumulativeRevenueUsd": 28000,
+            "cumulativeSpendUsd": 3000,
+            "cumulativeRoasMonth6": 9.3,
+            "acquiredAccounts": 55,
+            "activeReorderingAccounts": 38
+          }
+        }
       },
-      "killThreshold": "Pause an ad set if CTR < 1.0% after $25 spent OR CPL > $35 after $50 spent.",
-      "scaleThreshold": "Double daily budget on any ad set with CPL < $20 AND SQL rate > 25% over 50 leads.",
+      "killThresholdsBlended": "Pause whole strategy after $250 cumulative spend if blended CTR < 0.8% AND CPL > $40 (mediocre row in sensitivity table). At that point switch to b2c-anchor-flywheel.",
+      "scaleThresholdsBlended": "If cumulative ROAS > 4× by end of month 2, recommend owner double-up to $750 in month 3.",
       "ownerApprovalRequired": true
     },
     {
-      "id": "b2c-anchor-cake-honey",
-      "name": "B2C anchor — cake \"Honey\" birthday + anniversary",
-      "lever": "secondary",
-      "channel": "instagram",
-      "objective": "orders",
-      "budgetUsd": 100,
-      "icp": [
-        "Women 28–55, Sugar Land + W Houston, family-celebration moments",
-        "Multicultural households (CAS / South-Asian / Latin community signals)"
-      ],
+      "id": "b2c-anchor-flywheel",
+      "name": "B2C Anchor + Retargeting Flywheel — cake \"Honey\" + slices",
+      "recommended": false,
+      "alternativeNote": "Pick this if B2B catering proves saturated or if seasonal (Mother's/Valentine's) windows demand B2C focus.",
+      "fullBudgetUsd": 500,
+      "primaryChannel": "instagram",
+      "secondaryChannel": "instagram",
       "anchorSku": "whole-honey-cake",
-      "supportingSkus": ["pistachio-roll", "cloud-cake-slice"],
-      "offer": "Cake \"Honey\" — $55, our signature, 1-hour notice. Perfect centerpiece for birthdays and anniversaries.",
-      "landingPath": "/menu/whole-honey-cake",
-      "creativeStrategy": "Advantage+ Shopping with 4 creatives: hero product still, cutting-the-cake reel, six-layer slow-mo, customer story.",
-      "audienceSizing": "Advantage+ broad — let Meta optimise within Houston DMA + 25 mi radius. ~250k+ profiles in match set.",
-      "hypothesis": {
-        "expectedCpmUsd": 9,
-        "expectedCtrPct": 1.6,
-        "expectedClickToOrderCvrPct": 3.2,
-        "expectedAvgOrderUsd": 62,
-        "expectedRepeatOrdersYear1": 2.2,
-        "expectedYr1RevPerClientUsd": 136,
-        "yr1MarginPctLive": 62
+      "supportingSkus": ["pistachio-roll", "honey-cake-slice", "cloud-cake-slice"],
+      "icp": [
+        "Women 28–55, Sugar Land + W Houston, multicultural family households",
+        "Life-event signals (birthday/anniversary windows in Meta)",
+        "Engaged with HappyCake IG / visited menu pages (retargeting pool)"
+      ],
+      "thesis": "Build a warm pool through cold prospecting then convert it through dynamic retargeting. Yr-1 LTV per acquired buyer is ~$110, so we need ~50 new customers + 80% retargeting conversion to hit $5k.",
+      "monthlyRollout": {
+        "month1": {
+          "phase": "Cold prospecting (build warm pool)",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaAdvantagePlusCold": 400,
+            "metaRetargeting": 100
+          },
+          "creativeStrategy": "4 creative variants on Advantage+ Shopping: hero product still, cutting-the-cake reel, six-layer slow-mo, customer-story testimonial. Retargeting layer DPA off /api/products feed.",
+          "expectedOutcomes": {
+            "impressions": 55000,
+            "clicks": 880,
+            "orders": 28,
+            "avgOrderUsd": 62,
+            "monthRevenueUsd": 1736,
+            "yr1RevenueProjectionUsd": 3800
+          }
+        },
+        "month2": {
+          "phase": "Retargeting compounding",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaAdvantagePlusCold": 300,
+            "metaRetargeting": 200
+          },
+          "creativeStrategy": "Cold creatives rotate. Retargeting now has 4–6k warm profiles. Dynamic carousel shows the SKU each user looked at.",
+          "expectedOutcomes": {
+            "monthRevenueUsd": 2400,
+            "cumulativeRevenueUsd": 4136
+          }
+        },
+        "month3": {
+          "phase": "Lookalikes + repeat",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaLookalikes": 250,
+            "metaRetargeting": 250
+          },
+          "creativeStrategy": "1% lookalike off purchaser list. Retargeting splits between 30-day visitors and 90-day non-buyers.",
+          "expectedOutcomes": {
+            "monthRevenueUsd": 2900,
+            "cumulativeRevenueUsd": 7036,
+            "blendedRoasMonth3": 4.7
+          }
+        },
+        "month6": {
+          "phase": "Compounding repeat",
+          "spendUsd": 500,
+          "subAllocation": {
+            "metaLookalikes": 200,
+            "metaRetargeting": 300
+          },
+          "expectedOutcomes": {
+            "monthRevenueUsd": 4200,
+            "cumulativeRevenueUsd": 19000,
+            "cumulativeSpendUsd": 3000,
+            "cumulativeRoasMonth6": 6.3,
+            "acquiredCustomers": 320,
+            "activeReorderingCustomers": 110
+          }
+        }
       },
-      "killThreshold": "Pause if CTR < 1.0% after $20 spent OR CAC > $35 after $30 spent.",
-      "scaleThreshold": "Increase budget 50% if ROAS > 3.0× over a rolling 7-day window.",
+      "killThresholdsBlended": "Pause if month 1 cold CAC > $35 OR retargeting ROAS < 2× by end of m1. Pivot to b2b-catering-offensive.",
+      "scaleThresholdsBlended": "If month 2 ROAS > 3.5× recommend doubling to $750 m3.",
       "ownerApprovalRequired": true
     },
     {
-      "id": "retargeting-warm-pool",
-      "name": "Retargeting — site visitors + IG engagers (last 30d)",
-      "lever": "amplifier",
-      "channel": "instagram",
-      "objective": "orders",
-      "budgetUsd": 100,
+      "id": "local-awareness-walkin",
+      "name": "Local Awareness — IG/GBP walk-in surge",
+      "recommended": false,
+      "alternativeNote": "Lowest-leverage option. Flagged for completeness; not recommended given the rev_003 service-speed risk (a customer waited 25 min for one slice — surging walk-ins makes that worse).",
+      "fullBudgetUsd": 500,
+      "primaryChannel": "instagram",
+      "secondaryChannel": "mixed",
+      "anchorSku": "honey-cake-slice",
+      "supportingSkus": ["pistachio-roll", "cloud-cake-slice", "tiramisu-slice"],
       "icp": [
-        "Visited /menu/* in last 30 days (didn't check out)",
-        "Engaged with HappyCake IG (saved/commented/DMed) in last 30 days",
-        "Lookback on lead-form starters who didn't submit"
+        "Anyone within 5 mi radius of Sugar Land store",
+        "Lunchtime + late-afternoon foot-traffic windows",
+        "GBP search queries 'bakery near me', 'dessert near me'"
       ],
-      "anchorSku": "whole-honey-cake",
-      "supportingSkus": ["office-dessert-box", "custom-birthday-cake"],
-      "offer": "Dynamic — show the SKU the user looked at, paired with a soft nudge: 'still thinking? we'll bake it tomorrow if you order tonight.'",
-      "landingPath": "/menu",
-      "creativeStrategy": "Dynamic Product Ads on the catalog feed (we expose /api/products, hook DPA to it). Two static carousels for IG-engaged audiences.",
-      "audienceSizing": "Estimated 1,500–4,000 warm profiles in month 1; grows with prospecting spend.",
-      "hypothesis": {
-        "expectedCpmUsd": 14,
-        "expectedCtrPct": 4.5,
-        "expectedClickToOrderCvrPct": 9.0,
-        "expectedAvgOrderUsd": 78,
-        "industryRoasMultiplier": "5–8× (vs 2–4× cold)",
-        "yr1MarginPctLive": 60
+      "thesis": "Drive incremental walk-in slice purchases at $8.50 avg. Math is brutal: 200 incremental orders/mo × $5.78 margin = $1,156 — doesn't clear the $5k bar.",
+      "monthlyRollout": {
+        "month1": {
+          "phase": "Hyper-local awareness",
+          "spendUsd": 500,
+          "creativeStrategy": "Boosted IG posts geo-fenced to 5 mi. GBP weekly posts. Friday/Saturday daypart focus.",
+          "expectedOutcomes": {
+            "impressions": 70000,
+            "incrementalWalkInOrders": 200,
+            "monthRevenueUsd": 1700
+          }
+        },
+        "month3": {
+          "phase": "Awareness compounds",
+          "expectedOutcomes": {
+            "cumulativeRevenueUsd": 5400,
+            "cumulativeRoas": 3.6
+          }
+        },
+        "month6": {
+          "phase": "Diminishing returns",
+          "expectedOutcomes": {
+            "cumulativeRevenueUsd": 10800,
+            "cumulativeSpendUsd": 3000,
+            "cumulativeRoasMonth6": 3.6
+          }
+        }
       },
-      "killThreshold": "Only kill if frequency > 3.5/week AND CTR < 2% — that's audience burn, rotate creative.",
-      "scaleThreshold": "Default state. Budget rises automatically as the warm pool grows from prospecting.",
+      "killThresholdsBlended": "Pause if foot-traffic uplift < 20% over baseline by end of m1.",
+      "scaleThresholdsBlended": "Not applicable — strategy caps out around 3.6× ROAS, do not scale.",
       "ownerApprovalRequired": true
     },
     {
-      "id": "google-local-catering-intent",
-      "name": "Google Local — high-intent catering search",
-      "lever": "primary_support",
-      "channel": "google_local",
-      "objective": "lead_gen",
-      "budgetUsd": 50,
-      "icp": [
-        "Anyone searching 'catering near me', 'office dessert delivery Sugar Land', 'corporate cake delivery Houston' from a 10-mi radius"
-      ],
-      "anchorSku": "office-dessert-box",
-      "supportingSkus": ["morning-pastry-mix"],
-      "offer": "Same as B2B Meta — Office Dessert Box, free first delivery.",
-      "landingPath": "/menu/office-dessert-box",
-      "creativeStrategy": "Tightly themed exact-match keywords (no broad). Three ad groups: catering intent, dessert delivery, corporate gifting.",
-      "audienceSizing": "Search volume in Sugar Land + Energy Corridor: ~300–500 monthly impressions for relevant queries.",
-      "hypothesis": {
-        "expectedCpcUsd": 2.4,
-        "expectedClickToLeadCvrPct": 12,
-        "expectedSqlRatePct": 35,
-        "expectedAvgFirstOrderUsd": 240,
-        "expectedYr1RevPerClientUsd": 1440
-      },
-      "killThreshold": "Pause keyword if conversion < 8% after $30 spent.",
-      "scaleThreshold": "Add long-tail variants on any keyword with SQL rate > 30% and CPL < $30.",
-      "ownerApprovalRequired": true
-    },
-    {
-      "id": "organic-local-seo-content",
-      "name": "Organic — local SEO + content + newsletter (earned, $0 ads)",
-      "lever": "earned",
-      "channel": "website",
-      "objective": "awareness",
-      "budgetUsd": 0,
-      "icp": [
-        "Long-tail: 'best birthday cake Sugar Land', 'honey cake near me', 'office catering Energy Corridor'",
-        "Newsletter readers — captured at site + at counter via QR"
-      ],
-      "anchorSku": "all",
+      "id": "custom-premium",
+      "name": "Custom Cakes Premium — $95+ celebration cakes",
+      "recommended": false,
+      "alternativeNote": "Not recommended. 90 min/cake labor × 4/day cap × 58% margin = labor-intensive, low headroom, hard to scale.",
+      "fullBudgetUsd": 500,
+      "primaryChannel": "instagram",
+      "secondaryChannel": "instagram",
+      "anchorSku": "custom-birthday-cake",
       "supportingSkus": [],
-      "offer": "Newsletter: 'first slice free on your birthday'. Content: monthly bake calendar, how-to-choose guides, behind-the-counter stories.",
-      "landingPath": "/blog, /menu, /catering",
-      "creativeStrategy": "Eight evergreen pages in month 1: catering FAQ, Sugar Land delivery zones, allergen guide, birthday-cake size guide, hotel amenity menu, six-layer honey origin story, gluten-aware options, custom-cake pricing reality. Add LocalBusiness, Bakery, Menu schema (already in rubric, see /llms.txt).",
-      "audienceSizing": "Earned traffic ramps to ~1,200/mo organic by month 6 in a competitive metro; subscriber list ramps to ~600 by month 6 with QR-at-counter.",
-      "hypothesis": {
-        "expectedNewslettersFromSiteVisitsPct": 3.5,
-        "expectedNewsletterToCustomerCvrYr1Pct": 18,
-        "expectedAvgOrderFromNewsletterUsd": 48,
-        "expectedYr1RevPerSubscriberUsd": 22
+      "icp": [
+        "Parents planning kids' milestone birthdays (Sugar Land, 25–45)",
+        "Couples planning small wedding/engagement celebrations",
+        "Photo-cake / fondant request audiences (visual-rich social signals)"
+      ],
+      "thesis": "Premium ticket ($95+) with strong social-share value. But capacity-constrained at 4/day — campaign ceiling is small.",
+      "monthlyRollout": {
+        "month1": {
+          "phase": "Premium positioning",
+          "spendUsd": 500,
+          "creativeStrategy": "Hero reels of past custom cakes. CTA leads to a consultation form (24h notice required).",
+          "expectedOutcomes": {
+            "leads": 60,
+            "sqls": 18,
+            "bookedOrders": 10,
+            "monthRevenueUsd": 950
+          }
+        },
+        "month3": {
+          "phase": "Capacity ceiling hit",
+          "expectedOutcomes": {
+            "cumulativeRevenueUsd": 3500,
+            "cumulativeRoas": 2.3
+          }
+        },
+        "month6": {
+          "phase": "Plateau",
+          "expectedOutcomes": {
+            "cumulativeRevenueUsd": 7500,
+            "cumulativeSpendUsd": 3000,
+            "cumulativeRoasMonth6": 2.5
+          }
+        }
       },
-      "killThreshold": "Not applicable — content is an asset, not a campaign. Review monthly: pages that drive zero traffic 90 days post-publish get rewritten.",
-      "scaleThreshold": "If a page hits page 1 of Google for its target query, build 3 internal links + 1 outbound from a guest post.",
-      "ownerApprovalRequired": false
+      "killThresholdsBlended": "Pause if SQL→booked < 40% by m1 — labor cost makes lower close rates uneconomic.",
+      "scaleThresholdsBlended": "Cannot scale — 4/day capacity is binding.",
+      "ownerApprovalRequired": true
     }
   ],
-  "totalAllocatedUsd": 500,
-  "reservedUsd": 0,
-  "budgetSummary": {
-    "primary_b2b": 250,
-    "secondary_b2c": 100,
-    "retargeting": 100,
-    "google_local": 50,
-    "organic": 0
+  "alwaysOnOrganic": {
+    "id": "organic-local-seo-and-newsletter",
+    "name": "Always-on Organic — local SEO + newsletter + GBP content",
+    "budgetUsd": 0,
+    "effortRequired": "8–12 hours/week consistent content + on-page work; runs IN PARALLEL with the chosen paid strategy",
+    "purpose": "Compounding asset. Lowers blended CAC every month the paid strategy runs. By month 6, organic typically delivers 20–35% of total customer acquisition for a local food business.",
+    "tracks": {
+      "localSEO": {
+        "deliverable": "8 evergreen pages in months 1–2: catering FAQ, Sugar Land delivery zones, allergen guide, birthday-cake size guide, hotel amenity menu, six-layer honey origin story, gluten-aware options, custom-cake pricing reality. Add LocalBusiness, Bakery, Menu schema (already partially in /llms.txt).",
+        "expectedOutcome": "By m6: ~1,200/mo organic traffic to /menu and /catering. Page-1 ranking on 3–5 long-tail queries (e.g. 'office catering Sugar Land', 'honey cake near me')."
+      },
+      "newsletter": {
+        "deliverable": "Site capture (3.5% of visits) + counter QR for in-store. Bi-weekly email: monthly bake calendar, allergen-aware tips, behind-the-counter stories. Birthday-club: 'free first slice on your birthday'.",
+        "expectedOutcome": "By m6: ~600 subscribers. 18% subscriber→customer yr-1 = ~108 buyers/yr × $48 avg order = ~$5,200/yr earned revenue at zero ad spend."
+      },
+      "gbpContent": {
+        "deliverable": "Weekly GBP post (already exposed via gb_simulate_post). Reply to every review (gb_simulate_reply) within 48h. Monthly photo refresh.",
+        "expectedOutcome": "By m6: GBP profile views grow ~30%. Direction requests + calls grow proportionally. Improves the ceiling on whichever paid strategy is running."
+      }
+    },
+    "monthlyTimeline": {
+      "month1": "Set up: 8 evergreen pages drafted, schema validated, newsletter form live, counter QR in store. ~30h total.",
+      "month2": "Pages indexed; newsletter list at ~80–120; GBP posting cadence stable.",
+      "month3": "First long-tail rankings appearing. Newsletter list ~250.",
+      "month6": "Page-1 on 3–5 queries; newsletter ~600; first measurable organic-attributed orders ~25/mo."
+    }
   },
   "industryBenchmarks": {
-    "_source": "Compiled May 2026 from WordStream, Triple Whale, AdAmigo, OwlClaw, Lebesgue, PeopleLinx (catering LTV), Toast POS (restaurant LTV).",
+    "_source": "WordStream, Triple Whale, AdAmigo, OwlClaw, Lebesgue, PeopleLinx, Toast POS — May 2026.",
     "metaFoodBevMedianCtrPct": 0.96,
     "metaFoodBevTopQuartileCtrPct": 1.85,
     "metaFoodBevMedianCpmUsd": 8.17,
@@ -193,7 +339,6 @@
     "metaB2bAvgCplUsd": 84,
     "retargetingCvrLiftMultiple": "3–5×",
     "retargetingCplReductionPct": "50–70%",
-    "retargetingRecommendedBudgetSharePct": "20–30%",
     "cateringCorporateRepeatRateTargetPct": 25,
     "cartAbandonRetargetingCvrPct": "8–15"
   }

@@ -20,7 +20,7 @@ import { tryCallSandboxTool } from '../../lib/sandbox-mcp.ts'
 import {
   loadCampaignsFile,
   loadCampaignRunState,
-  statusForPlan,
+  statusForStrategy,
 } from '../../domain/campaigns.ts'
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -38,6 +38,7 @@ export async function handleOwnerCallback(
   if (data.startsWith('view_esc:')) return await handleViewEsc(token, chatId, data.slice('view_esc:'.length))
   if (data.startsWith('view_campaign:'))
     return await handleViewCampaign(token, chatId, data.slice('view_campaign:'.length))
+  if (data === 'view_organic') return await handleViewCampaign(token, chatId, 'organic')
   if (data.startsWith('launch_campaign:'))
     return await handleLaunchCampaign(token, chatId, data.slice('launch_campaign:'.length))
   if (data.startsWith('metrics_campaign:'))
@@ -111,40 +112,60 @@ async function handleViewCampaign(token: string, chatId: string, planId: string)
  * we tag it with the operator's chat id so the audit trail traces back to
  * a real human action.
  */
-async function handleLaunchCampaign(token: string, chatId: string, planId: string): Promise<true> {
-  let plans
+async function handleLaunchCampaign(token: string, chatId: string, strategyId: string): Promise<true> {
+  let plan
   try {
-    plans = loadCampaignsFile()
+    plan = loadCampaignsFile()
   } catch (err) {
     await sendTelegram(token, chatId, `Couldn't read plan: ${(err as Error).message}`)
     return true
   }
-  const plan = plans.campaigns.find((c) => c.id === planId)
-  if (!plan) {
-    await sendTelegram(token, chatId, `No campaign with id "${planId}".`)
+  const strategy = plan.strategies.find((s) => s.id === strategyId)
+  if (!strategy) {
+    await sendTelegram(token, chatId, `No strategy with id "${strategyId}".`)
     return true
   }
-  if (plan.budgetUsd === 0) {
-    await sendTelegram(token, chatId, `"${plan.name}" is organic ($0) — no ads to launch.`)
+  if (strategy.fullBudgetUsd === 0) {
+    await sendTelegram(token, chatId, `"${strategy.name}" is organic ($0) — runs in parallel, no ads to launch.`)
     return true
   }
 
-  await sendTelegram(token, chatId, `Launching "${plan.name}" ($${plan.budgetUsd})…`)
+  // Refuse to double-launch — operator should explicitly retire the live one
+  // first if they want to switch (a future Telegram action; for now, warn).
+  const state = loadCampaignRunState()
+  const live = plan.strategies.find((s) => statusForStrategy(s.id, state).status === 'launched')
+  if (live && live.id !== strategy.id) {
+    await sendTelegram(
+      token,
+      chatId,
+      `⚠ "${live.name}" is already live with the full $${live.fullBudgetUsd}. Single-strategy rule: only ONE strategy runs at a time.\n\nSwitching strategies on the same budget is a deliberate decision — re-run \`bun run marketing:run --strategy ${strategy.id}\` from the server if you want to override.`,
+    )
+    return true
+  }
 
-  const audienceText = plan.icp.length > 1 ? plan.icp.slice(0, 3).join(' · ') : (plan.icp[0] ?? '')
+  await sendTelegram(
+    token,
+    chatId,
+    `Launching "${strategy.name}" with the FULL $${strategy.fullBudgetUsd}/mo budget…`,
+  )
+
+  const audienceText = strategy.icp.length > 1
+    ? strategy.icp.slice(0, 3).join(' · ')
+    : (strategy.icp[0] ?? '')
+  const m1 = strategy.monthlyRollout.month1
   const created = await tryCallSandboxTool<{
     campaign?: { id?: string; campaignId?: string }
     campaignId?: string
     id?: string
   }>('marketing_create_campaign', {
-    name: plan.name,
-    channel: plan.channel,
-    objective: plan.objective,
-    budgetUsd: plan.budgetUsd,
+    name: strategy.name,
+    channel: strategy.primaryChannel,
+    objective: m1?.phase ?? 'lead_gen',
+    budgetUsd: strategy.fullBudgetUsd,
     targetAudience: audienceText,
-    offer: plan.offer,
-    landingPath: plan.landingPath,
-    hypothesisLine: `${plan.lever}: ${plan.creativeStrategy}`,
+    offer: `Anchor: ${strategy.anchorSku}. ${strategy.thesis}`,
+    landingPath: `/menu/${strategy.anchorSku}`,
+    hypothesisLine: `Single-strategy deployment ($${strategy.fullBudgetUsd}/mo) — ${m1?.creativeStrategy ?? 'see plan'}`,
   })
 
   const campaignId =
@@ -157,21 +178,21 @@ async function handleLaunchCampaign(token: string, chatId: string, planId: strin
     await sendTelegram(
       token,
       chatId,
-      `✗ Failed to create "${plan.name}" — sandbox didn't return a campaignId.`,
+      `✗ Failed to create "${strategy.name}" — sandbox didn't return a campaignId.`,
     )
     return true
   }
 
   const launch = await tryCallSandboxTool('marketing_launch_simulated_campaign', {
     campaignId,
-    approvalNote: `Owner approved via Telegram /campaigns (chat=${chatId})`,
+    approvalNote: `Owner approved via Telegram /campaigns (chat=${chatId}) — single-strategy launch`,
   })
 
   if (!launch) {
     await sendTelegram(
       token,
       chatId,
-      `⚠ "${plan.name}" created (${shortId(campaignId)}) but launch returned no result. Check sandbox state.`,
+      `⚠ "${strategy.name}" created (${shortId(campaignId)}) but launch returned no result. Check sandbox state.`,
     )
     return true
   }
@@ -198,13 +219,14 @@ async function handleLaunchCampaign(token: string, chatId: string, planId: strin
   }
 
   // Persist into the run-state file so /campaigns sees launched status
-  upsertCampaignRunState(planId, campaignId, leadList?.length ?? 0)
+  upsertCampaignRunState(strategyId, campaignId, leadList?.length ?? 0)
 
   await sendTelegram(
     token,
     chatId,
     [
-      `✓ "${plan.name}" launched`,
+      `✓ "${strategy.name}" launched`,
+      `  Full $${strategy.fullBudgetUsd}/mo deployed.`,
       `  Sandbox: ${shortId(campaignId)}`,
       `  Leads simulated: ${leadList?.length ?? 0}`,
       `  Tap /campaigns to view.`,
@@ -213,11 +235,11 @@ async function handleLaunchCampaign(token: string, chatId: string, planId: strin
   return true
 }
 
-async function handleMetricsCampaign(token: string, chatId: string, planId: string): Promise<true> {
+async function handleMetricsCampaign(token: string, chatId: string, strategyId: string): Promise<true> {
   const state = loadCampaignRunState()
-  const st = statusForPlan(planId, state)
+  const st = statusForStrategy(strategyId, state)
   if (!st.campaignId) {
-    await sendTelegram(token, chatId, `"${planId}" is not launched yet — open it from /campaigns to approve.`)
+    await sendTelegram(token, chatId, `"${strategyId}" is not launched yet — open it from /campaigns to approve.`)
     return true
   }
   const metrics = await tryCallSandboxTool<Record<string, unknown>>('marketing_get_campaign_metrics', {
@@ -234,11 +256,15 @@ async function handleMetricsCampaign(token: string, chatId: string, planId: stri
   return true
 }
 
-function upsertCampaignRunState(planId: string, campaignId: string, leadsGenerated: number): void {
+function upsertCampaignRunState(strategyId: string, campaignId: string, leadsGenerated: number): void {
   const dir = resolve('data/campaigns/.state')
   mkdirSync(dir, { recursive: true })
   const path = resolve(dir, 'last-run.json')
-  let current: { ranAt: string; launched: Array<{ planId: string; campaignId: string | null; leadsGenerated: number }> } = {
+  let current: {
+    ranAt: string
+    chosenStrategyId?: string
+    launched: Array<{ strategyId: string; campaignId: string | null; leadsGenerated: number }>
+  } = {
     ranAt: new Date().toISOString(),
     launched: [],
   }
@@ -249,10 +275,11 @@ function upsertCampaignRunState(planId: string, campaignId: string, leadsGenerat
       // fall through with defaults
     }
   }
-  const idx = current.launched.findIndex((l) => l.planId === planId)
-  const entry = { planId, campaignId, leadsGenerated }
+  const idx = current.launched.findIndex((l) => l.strategyId === strategyId)
+  const entry = { strategyId, campaignId, leadsGenerated }
   if (idx >= 0) current.launched[idx] = entry
   else current.launched.push(entry)
+  current.chosenStrategyId = strategyId
   current.ranAt = new Date().toISOString()
   writeFileSync(path, JSON.stringify(current, null, 2))
 }
