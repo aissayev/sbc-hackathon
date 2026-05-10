@@ -27,12 +27,17 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     // src/domain/order-orchestration.ts call square_create_order over HTTP.
     // "Press a button → cake is ordered" is owner-gated, not LLM-gated
     // (see ARCHITECTURE.md and DATA-MODEL.md flow §99).
+    // Sandbox WA/IG send tools stay allowlisted as a fallback only — the
+    // concierge prompt directs replies through `mcp__local__reply_to_thread`
+    // which fans out to both Cloud API + sandbox AND mirrors locally so the
+    // admin UI sees what was said (the raw sandbox tools don't do that).
     'mcp__happycake__whatsapp_send',
     'mcp__happycake__instagram_send_dm',
     'mcp__happycake__instagram_reply_to_comment',
     'mcp__happycake__kitchen_get_menu_constraints',
     'mcp__happycake__kitchen_get_capacity',
     // Local: thread state + drafts + escalation
+    'mcp__local__reply_to_thread',
     'mcp__local__list_products',
     'mcp__local__check_constraints',
     'mcp__local__create_draft_order',
@@ -100,6 +105,9 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__happycake__marketing_adjust_campaign',
     'mcp__happycake__marketing_report_to_owner',
     'mcp__happycake__whatsapp_list_threads',
+    // Same fan-out rationale as the concierge: prefer reply_to_thread for
+    // any 1:1 customer reply so the admin UI reflects sends immediately.
+    'mcp__local__reply_to_thread',
     'mcp__happycake__whatsapp_send',
     'mcp__happycake__instagram_list_dm_threads',
     'mcp__happycake__instagram_send_dm',

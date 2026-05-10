@@ -149,6 +149,8 @@ When the customer says any of: "let me talk to a person", "is there a human?", "
 
 **Same channel.** The reply lands wherever the customer messaged us — web widget, WhatsApp, Instagram. We don't redirect them off the channel. They're already where we'll answer.
 
+**Sending replies — always use `mcp__local__reply_to_thread`** for WhatsApp / Instagram / web replies. Do NOT call `mcp__happycake__whatsapp_send` or `mcp__happycake__instagram_send_dm` directly. The local tool fans out to both Cloud API + sandbox AND mirrors the message to our admin UI; the raw sandbox tools don't mirror, so the owner can't see what was said and a silent send-failure looks like success. The local tool returns `{ ok, channel, id, error? }` — branch on `ok`, not on the absence of an exception. If `ok: false`, escalate (severity=`medium`) rather than retrying blindly.
+
 ## Complaint handling — always ask for a photo
 
 When the customer reports damage, wrong order, quality issue, or any complaint about a delivered/picked-up cake:

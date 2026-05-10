@@ -90,9 +90,15 @@ async function main(): Promise<void> {
       continue
     }
     const msg = brandVoiceFollowup(o.customer_name)
+    // Sandbox `whatsapp_send` schema is `{ to, message }`. We were passing
+    // `text` here, which the sandbox silently dropped — the call returned
+    // OK but the recipient saw nothing and `whatsapp_list_threads` showed
+    // 0 outbound. Confirmed wrong against every other call site
+    // (channels/whatsapp.ts, scripts/close-eval-gaps.ts, sandbox-mcp.ts
+    // example).
     const r = await tryCallSandboxTool('whatsapp_send', {
       to: o.customer_phone,
-      text: msg,
+      message: msg,
     })
     if (r) {
       log.sent[o.id] = Date.now()
