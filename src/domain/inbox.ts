@@ -91,6 +91,83 @@ function toEpoch(v: string | number | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+// The sandbox's `whatsapp_list_threads` / `instagram_list_dm_threads`
+// actually return a flat shape — `{ inbound: [...], outbound: [...],
+// simulated: bool }` — not a `threads[]` array. We learned this the hard
+// way: the agent's owner cockpit reported "Outbound: 0" because it (and
+// our admin code) read `result.threads` and got nothing, even though the
+// sandbox had logged 16+ inbound messages. See diag-wa-outbound.ts for
+// the proof. Group those flat arrays by sender/recipient into thread rows
+// so the rest of the pipeline keeps working.
+interface SandboxFlatMessage {
+  ts?: string | number
+  from?: string
+  to?: string
+  threadId?: string
+  thread_id?: string
+  message?: string
+  text?: string
+  body?: string
+}
+
+interface SandboxFlatThreads {
+  inbound?: SandboxFlatMessage[]
+  outbound?: SandboxFlatMessage[]
+  simulated?: boolean
+}
+
+function isFlatShape(r: unknown): r is SandboxFlatThreads {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return false
+  const obj = r as Record<string, unknown>
+  return Array.isArray(obj.inbound) || Array.isArray(obj.outbound)
+}
+
+function buildThreadsFromFlat(
+  channel: 'whatsapp' | 'instagram',
+  flat: SandboxFlatThreads,
+): InboxThreadRow[] {
+  // Group by counterparty handle. For WA the handle is the phone number,
+  // for IG it's the threadId/handle. Keep the latest message per handle
+  // and the direction of that latest message, so bucket = new/mine works.
+  type Acc = { latestTs: number; latestText: string; latestDir: 'inbound' | 'outbound' }
+  const byHandle = new Map<string, Acc>()
+  const handleOf = (m: SandboxFlatMessage, dir: 'inbound' | 'outbound') => {
+    if (channel === 'whatsapp') return (dir === 'inbound' ? m.from : m.to) ?? m.threadId ?? m.thread_id ?? '?'
+    return m.threadId ?? m.thread_id ?? (dir === 'inbound' ? m.from : m.to) ?? '?'
+  }
+  const bodyOf = (m: SandboxFlatMessage) => (m.message ?? m.text ?? m.body ?? '').toString()
+  for (const m of flat.inbound ?? []) {
+    const handle = String(handleOf(m, 'inbound'))
+    if (handle === '?') continue
+    const ts = toEpoch(m.ts)
+    const cur = byHandle.get(handle)
+    if (!cur || ts >= cur.latestTs) {
+      byHandle.set(handle, { latestTs: ts, latestText: bodyOf(m), latestDir: 'inbound' })
+    }
+  }
+  for (const m of flat.outbound ?? []) {
+    const handle = String(handleOf(m, 'outbound'))
+    if (handle === '?') continue
+    const ts = toEpoch(m.ts)
+    const cur = byHandle.get(handle)
+    if (!cur || ts >= cur.latestTs) {
+      byHandle.set(handle, { latestTs: ts, latestText: bodyOf(m), latestDir: 'outbound' })
+    }
+  }
+  const rows: InboxThreadRow[] = []
+  for (const [handle, acc] of byHandle) {
+    rows.push({
+      channel,
+      id: handle,
+      handle,
+      lastMessage: acc.latestText,
+      lastMessageAt: acc.latestTs,
+      bucket: acc.latestDir === 'outbound' ? 'mine' : 'new',
+    })
+  }
+  return rows
+}
+
 function normaliseSandboxThread(channel: 'whatsapp' | 'instagram', t: SandboxThreadShape): InboxThreadRow {
   const id = t.threadId ?? t.id ?? t.from ?? t.customerHandle ?? t.customer_handle ?? '?'
   const handle = t.customerHandle ?? t.customer_handle ?? t.from ?? id
@@ -158,24 +235,33 @@ export async function listInboxThreads(opts: ListOpts): Promise<{
   const errors: string[] = []
   const collectors: Promise<InboxThreadRow[]>[] = []
 
+  // Both whatsapp_list_threads and instagram_list_dm_threads can return
+  // either the per-thread shape `{ threads: [...] }` (newer) or the flat
+  // `{ inbound: [...], outbound: [...], simulated: bool }` shape that the
+  // sandbox actually returns today. Handle both — see buildThreadsFromFlat
+  // for the grouping logic.
   if (channel === 'all' || channel === 'whatsapp') {
     collectors.push(
-      tryCallSandboxTool<{ threads?: SandboxThreadShape[] } | SandboxThreadShape[]>('whatsapp_list_threads', {})
-        .then((r) => {
-          if (!r) { errors.push('whatsapp'); return [] }
-          const arr = Array.isArray(r) ? r : (r.threads ?? [])
-          return arr.map((t) => normaliseSandboxThread('whatsapp', t))
-        }),
+      tryCallSandboxTool<
+        { threads?: SandboxThreadShape[] } | SandboxThreadShape[] | SandboxFlatThreads
+      >('whatsapp_list_threads', {}).then((r) => {
+        if (!r) { errors.push('whatsapp'); return [] }
+        if (isFlatShape(r)) return buildThreadsFromFlat('whatsapp', r)
+        const arr = Array.isArray(r) ? r : (r.threads ?? [])
+        return arr.map((t) => normaliseSandboxThread('whatsapp', t))
+      }),
     )
   }
   if (channel === 'all' || channel === 'instagram') {
     collectors.push(
-      tryCallSandboxTool<{ threads?: SandboxThreadShape[] } | SandboxThreadShape[]>('instagram_list_dm_threads', {})
-        .then((r) => {
-          if (!r) { errors.push('instagram'); return [] }
-          const arr = Array.isArray(r) ? r : (r.threads ?? [])
-          return arr.map((t) => normaliseSandboxThread('instagram', t))
-        }),
+      tryCallSandboxTool<
+        { threads?: SandboxThreadShape[] } | SandboxThreadShape[] | SandboxFlatThreads
+      >('instagram_list_dm_threads', {}).then((r) => {
+        if (!r) { errors.push('instagram'); return [] }
+        if (isFlatShape(r)) return buildThreadsFromFlat('instagram', r)
+        const arr = Array.isArray(r) ? r : (r.threads ?? [])
+        return arr.map((t) => normaliseSandboxThread('instagram', t))
+      }),
     )
   }
   if (channel === 'all' || channel === 'web') {
@@ -244,9 +330,11 @@ export async function getInboxThread(channel: InboxChannel, id: string): Promise
   }
 
   // For sandbox channels we re-query the list and find this thread.
-  // The sandbox list response *may* embed `messages[]`; if so we use it.
+  // Two response shapes possible — see buildThreadsFromFlat note.
   const tool = channel === 'whatsapp' ? 'whatsapp_list_threads' : 'instagram_list_dm_threads'
-  const r = await tryCallSandboxTool<{ threads?: SandboxThreadShape[] } | SandboxThreadShape[]>(tool, {})
+  const r = await tryCallSandboxTool<
+    { threads?: SandboxThreadShape[] } | SandboxThreadShape[] | SandboxFlatThreads
+  >(tool, {})
   if (!r) {
     // Sandbox unreachable — synthesize a thread from our local outbound mirror
     // if the owner has been replying to this handle. Better than 404 in the
@@ -264,6 +352,68 @@ export async function getInboxThread(channel: InboxChannel, id: string): Promise
       transcript: localOut.map((o) => ({ role: 'us' as const, text: o.text, at: o.ts })),
     }
   }
+
+  // Flat-shape branch — the sandbox returned `{ inbound, outbound, simulated }`.
+  // Build the transcript by filtering messages whose handle matches this id,
+  // then merge local outbound the same way the per-thread branch does.
+  if (isFlatShape(r)) {
+    const norm = (s: string) => s.replace(/[^\w@]/g, '')
+    const target = norm(id)
+    const sandboxMessages = [
+      ...(r.inbound ?? []).map((m) => ({ ...m, _dir: 'inbound' as const })),
+      ...(r.outbound ?? []).map((m) => ({ ...m, _dir: 'outbound' as const })),
+    ]
+      .filter((m) => {
+        const handle = m._dir === 'inbound' ? m.from : m.to
+        const tid = m.threadId ?? m.thread_id
+        return norm(String(handle ?? tid ?? '')) === target
+      })
+      .map((m) => ({
+        role: (m._dir === 'inbound' ? 'customer' : 'us') as 'customer' | 'us',
+        text: (m.message ?? m.text ?? m.body ?? '').toString(),
+        at: toEpoch(m.ts),
+      }))
+      .sort((a, b) => a.at - b.at)
+
+    if (sandboxMessages.length === 0) {
+      const localOut = listOutboundForThread(channel, id)
+      if (localOut.length === 0) return null
+      const last = localOut[localOut.length - 1]
+      return {
+        channel,
+        id,
+        handle: id,
+        lastMessage: last.text,
+        lastMessageAt: last.ts,
+        bucket: 'mine',
+        transcript: localOut.map((o) => ({ role: 'us' as const, text: o.text, at: o.ts })),
+      }
+    }
+
+    const localOut = listOutboundForThread(channel, id)
+    const merged = [...sandboxMessages]
+    for (const o of localOut) {
+      const dupe = merged.some(
+        (m) =>
+          m.role === 'us' &&
+          m.text.trim() === o.text.trim() &&
+          Math.abs(m.at - o.ts) < 10_000,
+      )
+      if (!dupe) merged.push({ role: 'us', text: o.text, at: o.ts })
+    }
+    merged.sort((a, b) => a.at - b.at)
+    const last = merged[merged.length - 1]
+    return {
+      channel,
+      id,
+      handle: id,
+      lastMessage: last?.text ?? '',
+      lastMessageAt: last?.at ?? 0,
+      bucket: last?.role === 'us' ? 'mine' : 'new',
+      transcript: merged,
+    }
+  }
+
   const arr = Array.isArray(r) ? r : (r.threads ?? [])
   const found = arr.find((t) => (t.threadId ?? t.id) === id)
   if (!found) {
