@@ -35,6 +35,7 @@ import {
   finalizeOwnerThinking,
   makeOwnerStreamSink,
   tryHandlePendingRefundDenial,
+  tryHandlePendingThreadReply,
   logInbound,
   logOutbound,
   logError,
@@ -69,9 +70,15 @@ const onMessage: MessageHandler = async (msg) => {
   // card, their next free-text message is the customer-facing reason. We
   // consume it here BEFORE the slash / agent paths to keep the deny flow
   // deterministic (no LLM in the critical path).
+  //
+  // Same shape for inbox replies: tap "💬 Reply" on a /inbox row, the next
+  // free-text message becomes the reply (sent via the channel adapter).
+  // Both check-and-consume paths return early when they fired.
   if (msg.channel === 'telegram' && msg.roleHint === 'owner') {
-    const consumed = await tryHandlePendingRefundDenial(msg.threadId, msg.text)
-    if (consumed) return
+    const refundConsumed = await tryHandlePendingRefundDenial(msg.threadId, msg.text)
+    if (refundConsumed) return
+    const replyConsumed = await tryHandlePendingThreadReply(msg.threadId, msg.text)
+    if (replyConsumed) return
   }
 
   // Owner slash commands are DB-backed: instant, free, no `claude -p` spend.

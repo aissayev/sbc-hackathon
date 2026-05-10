@@ -17,6 +17,7 @@
 import { sendTelegram } from '../../channels/telegram.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { approveRefund, denyRefund } from '../../domain/refunds.ts'
+import { replyToInboxThread } from '../../domain/inbox.ts'
 import { tryCallSandboxTool } from '../../lib/sandbox-mcp.ts'
 import {
   loadCampaignsFile,
@@ -40,6 +41,19 @@ export async function handleOwnerCallback(
     return await handleRefundApprove(token, chatId, data.slice('refund_approve:'.length))
   if (data.startsWith('refund_deny:'))
     return await handleRefundDeny(token, chatId, data.slice('refund_deny:'.length))
+  if (data.startsWith('reply_wa:'))
+    return await handleReplyPrompt(token, chatId, 'whatsapp', data.slice('reply_wa:'.length))
+  if (data.startsWith('reply_ig:'))
+    return await handleReplyPrompt(token, chatId, 'instagram', data.slice('reply_ig:'.length))
+  if (data.startsWith('reply_web:'))
+    return await handleReplyPrompt(token, chatId, 'web', data.slice('reply_web:'.length))
+  if (data.startsWith('reply_review:')) {
+    // Reviews use the engagement-inbox drafter (claude -p) for tone-on-brand
+    // replies — point the operator there instead of falling through to the
+    // agent (which would treat the callback data as a free-text message).
+    await sendTelegram(token, chatId, '⭐ Open /reviews — drafted replies live there with 1-tap send.')
+    return true
+  }
   if (data.startsWith('view_esc:')) return await handleViewEsc(token, chatId, data.slice('view_esc:'.length))
   if (data.startsWith('view_campaign:'))
     return await handleViewCampaign(token, chatId, data.slice('view_campaign:'.length))
@@ -169,6 +183,111 @@ export async function tryHandlePendingRefundDenial(
       token,
       chatId,
       `✗ refund ${shortId(pending.refundId)} denial failed: ${r.error ?? 'unknown'}`,
+    )
+  }
+  return true
+}
+
+// ─── Inbox reply flow (TG chat → WA / IG / web) ──────────────────────────
+//
+// Tap "💬 Reply" on a thread row from /inbox → we register a pending
+// reply against this chat id. The next free-text message becomes the
+// reply, sent through the channel adapter (dual-path on WA, sandbox
+// MCP on IG, local-history append on web). Mirrors the refund-denial
+// pattern: 10-min TTL, in-memory Map. Walk away → forgotten, tap Reply
+// again to start over.
+
+interface PendingReply {
+  channel: 'whatsapp' | 'instagram' | 'web'
+  threadId: string
+  expiresAt: number
+}
+
+const PENDING_REPLY_TTL_MS = 10 * 60 * 1000
+const pendingReplies = new Map<string, PendingReply>()
+
+async function handleReplyPrompt(
+  token: string,
+  chatId: string,
+  channel: 'whatsapp' | 'instagram' | 'web',
+  threadId: string,
+): Promise<true> {
+  pendingReplies.set(chatId, {
+    channel,
+    threadId,
+    expiresAt: Date.now() + PENDING_REPLY_TTL_MS,
+  })
+  const channelLabel =
+    channel === 'whatsapp' ? 'WhatsApp' :
+    channel === 'instagram' ? 'Instagram DM' :
+    'website chat'
+  await sendTelegram(
+    token,
+    chatId,
+    [
+      `📨 Replying to ${channelLabel} ${shortId(threadId)}`,
+      'Type your message — I\'ll send it as soon as you hit enter.',
+      '(10 min timeout. Tap Reply again to restart.)',
+    ].join('\n'),
+  )
+  return true
+}
+
+/**
+ * Called by server.ts BEFORE the agent / slash-command paths. Returns
+ * true if the owner has a pending inbox reply against this chat and the
+ * incoming free-text was just consumed as the reply body. Returns false
+ * otherwise so the normal flow continues.
+ */
+export async function tryHandlePendingThreadReply(
+  chatId: string,
+  text: string,
+): Promise<boolean> {
+  const pending = pendingReplies.get(chatId)
+  if (!pending) return false
+  if (Date.now() > pending.expiresAt) {
+    pendingReplies.delete(chatId)
+    return false
+  }
+  const trimmed = text.trim()
+  // Bail-out: any slash command cancels the pending reply and falls back to
+  // the slash-command / agent path. /cancel is the explicit form; /today,
+  // /orders, etc. all also drop the pending state so the operator isn't
+  // trapped in "reply mode" because they tapped Reply by mistake.
+  if (trimmed.startsWith('/')) {
+    pendingReplies.delete(chatId)
+    const token = (await import('../../config.ts')).config.telegram.owner.token
+    if (token && trimmed.toLowerCase() === '/cancel') {
+      await sendTelegram(token, chatId, `↩ canceled — reply to ${shortId(pending.threadId)} not sent.`)
+      return true  // /cancel consumed; don't pass to slash router
+    }
+    return false  // other slash commands continue down the normal path
+  }
+  pendingReplies.delete(chatId)
+  const token = (await import('../../config.ts')).config.telegram.owner.token
+  if (!token) return true  // can't acknowledge but consume the message anyway
+
+  if (!trimmed) {
+    await sendTelegram(token, chatId, '✗ Empty reply — nothing sent. Tap Reply again to retry.')
+    return true
+  }
+
+  const r = await replyToInboxThread(pending.channel, pending.threadId, trimmed, 'tg_chat', chatId)
+  if (r.ok) {
+    const channelEmoji =
+      pending.channel === 'whatsapp' ? '📱' :
+      pending.channel === 'instagram' ? '📷' :
+      '🌐'
+    await sendTelegram(
+      token,
+      chatId,
+      `${channelEmoji} sent → ${shortId(pending.threadId)}`,
+    )
+  } else {
+    await sendTelegram(
+      token,
+      chatId,
+      `✗ couldn't send to ${pending.channel} ${shortId(pending.threadId)}: ${r.error ?? 'unknown'}`,
     )
   }
   return true

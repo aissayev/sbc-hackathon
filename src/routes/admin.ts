@@ -332,7 +332,7 @@ adminRoutes.post('/api/admin/threads/:channel/:id/reply', async (c) => {
   } catch {}
   const text = (body.text ?? '').trim()
   if (!text) return c.json({ ok: false, error: 'empty_message' }, 400)
-  const result = await replyToInboxThread(channel, id, text)
+  const result = await replyToInboxThread(channel, id, text, 'mini_app')
   recordAuditEvent({
     action: 'thread_reply', targetId: id, channel,
     result: text.length > 80 ? text.slice(0, 80) + '…' : text,

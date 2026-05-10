@@ -424,3 +424,32 @@ CREATE INDEX IF NOT EXISTS idx_checkouts_thread ON checkout_sessions(thread_id);
 CREATE INDEX IF NOT EXISTS idx_checkouts_step ON checkout_sessions(last_step);
 CREATE INDEX IF NOT EXISTS idx_checkouts_last_seen ON checkout_sessions(last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_checkouts_order ON checkout_sessions(order_id);
+
+-- ─── Inbox outbound mirror ──────────────────────────────────────────────
+-- Local mirror of every owner-sent reply on WA / IG threads, regardless of
+-- whether the reply originated in the Telegram bot chat or the admin Mini
+-- App. Why this exists:
+--   - The sandbox doesn't always echo our outbound back into
+--     whatsapp_list_threads quickly, so the Mini App transcript looked
+--     empty after a successful send ("did it go?").
+--   - The TG /inbox flow needs a way to confirm "yes I sent it" without
+--     a re-fetch race with the sandbox.
+-- We merge these rows into getInboxThread().transcript and into the
+-- listInboxThreads() last-message snapshot when they're newer than what
+-- the sandbox returned. Inbox detail stays driven by the sandbox as the
+-- source of truth — this is purely additive UX glue.
+CREATE TABLE IF NOT EXISTS inbox_outbound (
+  id           TEXT PRIMARY KEY,           -- 'out_<ms>_<6char>'
+  channel      TEXT NOT NULL CHECK (channel IN ('whatsapp','instagram','web')),
+  -- E.164 phone for WA, IG handle for IG, web thread_id for the website
+  -- chat. Same key used to resolve the thread in listInboxThreads.
+  handle       TEXT NOT NULL,
+  text         TEXT NOT NULL,
+  -- Where the owner sent it from — cosmetic / audit only.
+  source       TEXT NOT NULL CHECK (source IN ('mini_app','tg_chat','agent')),
+  -- TG chat id when source='tg_chat', null otherwise.
+  tg_chat_id   TEXT,
+  ts           INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_inbox_out_channel_handle ON inbox_outbound(channel, handle, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_inbox_out_ts ON inbox_outbound(ts DESC);

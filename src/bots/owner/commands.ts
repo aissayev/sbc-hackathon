@@ -134,7 +134,7 @@ function helpReply(): BotReply {
       '/campaigns    pick ONE strategy (full $500/mo) + approve/launch',
       '/brief        live MCP brief — sales, margins, GBP demand, reviews',
       '/comments     DM inbox — sentiment + drafted replies (1-tap send)',
-      '/inbox        flat WA + IG thread list (legacy, fallback)',
+      '/inbox        WA + IG threads — tap a row to type your own reply',
       '/reviews      Google Business reviews — drafted replies + 1-tap send',
       '/spend        marketing budget MTD',
       '/gb           Google Business profile metrics',

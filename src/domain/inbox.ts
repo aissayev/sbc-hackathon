@@ -17,7 +17,14 @@
 
 import { tryCallSandboxTool } from '../lib/sandbox-mcp.ts'
 import { getDb } from '../db/db.ts'
-import { loadHistory, type HistoryEntry } from '../db/threads.ts'
+import { type HistoryEntry } from '../db/threads.ts'
+import { whatsappAdapter } from '../channels/whatsapp.ts'
+import { instagramAdapter } from '../channels/instagram/index.ts'
+import {
+  recordOutbound,
+  listOutboundForThread,
+  latestOutboundByThread,
+} from './inbox-outbound.ts'
 
 export type InboxChannel = 'whatsapp' | 'instagram' | 'web'
 
@@ -176,7 +183,29 @@ export async function listInboxThreads(opts: ListOpts): Promise<{
   }
 
   const lists = await Promise.all(collectors)
-  const all = lists.flat().sort((a, b) => b.lastMessageAt - a.lastMessageAt)
+  let all = lists.flat()
+
+  // Merge in our local outbound mirror — when the owner just sent a reply
+  // (from TG chat OR the Mini App) but the sandbox hasn't echoed it back
+  // yet, the row would otherwise show stale "customer-said" content with
+  // bucket='new'. Override with the local truth.
+  const latestOut = latestOutboundByThread()
+  if (latestOut.size > 0) {
+    all = all.map((t) => {
+      if (t.channel === 'web') return t  // web outbound already in history_json
+      const out = latestOut.get(`${t.channel}:${t.handle}`)
+      if (!out) return t
+      if (out.ts <= t.lastMessageAt) return t  // sandbox already shows newer
+      return {
+        ...t,
+        lastMessage: out.text,
+        lastMessageAt: out.ts,
+        bucket: 'mine' as const,
+      }
+    })
+  }
+
+  all.sort((a, b) => b.lastMessageAt - a.lastMessageAt)
 
   const counts = {
     all: all.length,
@@ -218,12 +247,42 @@ export async function getInboxThread(channel: InboxChannel, id: string): Promise
   // The sandbox list response *may* embed `messages[]`; if so we use it.
   const tool = channel === 'whatsapp' ? 'whatsapp_list_threads' : 'instagram_list_dm_threads'
   const r = await tryCallSandboxTool<{ threads?: SandboxThreadShape[] } | SandboxThreadShape[]>(tool, {})
-  if (!r) return null
+  if (!r) {
+    // Sandbox unreachable — synthesize a thread from our local outbound mirror
+    // if the owner has been replying to this handle. Better than 404 in the
+    // Mini App after a successful send.
+    const localOut = listOutboundForThread(channel, id)
+    if (localOut.length === 0) return null
+    const last = localOut[localOut.length - 1]
+    return {
+      channel,
+      id,
+      handle: id,
+      lastMessage: last.text,
+      lastMessageAt: last.ts,
+      bucket: 'mine',
+      transcript: localOut.map((o) => ({ role: 'us' as const, text: o.text, at: o.ts })),
+    }
+  }
   const arr = Array.isArray(r) ? r : (r.threads ?? [])
   const found = arr.find((t) => (t.threadId ?? t.id) === id)
-  if (!found) return null
+  if (!found) {
+    // Same fallback when the sandbox is reachable but doesn't know this id.
+    const localOut = listOutboundForThread(channel, id)
+    if (localOut.length === 0) return null
+    const last = localOut[localOut.length - 1]
+    return {
+      channel,
+      id,
+      handle: id,
+      lastMessage: last.text,
+      lastMessageAt: last.ts,
+      bucket: 'mine',
+      transcript: localOut.map((o) => ({ role: 'us' as const, text: o.text, at: o.ts })),
+    }
+  }
   const base = normaliseSandboxThread(channel, found)
-  const transcript = (found.messages ?? []).map((m) => {
+  const sandboxMessages = (found.messages ?? []).map((m) => {
     const dir = m.direction ?? (m.role === 'assistant' ? 'outbound' : 'inbound')
     const text = m.text ?? m.body ?? m.message ?? ''
     return {
@@ -232,31 +291,76 @@ export async function getInboxThread(channel: InboxChannel, id: string): Promise
       at: toEpoch(m.at ?? m.ts ?? m.timestamp),
     }
   })
-  // Fallback — if the sandbox didn't embed messages, at least show the snippet.
-  if (transcript.length === 0 && base.lastMessage) {
-    transcript.push({
+
+  // Merge in local outbound (Mini App / TG chat replies). De-dupe against
+  // anything the sandbox already echoed back: same text within ±10s window
+  // counts as the same message. Sandbox wins if it has the message.
+  const localOut = listOutboundForThread(channel, base.handle)
+  const merged = [...sandboxMessages]
+  for (const o of localOut) {
+    const dupe = merged.some(
+      (m) =>
+        m.role === 'us' &&
+        m.text.trim() === o.text.trim() &&
+        Math.abs(m.at - o.ts) < 10_000,
+    )
+    if (!dupe) merged.push({ role: 'us', text: o.text, at: o.ts })
+  }
+  merged.sort((a, b) => a.at - b.at)
+
+  // Fallback — if neither sandbox nor local has anything, surface the snippet.
+  if (merged.length === 0 && base.lastMessage) {
+    merged.push({
       role: base.bucket === 'new' ? 'customer' : 'us',
       text: base.lastMessage,
       at: base.lastMessageAt,
     })
   }
-  return { ...base, transcript }
+
+  // If our local mirror is the freshest signal, override the header preview
+  // so the listing-row matches the detail header.
+  const latestLocal = localOut[localOut.length - 1]
+  if (latestLocal && latestLocal.ts > base.lastMessageAt) {
+    base.lastMessage = latestLocal.text
+    base.lastMessageAt = latestLocal.ts
+    base.bucket = 'mine'
+  }
+
+  return { ...base, transcript: merged }
 }
 
-export async function replyToInboxThread(channel: InboxChannel, id: string, text: string): Promise<{
+export async function replyToInboxThread(
+  channel: InboxChannel,
+  id: string,
+  text: string,
+  source: 'mini_app' | 'tg_chat' = 'mini_app',
+  tgChatId?: string,
+): Promise<{
   ok: boolean
   channel: InboxChannel
   id: string
   error?: string
 }> {
   if (channel === 'whatsapp') {
-    const r = await tryCallSandboxTool('whatsapp_send', { to: id, message: text })
-    if (r == null) return { ok: false, channel, id, error: 'sandbox_call_failed' }
+    // Use the dual-path adapter (Cloud API + sandbox) so real customer
+    // numbers AND the rubric scorer both see the reply. The adapter
+    // swallows individual-path failures; we only fail if BOTH paths
+    // throw, which is rare.
+    try {
+      await whatsappAdapter.send(id, text)
+    } catch (err) {
+      return { ok: false, channel, id, error: (err as Error).message }
+    }
+    recordOutbound({ channel: 'whatsapp', handle: id, text, source, tg_chat_id: tgChatId })
     return { ok: true, channel, id }
   }
   if (channel === 'instagram') {
-    const r = await tryCallSandboxTool('instagram_send_dm', { threadId: id, message: text })
-    if (r == null) return { ok: false, channel, id, error: 'sandbox_call_failed' }
+    try {
+      await instagramAdapter.send(id, text)
+    } catch (err) {
+      return { ok: false, channel, id, error: (err as Error).message }
+    }
+    recordOutbound({ channel: 'instagram', handle: id, text, source, tg_chat_id: tgChatId })
     return { ok: true, channel, id }
   }
   // Web chat — append the owner message to history. The customer's open
@@ -275,5 +379,6 @@ export async function replyToInboxThread(channel: InboxChannel, id: string, text
   getDb()
     .prepare('UPDATE threads SET history_json = ?, updated_at = ? WHERE thread_id = ?')
     .run(json, Date.now(), id)
+  recordOutbound({ channel: 'web', handle: id, text, source, tg_chat_id: tgChatId })
   return { ok: true, channel: 'web', id }
 }
