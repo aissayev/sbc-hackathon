@@ -115,6 +115,20 @@ const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__happycake__square_get_pos_summary',
     'mcp__happycake__kitchen_get_production_summary',
     'mcp__happycake__marketing_get_campaign_metrics',
+    // Marketing + social management — owner can drive review/comment/DM
+    // replies and pause/double-down campaigns from free-text turns.
+    'mcp__happycake__marketing_get_budget',
+    'mcp__happycake__marketing_adjust_campaign',
+    'mcp__happycake__marketing_report_to_owner',
+    'mcp__happycake__whatsapp_list_threads',
+    'mcp__happycake__whatsapp_send',
+    'mcp__happycake__instagram_list_dm_threads',
+    'mcp__happycake__instagram_send_dm',
+    'mcp__happycake__instagram_reply_to_comment',
+    'mcp__happycake__gb_list_reviews',
+    'mcp__happycake__gb_get_metrics',
+    'mcp__happycake__gb_simulate_reply',
+    'mcp__happycake__gb_simulate_post',
   ],
 }
 
