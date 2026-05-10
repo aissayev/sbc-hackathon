@@ -1,7 +1,7 @@
 // SQLite handle, lazily opened. Schema applied on first open.
 
 import { Database } from 'bun:sqlite'
-import { mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, existsSync, renameSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { config } from '../config.ts'
 
@@ -10,7 +10,7 @@ let _db: Database | null = null
 export function getDb(): Database {
   if (_db) return _db
   mkdirSync(dirname(config.db.path), { recursive: true })
-  _db = new Database(config.db.path)
+  _db = openWithCorruptionRecovery(config.db.path)
   _db.exec('PRAGMA journal_mode = WAL')
   _db.exec('PRAGMA foreign_keys = ON')
   // Migrations run BEFORE schema.exec because schema.sql may reference
@@ -21,6 +21,37 @@ export function getDb(): Database {
   _db.exec(schema)
   autoSeedProductsIfEmpty(_db)
   return _db
+}
+
+// Open the SQLite file. If it's corrupt (file system damage, partial
+// write, wrong format), rename it aside and open a fresh DB. This trades
+// non-critical local state (chat history, draft orders) for the backend
+// staying up — the alternative is the whole server crashing on every
+// request. Production-grade resilience for hackathon-quality storage.
+function openWithCorruptionRecovery(path: string): Database {
+  try {
+    const db = new Database(path)
+    // Probe the file: a corrupt header throws here even if `new Database`
+    // succeeded (Bun opens lazily).
+    db.exec('SELECT 1')
+    return db
+  } catch (err) {
+    const msg = (err as Error).message
+    // Only handle real corruption signals — propagate other errors (e.g.
+    // permission denied) so the operator sees them.
+    const isCorrupt = /malformed|not a database|corrupt|file is encrypted/i.test(msg)
+    if (!isCorrupt) throw err
+    if (!existsSync(path)) throw err
+    const aside = `${path}.corrupt-${Date.now()}`
+    console.error(`[db] CORRUPT db at ${path}: ${msg}`)
+    console.error(`[db] moving aside to ${aside} and starting fresh`)
+    renameSync(path, aside)
+    // Move WAL + SHM with the same suffix so they don't try to recover the corrupt main.
+    for (const ext of ['-wal', '-shm']) {
+      if (existsSync(path + ext)) renameSync(path + ext, aside + ext)
+    }
+    return new Database(path)
+  }
 }
 
 // Idempotent products seed: if the products table is empty AND the canonical
@@ -84,6 +115,70 @@ function applyMigrations(db: Database) {
   }
   // 2026-05-10: ?ref= attribution on draft orders.
   addColumn('orders', 'referral_source', 'TEXT')
+
+  // 2026-05-10: CRM. Link orders + threads to a customers row so the
+  // owner can see "Maria's 12th order" and the agent can recognize a
+  // repeat caller. The customers table itself is created by schema.sql
+  // (CREATE TABLE IF NOT EXISTS); only the foreign-key columns on
+  // existing tables need an idempotent ALTER.
+  addColumn('orders', 'customer_id', 'TEXT')
+  addColumn('threads', 'customer_id', 'TEXT')
+  addColumn('orders', 'customer_email', 'TEXT')
+
+  // 2026-05-10: refund flow — extend orders.status CHECK to include
+  // `refund_pending` + `refunded`. SQLite can't ALTER a CHECK constraint
+  // in place; the dance is rebuild-and-rename. Idempotent: we read the
+  // existing CREATE statement and skip if it already lists the new states.
+  if (tableExists('orders')) {
+    const row = db
+      .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'")
+      .get() as { sql: string } | undefined
+    if (row && !row.sql.includes("'refunded'")) {
+      console.log('[db] migrating orders table: widening status CHECK for refund states')
+      db.exec('BEGIN')
+      try {
+        // Mirror the schema.sql definition exactly. We're widening the
+        // CHECK and otherwise preserving the table.
+        db.exec(`
+          CREATE TABLE orders_new (
+            id            TEXT PRIMARY KEY,
+            thread_id     TEXT NOT NULL,
+            channel       TEXT NOT NULL,
+            status        TEXT NOT NULL CHECK (status IN ('draft','approved','rejected','in_kitchen','ready','out_for_delivery','picked_up','completed','cancelled','refund_pending','refunded')),
+            customer_name TEXT,
+            customer_phone TEXT,
+            items_json    TEXT NOT NULL,
+            total_cents   INTEGER NOT NULL,
+            scheduled_at  TEXT,
+            pickup_or_delivery TEXT NOT NULL DEFAULT 'pickup',
+            notes         TEXT,
+            square_order_id TEXT,
+            kitchen_ticket_id TEXT,
+            referral_source TEXT,
+            created_at    INTEGER NOT NULL,
+            updated_at    INTEGER NOT NULL
+          );
+          INSERT INTO orders_new
+            (id, thread_id, channel, status, customer_name, customer_phone, items_json,
+             total_cents, scheduled_at, pickup_or_delivery, notes, square_order_id,
+             kitchen_ticket_id, referral_source, created_at, updated_at)
+          SELECT
+            id, thread_id, channel, status, customer_name, customer_phone, items_json,
+            total_cents, scheduled_at, pickup_or_delivery, notes, square_order_id,
+            kitchen_ticket_id, referral_source, created_at, updated_at
+          FROM orders;
+          DROP TABLE orders;
+          ALTER TABLE orders_new RENAME TO orders;
+        `)
+        db.exec('COMMIT')
+      } catch (err) {
+        db.exec('ROLLBACK')
+        throw err
+      }
+      // The indexes were dropped with the old table. schema.exec below
+      // recreates them via CREATE INDEX IF NOT EXISTS.
+    }
+  }
 }
 
 export function closeDb() {

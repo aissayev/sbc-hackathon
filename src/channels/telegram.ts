@@ -180,6 +180,38 @@ export async function sendChatAction(
   }
 }
 
+/**
+ * Run `fn` while continuously emitting a typing indicator to Telegram.
+ *
+ * Telegram's `sendChatAction` indicator auto-clears after ~5 seconds, but
+ * agent runs routinely take 8–30s. Without a heartbeat the user sees the
+ * "Bot is typing…" dot vanish even though we're still working — looks
+ * like the bot died. We emit immediately, then every 4s while `fn` runs,
+ * and stop the moment it resolves or throws.
+ *
+ * `sendChatAction` is best-effort (any failure is swallowed inside),
+ * so the heartbeat never breaks the wrapped operation.
+ *
+ * @example
+ *   const reply = await withTypingIndicator(token, chatId, () => invokeAgent(msg))
+ */
+export async function withTypingIndicator<T>(
+  token: string,
+  chatId: string | number,
+  fn: () => Promise<T>,
+  opts?: { intervalMs?: number; action?: 'typing' | 'upload_photo' },
+): Promise<T> {
+  const intervalMs = opts?.intervalMs ?? 4000
+  const action = opts?.action ?? 'typing'
+  void sendChatAction(token, chatId, action)
+  const handle = setInterval(() => void sendChatAction(token, chatId, action), intervalMs)
+  try {
+    return await fn()
+  } finally {
+    clearInterval(handle)
+  }
+}
+
 interface TgUser {
   id: number
   first_name?: string

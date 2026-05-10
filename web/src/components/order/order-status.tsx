@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import type { OrderStatus } from '@/lib/api'
-import { fmtUsd, fmtRelativeDate } from '@/lib/format'
+import { fmtUsd, fmtRelativeDate, displayOrderId, trackUrlId } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import {
   CheckCircle2,
@@ -178,14 +178,17 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
         </div>
         <div className="inline-flex items-center gap-2">
           <Badge variant={status.tone}>{status.label}</Badge>
-          <ShareButton orderId={order.id} />
+          <ShareButton order={order} />
         </div>
       </div>
-      {/* Full reference id, copy-able. Prior version showed only the last
-          eight chars (`#4_UG4G4J`) which left the chat agent unable to
-          match the value the customer pasted back — backend now also
-          tolerates suffix lookup as a safety net. */}
-      <OrderIdRef id={order.id} />
+      {/* Customer-facing id. We show ONLY the short friendly number
+          (e.g. `#1042`) — that's what grandma reads aloud, what the kid
+          writes on a sticky note, and what `/track/1042` resolves on. The
+          24-char `ord_<ms>_<rand>` exists only as the backend's primary
+          key; customers never need to see it. The `getOrderStatus` lookup
+          tolerates the friendly alias, the canonical id, and the legacy
+          `HC-` prefix interchangeably. */}
+      <OrderIdRef order={order} />
 
       {!failed && (
         <>
@@ -320,43 +323,44 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
   )
 }
 
-// Reference / copy widget for the full order id. Customers paste this
-// back into chat or the /track form; the input must be the *exact* id
-// for an unambiguous lookup, so we make it impossible to mis-truncate.
-function OrderIdRef({ id }: { id: string }) {
+// Customer-facing order number. Big, readable, copy-able. Grandma can
+// read this aloud over the phone; the kid writing it on a sticky note
+// only has 4 digits to copy. The 24-char `ord_<ms>_<rand>` primary key
+// is intentionally hidden from this surface — it exists for the backend,
+// not for humans.
+function OrderIdRef({ order }: { order: { id: string; friendly_id?: string } }) {
   const [copied, setCopied] = React.useState(false)
   React.useEffect(() => {
     if (!copied) return
     const t = setTimeout(() => setCopied(false), 1600)
     return () => clearTimeout(t)
   }, [copied])
+  // Copy the short alias when we have one — that's what we want pasted
+  // back into chat / the tracker form. Falls back to the long id only
+  // for legacy orders that never got a friendly id assigned.
+  const copyValue = order.friendly_id ?? order.id
+  const display = displayOrderId(order)
   async function copy() {
     try {
-      await navigator.clipboard.writeText(id)
+      await navigator.clipboard.writeText(copyValue)
       setCopied(true)
     } catch {
-      // Clipboard API blocked (older browsers / iframe). Select the
-      // text so the user can hit ⌘C themselves.
-      const el = document.getElementById('order-id-ref')
-      if (el && 'select' in el && typeof (el as HTMLInputElement).select === 'function') {
-        (el as HTMLInputElement).select()
-      }
+      // Clipboard blocked: nothing fancy to fall back to with a 4-digit
+      // number — the customer can read it off the screen and type it.
     }
   }
   return (
-    <div className="mt-3 flex items-center gap-2 text-xs">
-      <span className="text-cocoa-900/55">Order id</span>
-      <input
-        id="order-id-ref"
-        readOnly
-        value={id}
-        onFocus={(e) => e.currentTarget.select()}
-        className="flex-1 min-w-0 rounded-md border border-cocoa-700/15 bg-cream-50 px-2.5 py-1 font-mono text-[12px] text-cocoa-900/85"
-      />
+    <div className="mt-4 inline-flex items-center gap-3 rounded-2xl border border-cocoa-700/15 bg-cream-50 px-4 py-2">
+      <span className="text-[11px] uppercase tracking-[0.16em] text-cocoa-900/55">
+        Your order
+      </span>
+      <span className="font-display text-2xl text-cocoa-900 font-semibold tracking-tight tabular-nums">
+        {display}
+      </span>
       <button
         type="button"
         onClick={copy}
-        aria-label={copied ? 'Copied' : 'Copy order id'}
+        aria-label={copied ? 'Copied' : 'Copy order number'}
         className={cn(
           'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors shrink-0',
           copied
@@ -374,8 +378,9 @@ function OrderIdRef({ id }: { id: string }) {
 // Share button — uses Web Share API on mobile (the native share sheet),
 // falls back to clipboard copy on desktop. Targets the short /track/<id>
 // route so the recipient gets a clean tracker, not the full confirmation
-// page.
-function ShareButton({ orderId }: { orderId: string }) {
+// page. Prefers the friendly numeric id in the URL (`/track/1042`) so the
+// link itself is grandma-readable; the backend lookup accepts both forms.
+function ShareButton({ order }: { order: { id: string; friendly_id?: string } }) {
   const [copied, setCopied] = React.useState(false)
   React.useEffect(() => {
     if (!copied) return
@@ -384,11 +389,12 @@ function ShareButton({ orderId }: { orderId: string }) {
   }, [copied])
 
   async function share() {
-    const url = typeof window !== 'undefined' ? `${window.location.origin}/track/${orderId}` : ''
-    const text = `Tracking my Happy Cake order — ${url}`
+    const ref = trackUrlId(order)
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/track/${ref}` : ''
+    const text = `Tracking my HappyCake order — ${url}`
     if (typeof navigator !== 'undefined' && 'share' in navigator) {
       try {
-        await navigator.share({ title: 'Happy Cake order tracker', text, url })
+        await navigator.share({ title: 'HappyCake order tracker', text, url })
         return
       } catch {
         // User cancelled or browser declined; fall through to clipboard.

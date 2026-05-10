@@ -8,6 +8,11 @@
 import { z } from 'zod'
 import { getDb } from '../db/db.ts'
 import type { Channel } from '../channels/types.ts'
+import {
+  upsertCustomerForOrder,
+  recordOrderForCustomer,
+  getCustomerById,
+} from './customers.ts'
 
 // ─── Products / catalog ──────────────────────────────────────────────────
 
@@ -86,6 +91,8 @@ export const createDraftOrderSchema = z.object({
   channel: z.enum(['whatsapp', 'instagram', 'web', 'telegram']),
   customer_name: z.string().optional(),
   customer_phone: z.string().optional(),
+  // Optional: web checkout collects it; chat may collect it too.
+  customer_email: z.string().email().optional(),
   items: z.array(z.object({ product_id: z.string(), quantity: z.number().int().positive() })).min(1),
   scheduled_at_iso: z.string().optional(),
   pickup_or_delivery: z.enum(['pickup', 'delivery']).default('pickup'),
@@ -102,9 +109,22 @@ export type CreateDraftOrderResult =
   | {
       ok: true
       order_id: string
+      // Short customer-facing alias — digits only, e.g. "1042". Stable
+      // per order (derived from SQLite ROWID). Surface this anywhere a
+      // human would read the id back over the phone or write it down on
+      // a sticky note. UI prefixes a `#` for display.
+      friendly_id: string
       total_cents: number
       items: Array<{ sku: string; qty: number; unit_cents: number; line_total_cents: number; name: string }>
       status: 'draft'
+      // CRM link, if name/phone/email were enough to identify the customer.
+      // Null when no contact info was provided (rare — web checkout
+      // requires at least name + phone).
+      customer_id: string | null
+      // Helpful at the call site so the orchestrator can decide
+      // "first-time" vs "repeat" without an extra read.
+      is_repeat_customer: boolean
+      prior_order_count: number
     }
 
 export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): CreateDraftOrderResult {
@@ -123,13 +143,30 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       name: p.name,
     })
   }
+
+  // CRM upsert FIRST so the order row can store customer_id. The upsert
+  // refreshes name/phone/email if richer info shows up, but doesn't
+  // increment counters yet — we do that after we know total_cents. Returns
+  // null when name+phone+email are all missing (chat-started threads
+  // before the customer says who they are).
+  const customerId = upsertCustomerForOrder({
+    threadId: args.thread_id,
+    name: args.customer_name ?? null,
+    phone: args.customer_phone ?? null,
+    email: args.customer_email ?? null,
+  })
+
+  // Capture prior_order_count BEFORE we increment so the badge reads
+  // "1st order" / "2nd order" naturally (this draft is the Nth).
+  const priorCount = customerId ? (getCustomerById(customerId)?.order_count ?? 0) : 0
+
   const id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const now = Date.now()
-  getDb()
+  const result = getDb()
     .prepare(
       `INSERT INTO orders
-       (id, thread_id, channel, status, customer_name, customer_phone, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, referral_source, created_at, updated_at)
-       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, thread_id, channel, status, customer_name, customer_phone, customer_email, customer_id, items_json, total_cents, scheduled_at, pickup_or_delivery, notes, referral_source, created_at, updated_at)
+       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -137,6 +174,8 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       args.channel,
       args.customer_name ?? null,
       args.customer_phone ?? null,
+      args.customer_email ?? null,
+      customerId,
       JSON.stringify(itemsResolved),
       total,
       args.scheduled_at_iso ?? null,
@@ -146,7 +185,27 @@ export function createDraftOrder(args: z.infer<typeof createDraftOrderSchema>): 
       now,
       now,
     )
-  return { ok: true, order_id: id, total_cents: total, items: itemsResolved, status: 'draft' as const }
+
+  // Now that we have total_cents, increment the denormalized counters
+  // on the customer record. Done last so a partial INSERT failure
+  // doesn't leave the customers table reporting an order that didn't land.
+  if (customerId) recordOrderForCustomer(customerId, total)
+
+  // better-sqlite3's `run` returns lastInsertRowid as a bigint or number
+  // depending on the driver build; coerce to number for our offset math.
+  // The orders table's rowid is monotonically increasing, never reused.
+  const rowid = Number(result.lastInsertRowid)
+  return {
+    ok: true,
+    order_id: id,
+    friendly_id: friendlyOrderId(rowid),
+    total_cents: total,
+    items: itemsResolved,
+    status: 'draft' as const,
+    customer_id: customerId,
+    is_repeat_customer: priorCount > 0,
+    prior_order_count: priorCount,
+  }
 }
 
 export const getOrderStatusSchema = z.object({
@@ -161,14 +220,56 @@ export const getOrderStatusSchema = z.object({
 const APPROVAL_REQUIRED_CATEGORIES = new Set(['custom', 'catering'])
 
 interface OrderRowFull {
+  // SQLite's auto-assigned ROWID. Used to derive a short customer-friendly
+  // alias (`<rowid+offset>`, e.g. "1042") so people can read order numbers
+  // over the phone without spelling out a 24-char `ord_<ms>_<rand>` ID.
+  // The full `id` remains the canonical primary key for internal references.
+  rowid: number
   id: string
+  thread_id: string
+  channel: string
   status: string
   total_cents: number
   scheduled_at: string | null
   customer_name: string | null
+  customer_id: string | null
   pickup_or_delivery: string
   kitchen_ticket_id: string | null
   items_json: string | null
+}
+
+// Customer-facing alias for an order. Derived from SQLite ROWID so it's
+// stable, sequential, and trivially short. We start at 1001 (offset 1000
+// + rowid 1) so the smallest alias is four digits — feels like a real
+// order number, not "order 1 of all time".
+//
+// We deliberately store/return digits-only ("1042"). The UI prefixes a `#`
+// for display, the agent reads it aloud as "ten-forty-two". A grandma or
+// kid can write down `1042` and call back; nobody has to spell out
+// "ord_1778…UG4G4J" any more.
+const FRIENDLY_ID_OFFSET = 1000
+
+export function friendlyOrderId(rowid: number): string {
+  return String(rowid + FRIENDLY_ID_OFFSET)
+}
+
+// Resolve a customer-typed friendly id back to its rowid. Accepts every
+// shape we've ever shown a customer, plus the obvious typo'd variants:
+//   "1042"     · canonical (digits only)
+//   "#1042"    · with leading hash
+//   "HC-1042"  · legacy prefix from the first cut of this feature
+//   "hc 1042"  · case-insensitive, separator-tolerant
+// Returns null if the input doesn't look like a friendly id, or if the
+// derived rowid is below 1 (offset is the floor).
+export function parseFriendlyOrderId(input: string): number | null {
+  const cleaned = input
+    .trim()
+    .replace(/^#+/, '')
+    .replace(/^hc[\s_-]*/i, '')
+  if (!/^\d+$/.test(cleaned)) return null
+  const n = Number.parseInt(cleaned, 10)
+  if (n <= FRIENDLY_ID_OFFSET) return null
+  return n - FRIENDLY_ID_OFFSET
 }
 
 interface StoredItem {
@@ -185,21 +286,44 @@ interface StoredItem {
  * Standard slices / whole cakes / pastries return false → auto-approve.
  */
 export function orderRequiresApproval(items: StoredItem[]): boolean {
+  return approvalReasons(items).length > 0
+}
+
+/**
+ * Returns the deduped, sorted list of categories that triggered the
+ * approval requirement (e.g. `['catering', 'custom']`). Empty array
+ * when nothing needs approval — order auto-promotes. Used by the cockpit
+ * UI to tell the owner WHY a draft is waiting on them, not just THAT it
+ * is, so they don't have to drill in to find out.
+ */
+export function approvalReasons(items: StoredItem[]): string[] {
+  const reasons = new Set<string>()
   for (const it of items) {
     const product = getProduct(it.sku)
-    if (product && APPROVAL_REQUIRED_CATEGORIES.has(product.category)) return true
+    if (product && APPROVAL_REQUIRED_CATEGORIES.has(product.category)) {
+      reasons.add(product.category)
+    }
   }
-  return false
+  return Array.from(reasons).sort()
 }
 
 function shapeOrderStatus(row: OrderRowFull) {
   const items: StoredItem[] = row.items_json ? (JSON.parse(row.items_json) as StoredItem[]) : []
   return {
     id: row.id,
+    // Short customer-facing alias. Stable per-order — derived from the
+    // immutable SQLite ROWID — so "1042" prints the same in chat,
+    // confirmation page, tracker, and the owner's TG card. UI surfaces
+    // it as `#1042`; we store digits-only so the value round-trips
+    // through URL paths (`/track/1042`) without escaping.
+    friendly_id: friendlyOrderId(row.rowid),
+    thread_id: row.thread_id,
+    channel: row.channel,
     status: row.status,
     total_cents: row.total_cents,
     scheduled_at: row.scheduled_at,
     customer_name: row.customer_name,
+    customer_id: row.customer_id,
     pickup_or_delivery: row.pickup_or_delivery,
     kitchen_ticket_id: row.kitchen_ticket_id,
     items,
@@ -208,6 +332,11 @@ function shapeOrderStatus(row: OrderRowFull) {
     // (Order received → In the kitchen → Ready). Stable across status
     // transitions — depends only on the items, not the current status.
     requires_approval: orderRequiresApproval(items),
+    // Categories that triggered the approval requirement, e.g.
+    // ['custom'] or ['catering', 'custom']. Empty array when the
+    // order auto-promotes. Lets cockpit + tracker show the WHY without
+    // re-deriving from items.
+    approval_reasons: approvalReasons(items),
   }
 }
 
@@ -220,22 +349,38 @@ function shapeOrderStatus(row: OrderRowFull) {
 // improbable (the random suffix alone is base36-6 ≈ 2 billion).
 export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
   const db = getDb()
+  // Pull rowid alongside the row so shapeOrderStatus can derive the
+  // friendly alias without a second round-trip.
   const select =
-    'SELECT id, status, total_cents, scheduled_at, customer_name, pickup_or_delivery, kitchen_ticket_id, items_json FROM orders'
+    'SELECT rowid, id, thread_id, channel, status, total_cents, scheduled_at, customer_name, customer_id, pickup_or_delivery, kitchen_ticket_id, items_json FROM orders'
 
   // Customers often paste the displayed code with a leading `#` and
   // surrounding whitespace; strip both before matching.
   const cleaned = args.order_id.trim().replace(/^#+/, '')
+
+  // 1. Try the canonical full id first — the value our internal callers
+  //    always pass and what `formatOrderId(..., 'full')` prints.
   const exact = db.prepare(`${select} WHERE id = ?`).get(cleaned) as OrderRowFull | undefined
   if (exact) return shapeOrderStatus(exact)
 
-  if (cleaned.length >= 6 && !cleaned.startsWith('ord_')) {
+  // 2. Try the friendly alias ("1042", "#1042", or legacy "HC-1042").
+  //    Customers naturally quote this back over the phone or paste it from
+  //    the confirmation page. Resolves through SQLite's stable ROWID.
+  const friendlyRowid = parseFriendlyOrderId(cleaned)
+  if (friendlyRowid !== null) {
+    const byRowid = db.prepare(`${select} WHERE rowid = ?`).get(friendlyRowid) as OrderRowFull | undefined
+    if (byRowid) return shapeOrderStatus(byRowid)
+  }
+
+  // 3. Fall back to suffix match for partial codes ("UG4G4J"). Only
+  //    triggers when the input doesn't already look like a full id and
+  //    is at least 6 chars (random suffix is base36-6 ≈ 2 billion → no
+  //    collisions for any realistic catalog).
+  if (cleaned.length >= 6 && !cleaned.startsWith('ord_') && friendlyRowid === null) {
     const candidates = db
       .prepare(`${select} WHERE id LIKE ? ORDER BY created_at DESC LIMIT 2`)
       .all(`%${cleaned}`) as OrderRowFull[]
     if (candidates.length === 1) return shapeOrderStatus(candidates[0])
-    // Ambiguous: the same suffix matches multiple orders. Force the
-    // customer (or agent) to use the full id rather than guess.
     if (candidates.length > 1) {
       return { ok: false, reason: 'short code matches multiple orders — use the full id starting with `ord_`' }
     }
@@ -244,22 +389,62 @@ export function getOrderStatus(args: z.infer<typeof getOrderStatusSchema>) {
   return { ok: false, reason: 'order not found' }
 }
 
-export function listOrders(filter?: { status?: string; limit?: number }) {
-  const limit = filter?.limit ?? 50
-  if (filter?.status) {
-    return getDb()
-      .prepare(
-        `SELECT id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
-         WHERE status = ? ORDER BY created_at DESC LIMIT ?`,
-      )
-      .all(filter.status, limit)
+interface OrderListRow {
+  rowid: number
+  id: string
+  status: string
+  total_cents: number
+  customer_name: string | null
+  scheduled_at: string | null
+  created_at: number
+  items_json: string | null
+}
+
+interface ListedOrder {
+  id: string
+  friendly_id: string
+  status: string
+  total_cents: number
+  customer_name: string | null
+  scheduled_at: string | null
+  created_at: number
+  // Carried into list rows so the admin orders page can label each row
+  // with the WHY ("custom design", "catering") without a per-row
+  // round-trip to the detail endpoint.
+  approval_reasons: string[]
+}
+
+function shapeListed(row: OrderListRow): ListedOrder {
+  let items: StoredItem[] = []
+  try { items = row.items_json ? (JSON.parse(row.items_json) as StoredItem[]) : [] } catch {}
+  return {
+    id: row.id,
+    friendly_id: friendlyOrderId(row.rowid),
+    status: row.status,
+    total_cents: row.total_cents,
+    customer_name: row.customer_name,
+    scheduled_at: row.scheduled_at,
+    created_at: row.created_at,
+    approval_reasons: approvalReasons(items),
   }
-  return getDb()
-    .prepare(
-      `SELECT id, status, total_cents, customer_name, scheduled_at, created_at FROM orders
-       ORDER BY created_at DESC LIMIT ?`,
-    )
-    .all(limit)
+}
+
+export function listOrders(filter?: { status?: string; limit?: number }): ListedOrder[] {
+  const limit = filter?.limit ?? 50
+  const rows = filter?.status
+    ? (getDb()
+        .prepare(
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at, items_json FROM orders
+           WHERE status = ? ORDER BY created_at DESC LIMIT ?`,
+        )
+        .all(filter.status, limit) as OrderListRow[])
+    : (getDb()
+        .prepare(
+          `SELECT rowid, id, status, total_cents, customer_name, scheduled_at, created_at, items_json FROM orders
+           ORDER BY created_at DESC LIMIT ?`,
+        )
+        .all(limit) as OrderListRow[])
+  return rows.map(shapeListed)
 }
 
 export function updateOrderStatus(orderId: string, status: string, note?: string) {

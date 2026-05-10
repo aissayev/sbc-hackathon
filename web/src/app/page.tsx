@@ -86,32 +86,36 @@ export default async function HomePage() {
 function Hero({ products }: { products: Product[] }) {
   return (
     <section className="relative overflow-hidden">
-      {/* Quiet editorial backdrop:
-          1. home-hero-bg  — warm cream + butter/sky/blush radial glows
-          2. home-hero-grain — subtle paper grain
-          3. hero-photo    — honey-cake photo bleeding from the left, masked
-          4. soft-blur orbs — atmospheric bloom in the corners
-          Decoration (bunting, sparkles, sprinkle field, cake silhouette,
-          frosting swoosh) and trust strip removed at owner request — the
-          photo + form carry the hero alone. */}
-      <div className="absolute inset-0 home-hero-bg pointer-events-none" aria-hidden />
-      <div className="absolute inset-0 home-hero-grain pointer-events-none" aria-hidden />
+      {/* Atmospheric backdrop, Seed-style:
+          1. Cream base — sets the brand wash
+          2. Heavily-blurred dining-room photo — full-bleed, gives the
+             hero real depth without competing with type. The photo is
+             our actual interior, not stock.
+          3. Cream + sky overlay — preserves text contrast on the left
+             and softens the photo into a gradient atmosphere.
+          The form gets a glass-morphism treatment further down so it
+          reads as placed in the scene, not pasted on top. */}
+      <div className="absolute inset-0 bg-cream pointer-events-none" aria-hidden />
 
-      <div className="absolute -left-[18%] top-0 bottom-0 w-[68%] hidden md:block pointer-events-none" aria-hidden>
-        <div className="relative h-full w-full hero-photo-mask">
-          <Image
-            src={ASSETS.hero[0]}
-            alt=""
-            fill
-            priority
-            sizes="68vw"
-            className="object-cover hero-photo-tint"
-          />
-        </div>
+      {/* Full-bleed honey-cake photo — heavy blur turns the warm amber/
+          cream tones into Seed-style depth-of-field bokeh that's already
+          on-brand. Better than the dining-room shot (which was cool grey)
+          for our cream/cocoa palette. Hidden on mobile. */}
+      <div className="absolute inset-0 hidden md:block pointer-events-none" aria-hidden>
+        <Image
+          src={ASSETS.hero[0]}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover hero-photo-atmospheric"
+        />
       </div>
 
-      <div className="absolute -top-40 -right-32 h-[26rem] w-[26rem] rounded-full bg-amber-300/25 blur-3xl pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-44 -left-32 h-[30rem] w-[30rem] rounded-full bg-berry/15 blur-3xl pointer-events-none" aria-hidden />
+      {/* Cream-to-warm overlay — strongest on the left where type lives,
+          fades toward the right so the photo retains some life behind
+          the form column. */}
+      <div className="absolute inset-0 hero-overlay-veil pointer-events-none" aria-hidden />
 
       <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
         <div className="lg:col-span-7">

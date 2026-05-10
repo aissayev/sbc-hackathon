@@ -108,31 +108,37 @@
     -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 85%);
   }
 
-  /* Editorial cake-photo treatment — mask + warm color grade so the
-     photo dissolves into the cream wash and reads as a watercolor
-     atmosphere rather than a stock-photo slap.
-     • Mask: radial fade. The photo is brightest at left ~30% / vertical
-       middle (where the cake itself sits), and falls to fully transparent
-       toward the right where the form lives and the headline column
-       begins. Adjusting the mask stops shifts how much "cake" you see.
-     • Tint: gentle desaturate + warm shift via filter, plus opacity. The
-       multiply blend would tint the cake too dark over the cream — a
-       straight low-opacity filtered photo composes more cleanly. */
-  .hero-photo-mask {
-    /* Goldilocks tuning: bright center at 16% (cake reads as a real
-       photo on the left, not just wash) with a tighter 52% transparent
-       stop so the falloff happens BEFORE body-copy starts. Tested at
-       1280, 1440, and 1920 — type contrast holds at all three. */
-    -webkit-mask-image: radial-gradient(ellipse 60% 100% at 16% 50%, black 18%, transparent 52%);
-    mask-image: radial-gradient(ellipse 60% 100% at 16% 50%, black 18%, transparent 52%);
+  /* Atmospheric photo treatment — Seed-style depth-of-field bokeh.
+     Pulled blur back from 36 → 28px so the honey-cake's horizontal
+     layered structure barely registers as soft warmth-banding. That
+     micro-detail is the difference between "nice gradient" and "feels
+     like real bakery light." Scale prevents blur's edge halo. */
+  .hero-photo-atmospheric {
+    filter: blur(28px) saturate(1.00) brightness(1.07) hue-rotate(-2deg);
+    transform: scale(1.05);
+    opacity: 0.82;
   }
-  .hero-photo-tint {
-    /* Modest opacity bump (0.58 → 0.65) gives the cake texture more
-       presence where the mask shows it. Tint stays close to brand
-       palette so the warm orange doesn't shout. */
-    filter: saturate(0.85) brightness(1.05) contrast(0.94) hue-rotate(-3deg);
-    opacity: 0.65;
+
+  /* Veil overlay — cream gradient that protects type contrast on the
+     left while letting the blurred photo bloom on the right. Tuned so
+     the right side keeps real photographic warmth (Seed-like) while
+     the left stays clean for the headline. */
+  .hero-overlay-veil {
+    background:
+      linear-gradient(
+        to right,
+        rgba(255, 247, 234, 0.85) 0%,
+        rgba(255, 247, 234, 0.65) 28%,
+        rgba(255, 247, 234, 0.30) 55%,
+        rgba(255, 247, 234, 0.20) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        transparent 55%,
+        rgba(251, 226, 235, 0.35) 100%
+      );
   }
+
 
   /* Paper grain — fractal-noise SVG tiled and overlaid in multiply mode.
      Adds tactility (think risograph / brown-paper bag) without showing up

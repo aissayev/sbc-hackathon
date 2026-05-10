@@ -60,7 +60,7 @@ export function ChatView({
 }: {
   onMessagesChange?: (messages: ChatMessage[]) => void
 }) {
-  const { messages, sending, send, reset } = useChat({
+  const { messages, sending, send, reset, finishStreaming } = useChat({
     greeting:
       "Hi! I'm here to help — ask about today's bake, allergens, or custom cakes. If something's off about an order, tap the paperclip to send a photo and I'll get our owner Askhat on it.",
   })
@@ -158,7 +158,7 @@ export function ChatView({
     <div className="flex h-full min-h-0 flex-col">
       <div ref={logRef} className="flex-1 overflow-y-auto p-4 space-y-3" aria-live="polite">
         {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} size="compact" />
+          <ChatBubble key={m.id} message={m} size="compact" onTypingComplete={finishStreaming} />
         ))}
       </div>
       {messages.length <= 1 && (

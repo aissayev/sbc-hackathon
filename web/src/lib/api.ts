@@ -58,6 +58,12 @@ export interface OrderItem {
 
 export interface OrderStatus {
   id: string
+  // Short customer-facing alias — digits only, e.g. "1042". Stable per
+  // order, safe to read aloud over the phone or write on a sticky note.
+  // The UI prefixes a `#` for display (`#1042`). Optional because older
+  // clients and edge paths may not populate it; UI falls back to `id`
+  // when missing.
+  friendly_id?: string
   status: string
   total_cents: number
   scheduled_at: string | null
@@ -70,6 +76,10 @@ export interface OrderStatus {
   // (Order received → In the kitchen → Ready) since the order auto-promotes;
   // when true we render the 4-step rail with the explicit "Approved" gate.
   requires_approval?: boolean
+  // Which categories triggered the approval requirement, e.g. ['custom']
+  // or ['catering', 'custom']. Empty when order auto-promoted. Used by the
+  // admin orders list to label each draft with the WHY at a glance.
+  approval_reasons?: string[]
 }
 
 export interface DailyReport {
@@ -193,6 +203,11 @@ export interface DraftOrderInput {
 export interface DraftOrderResult {
   ok: boolean
   order_id?: string
+  // Short customer-facing alias (digits-only, e.g. "1042") returned by
+  // the backend alongside the canonical `order_id`. The confirmation
+  // page surfaces it as the headline label, and the post-order redirect
+  // prefers it so URLs stay readable.
+  friendly_id?: string
   total_cents?: number
   reason?: string
 }

@@ -33,9 +33,27 @@ import {
 } from '../../domain/tools.ts'
 import { approveDraftAndPromote, rejectDraft } from '../../domain/order-orchestration.ts'
 import { getPolicies } from '../../domain/policies.ts'
-import { postDraftOrderCard, postEscalationCard } from '../../bots/owner/index.ts'
+import {
+  postDraftOrderCard,
+  postEscalationCard,
+  postRefundRequestCard,
+} from '../../bots/owner/index.ts'
 import { brandLookup, brandLookupSchema } from './brand-rag.ts'
 import { createApproval } from '../../domain/approvals.ts'
+import {
+  findCustomerByPhone,
+  findCustomerByThread,
+  getCustomerById,
+  listCustomerOrders,
+  normalizePhone,
+} from '../../domain/customers.ts'
+import {
+  requestRefund,
+  requestRefundSchema,
+  approveRefund,
+  denyRefund,
+  listRefunds,
+} from '../../domain/refunds.ts'
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] }
@@ -64,7 +82,8 @@ server.registerTool(
 server.registerTool(
   'create_draft_order',
   {
-    description: 'Create a draft order pending owner approval. Returns order_id and total_cents.',
+    description:
+      'Create a draft order pending owner approval. Returns { order_id (long internal key, never shown to customers), friendly_id (short number like "1042" — quote this to the customer as `#1042`), total_cents }.',
     inputSchema: createDraftOrderSchema.shape,
   },
   async (args) => {
@@ -83,7 +102,8 @@ server.registerTool(
 server.registerTool(
   'get_order_status',
   {
-    description: 'Look up status of a Happy Cake order by id.',
+    description:
+      'Look up status of a HappyCake order. Accepts the friendly number ("1042", "#1042", or legacy "HC-1042") or the full canonical id ("ord_…"). Customers will usually paste the short number.',
     inputSchema: getOrderStatusSchema.shape,
   },
   async (args) => ok(getOrderStatus(args as z.infer<typeof getOrderStatusSchema>)),
@@ -155,6 +175,77 @@ server.registerTool(
     const result = await rejectDraft(order_id, reason)
     return ok(result)
   },
+)
+
+// ─── Refund flow ────────────────────────────────────────────────────────
+//
+// Customer-initiated refunds. The concierge agent calls `request_refund`
+// when a customer asks; the owner approves or denies via the TG card
+// posted by `postRefundRequestCard`. `approve_refund` / `deny_refund`
+// are owner-only and intended for the TG callback path, but exposing them
+// as MCP tools makes them scriptable + lets the owner agent reason about
+// pending refunds in free-text turns.
+
+server.registerTool(
+  'request_refund',
+  {
+    description:
+      'Customer-initiated refund. Use when a customer asks for a refund on a specific order. Pass the EXACT order_id (starts with `ord_`), the customer\'s thread_id + channel, and a short reason quoting the customer. Creates a pending refund request, flips the order to `refund_pending`, and posts an Approve/Deny card to Askhat in Telegram. NEVER promise the refund will be granted — Askhat decides. If the order is already in refund_pending or refunded, the tool returns the existing refund_id (idempotent).',
+    inputSchema: requestRefundSchema.shape,
+  },
+  async (args) => {
+    const parsed = args as z.infer<typeof requestRefundSchema>
+    const result = requestRefund(parsed)
+    if (result.ok && !result.deduplicated) {
+      // Fire-and-forget: notify the owner. Non-fatal if TG isn't configured.
+      postRefundRequestCard(result.refund_id).catch((err) =>
+        console.error('[local-mcp] postRefundRequestCard failed:', (err as Error).message),
+      )
+    }
+    return ok(result)
+  },
+)
+
+server.registerTool(
+  'approve_refund',
+  {
+    description:
+      'Owner-only. Approve a pending refund request. Updates the order status to `refunded`, attempts a Square sandbox CANCELED status update, and notifies the customer on their original channel. Idempotent — re-approving an already-approved refund is a no-op.',
+    inputSchema: { refund_id: z.string(), note: z.string().optional() },
+  },
+  async (args) => {
+    const { refund_id, note } = args as { refund_id: string; note?: string }
+    const result = await approveRefund(refund_id, note)
+    return ok(result)
+  },
+)
+
+server.registerTool(
+  'deny_refund',
+  {
+    description:
+      'Owner-only. Deny a pending refund request. Requires a customer-facing reason (≥ 3 chars) — it will be sent verbatim back on the original channel after a brand-voice intro. Reverts the order to its prior status (so kitchen flow continues if applicable). Idempotent.',
+    inputSchema: { refund_id: z.string(), reason: z.string() },
+  },
+  async (args) => {
+    const { refund_id, reason } = args as { refund_id: string; reason: string }
+    const result = await denyRefund(refund_id, reason)
+    return ok(result)
+  },
+)
+
+server.registerTool(
+  'list_refunds',
+  {
+    description:
+      'Owner-only. List recent refund requests. Filter by status (pending/approved/denied). Useful for /refunds slash command and the owner agent reasoning about open refund work.',
+    inputSchema: {
+      status: z.enum(['pending', 'approved', 'denied']).optional(),
+      limit: z.number().int().positive().optional(),
+    },
+  },
+  async (args) =>
+    ok(listRefunds(args as { status?: 'pending' | 'approved' | 'denied'; limit?: number })),
 )
 
 server.registerTool(
@@ -310,6 +401,75 @@ server.registerTool(
     inputSchema: brandLookupSchema.shape,
   },
   async (args) => ok(brandLookup(args as z.infer<typeof brandLookupSchema>)),
+)
+
+// \u2500\u2500\u2500 CRM tools \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+//
+// Three lookups against the customers table. Read-only \u2014 writes happen
+// implicitly when the agent (or website checkout) creates a draft order
+// via create_draft_order, which calls upsertCustomerForOrder() under
+// the hood.
+//
+// Identity rules:
+// - Threads link to a customer once we've seen a phone (createDraftOrder).
+// - Phone is the strong key (E.164 normalized). Email is the fallback.
+// - The agent should call find_customer_by_phone or find_customer_by_thread
+//   FIRST when answering "have I ordered before?" or before quoting
+//   personalized lead times \u2014 never invent customer history.
+
+server.registerTool(
+  'find_customer_by_thread',
+  {
+    description:
+      'Look up the customer record linked to a chat thread (channel + thread_id). Returns null if the thread has no customer linked yet (the customer hasn\'t given a phone in this conversation). Cheapest path inside an agent run \u2014 call this before find_customer_by_phone.',
+    inputSchema: { thread_id: z.string() },
+  },
+  async (args) => {
+    const { thread_id } = args as { thread_id: string }
+    const c = findCustomerByThread(thread_id)
+    return ok(c ?? { ok: false, reason: 'no customer linked to this thread' })
+  },
+)
+
+server.registerTool(
+  'find_customer_by_phone',
+  {
+    description:
+      'Look up a customer by phone number. Phone is normalized to E.164 internally \u2014 pass any format (\"(281) 979-8320\", \"+1 281\u2026\", \"2819798320\"). Returns the customer record if found, or {ok:false, reason} if not. Use when a caller gives their number on the phone or in chat.',
+    inputSchema: { phone: z.string() },
+  },
+  async (args) => {
+    const { phone } = args as { phone: string }
+    const norm = normalizePhone(phone)
+    if (!norm) return ok({ ok: false, reason: 'invalid phone' })
+    const c = findCustomerByPhone(norm)
+    return ok(c ?? { ok: false, reason: `no customer found for ${norm}` })
+  },
+)
+
+server.registerTool(
+  'list_customer_orders',
+  {
+    description:
+      'List a customer\'s recent orders (most recent first), with status, total, and an item summary. Pass customer_id (from find_customer_by_*) and an optional limit (default 5). Use to answer \"what did they order last time?\" or to check order history before promising a delivery time.',
+    inputSchema: { customer_id: z.string(), limit: z.number().int().positive().max(50).optional() },
+  },
+  async (args) => {
+    const { customer_id, limit } = args as { customer_id: string; limit?: number }
+    const customer = getCustomerById(customer_id)
+    if (!customer) return ok({ ok: false, reason: `unknown customer ${customer_id}` })
+    return ok({
+      ok: true,
+      customer_id,
+      name: customer.name,
+      phone: customer.phone,
+      order_count: customer.order_count,
+      total_spent_cents: customer.total_spent_cents,
+      first_seen_at: customer.first_seen_at,
+      last_seen_at: customer.last_seen_at,
+      recent_orders: listCustomerOrders(customer_id, limit ?? 5),
+    })
+  },
 )
 
 const transport = new StdioServerTransport()

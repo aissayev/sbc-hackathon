@@ -11,7 +11,9 @@
 import { sendTelegram } from '../../channels/telegram.ts'
 import { config } from '../../config.ts'
 import { getOrderStatus } from '../../domain/tools.ts'
-import { fmtMoney, shortId } from './format.ts'
+import { readRefundForCard } from '../../domain/refunds.ts'
+import { getCustomerById } from '../../domain/customers.ts'
+import { fmtMoney, shortId, ordinal } from './format.ts'
 import { scoreLead, fmtStars } from './scoring.ts'
 
 /**
@@ -35,11 +37,32 @@ export async function postDraftOrderCard(orderId: string): Promise<boolean> {
   const threadId = (status.thread_id as string | null | undefined) ?? ''
   const score = scoreLead({ total_cents: total, thread_id: threadId, channel })
 
+  // Repeat-customer badge — order_count is post-increment (this order is
+  // counted), so order_count===1 means "first ever order" and 2+ means
+  // "Nth visit". Total spend reads as the customer's lifetime, including
+  // this draft. Skipped silently if the order has no customer link.
+  const customerId = (status.customer_id as string | null | undefined) ?? null
+  let repeatBadge: string | null = null
+  let lifetimeLine: string | null = null
+  if (customerId) {
+    const c = getCustomerById(customerId)
+    if (c) {
+      if (c.order_count <= 1) {
+        repeatBadge = '✨ First-time customer'
+      } else {
+        repeatBadge = `🔁 ${ordinal(c.order_count)} order · ${fmtMoney(c.total_spent_cents)} lifetime`
+        lifetimeLine = null  // already in repeatBadge
+      }
+    }
+  }
+
   const lines: string[] = [
     `New draft order ${shortId(orderId)}`,
     `Score: ${fmtStars(score.stars)}${score.reasons.length ? '  · ' + score.reasons.join(', ') : ''}`,
     `Total: ${fmtMoney(total)}`,
   ]
+  if (repeatBadge) lines.push(repeatBadge)
+  if (lifetimeLine) lines.push(lifetimeLine)
   if (customer) lines.push(`Customer: ${customer}`)
   if (scheduled) lines.push(`Pickup: ${scheduled}`)
 
@@ -47,6 +70,38 @@ export async function postDraftOrderCard(orderId: string): Promise<boolean> {
     [
       { text: '✓ Approve', data: `approve:${orderId}` },
       { text: '✗ Reject', data: `reject:${orderId}` },
+    ],
+  ])
+  return true
+}
+
+/**
+ * Post an "approve / deny" card for a customer-initiated refund request.
+ * Refund denial requires a written reason — the deny button kicks off the
+ * follow-up text flow (see callbacks.ts:handleRefundDeny). The `reason`
+ * field is the customer's stated reason, NOT the owner's eventual decision.
+ */
+export async function postRefundRequestCard(refundId: string): Promise<boolean> {
+  const token = config.telegram.owner.token
+  const chatId = config.telegram.owner.chatId
+  if (!token || !chatId) return false
+
+  const found = readRefundForCard(refundId)
+  if (!found || !found.order) return false
+  const { refund, order } = found
+
+  const lines: string[] = [
+    `🔄 Refund request — ${shortId(refund.order_id)}`,
+    `Total: ${fmtMoney(order.total_cents)}`,
+  ]
+  if (order.customer_name) lines.push(`Customer: ${order.customer_name}`)
+  lines.push(`Channel: ${refund.channel}`)
+  lines.push(`Reason: "${refund.reason}"`)
+
+  await sendTelegram(token, chatId, lines.join('\n'), [
+    [
+      { text: '✓ Approve refund', data: `refund_approve:${refundId}` },
+      { text: '✗ Deny', data: `refund_deny:${refundId}` },
     ],
   ])
   return true

@@ -37,8 +37,13 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__local__create_draft_order',
     'mcp__local__get_order_status',
     'mcp__local__escalate_to_owner',
+    'mcp__local__request_refund',
     'mcp__local__brand_lookup',
     'mcp__local__get_policies',
+    // CRM read-only — recognise repeat callers + look up history.
+    'mcp__local__find_customer_by_thread',
+    'mcp__local__find_customer_by_phone',
+    'mcp__local__list_customer_orders',
   ],
   kitchen: [
     'mcp__happycake__kitchen_create_ticket',
@@ -75,8 +80,14 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     'mcp__local__list_escalations',
     'mcp__local__approve_order',
     'mcp__local__reject_order',
+    'mcp__local__list_refunds',
+    'mcp__local__approve_refund',
+    'mcp__local__deny_refund',
     'mcp__local__daily_report',
     'mcp__local__brand_lookup',
+    'mcp__local__find_customer_by_thread',
+    'mcp__local__find_customer_by_phone',
+    'mcp__local__list_customer_orders',
     'mcp__happycake__evaluator_get_evidence_summary',
     'mcp__happycake__evaluator_generate_team_report',
     'mcp__happycake__square_get_pos_summary',
@@ -108,6 +119,20 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
 // - Skill discovery:     Skill (broad — could resolve arbitrary skill packs)
 // - Bookkeeping:         TodoWrite (no value in a one-shot subprocess)
 //
+// Plus MCP tools the deterministic orchestration owns, NOT the agent:
+// - mcp__happycake__square_create_order  — order-orchestration.ts
+//                  (approveDraftAndPromote) calls this via direct HTTP after
+//                  the owner taps Approve. Agents must NEVER write a Square
+//                  order directly; that bypasses the owner-approval invariant.
+//                  The agent uses mcp__local__create_draft_order instead.
+//
+// Why deny-list and not just allow-list: --allowedTools in `claude -p` is a
+// permission allowlist (auto-approves these without prompting), NOT a tool-
+// discovery filter. With --dangerously-skip-permissions on, the MCP server
+// exposes all its tools and the agent can call any of them. --disallowedTools
+// IS enforced. Verified live: e2e S04 showed the agent calling square_create
+// _order even after we removed it from the concierge allowlist.
+//
 // Intentionally NOT denied (benign + required):
 // - ToolSearch  — Claude Code uses this internally to hydrate deferred MCP
 //                 schemas when the tool list is large. Filtered from our trace.
@@ -123,4 +148,5 @@ export const DENY_ALWAYS = [
   'AskUserQuestion', 'EnterPlanMode', 'ExitPlanMode',
   'Skill',
   'TodoWrite',
+  'mcp__happycake__square_create_order',
 ]

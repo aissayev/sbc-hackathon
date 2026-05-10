@@ -22,7 +22,8 @@ import {
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { IncomingMessage } from '../../channels/types.ts'
-import { fmtMoney, hhmm, shortId } from './format.ts'
+import { fmtMoney, hhmm, shortId, ordinal } from './format.ts'
+import { findCustomerByPhone, listCustomerOrders } from '../../domain/customers.ts'
 import { handleContentCommand, handleDraftsCommand } from './marketing/index.ts'
 
 export interface BotReply {
@@ -88,6 +89,8 @@ export function handleOwnerCommand(msg: IncomingMessage): BotReply | null {
     case '/post':
     case '/reel':
       return postReelHint(cmd)
+    case '/customer':
+      return customerReply(msg.text.trim())
     case '/reset':
       // /reset is handled in server.ts (clears thread history); return a
       // placeholder so the slash dispatcher doesn't fall through to the agent.
@@ -118,6 +121,7 @@ function helpReply(): BotReply {
       "/today        today's orders, revenue, pending approvals",
       '/orders       last 10 orders + one-tap approve',
       '/escalations  open escalations',
+      '/customer <phone>   CRM view: name, lifetime spend, recent orders',
       '',
       'Marketing & social:',
       '/content      weekly content plan — calendar of drafted posts/reels',
@@ -220,6 +224,58 @@ function escalationsReply(): BotReply {
  * marketing:brief`) and shows the top decision-relevant facts without making
  * the operator open a markdown file.
  */
+/**
+ * /customer <phone>  →  full CRM view + last 5 orders.
+ * Phone format is permissive — normalizePhone() inside findCustomerByPhone
+ * strips formatting before lookup. With no arg, prompt for one.
+ */
+function customerReply(rawText: string): BotReply {
+  const arg = rawText.replace(/^\/customer\s*/i, '').trim()
+  if (!arg) {
+    return {
+      text:
+        'Usage: /customer <phone>\n\nExamples:\n  /customer (281) 979-8320\n  /customer 2819798320\n  /customer +12819798320',
+    }
+  }
+  const customer = findCustomerByPhone(arg)
+  if (!customer) {
+    return { text: `No customer record for ${arg}.\n\nFirst-time caller — they'll show up here after their first order.` }
+  }
+
+  const firstSeen = new Date(customer.first_seen_at).toISOString().slice(0, 10)
+  const lastSeen = new Date(customer.last_seen_at).toISOString().slice(0, 10)
+  const repeatLine =
+    customer.order_count <= 1
+      ? '✨ First-time customer'
+      : `🔁 ${ordinal(customer.order_count)} order · ${fmtMoney(customer.total_spent_cents)} lifetime`
+
+  const recent = listCustomerOrders(customer.id, 5)
+  const orderLines = recent.length
+    ? recent.map((o) => {
+        const when = new Date(o.created_at).toISOString().slice(5, 10)
+        return `  ${when}  ${fmtMoney(o.total_cents)}  ${o.status.padEnd(10)}  ${o.items_summary || '—'}`
+      })
+    : ['  (no orders yet)']
+
+  return {
+    text: [
+      `👤 ${customer.name ?? '(no name)'}`,
+      customer.phone ? `   ${customer.phone}` : null,
+      customer.email ? `   ${customer.email}` : null,
+      '',
+      repeatLine,
+      `   First seen: ${firstSeen}`,
+      `   Last seen:  ${lastSeen}`,
+      '',
+      'Recent orders:',
+      ...orderLines,
+      customer.notes ? `\nNotes: ${customer.notes}` : null,
+    ]
+      .filter((s): s is string => s !== null)
+      .join('\n'),
+  }
+}
+
 function briefReply(): BotReply {
   const path = resolve('data/campaigns/.state/baseline.json')
   if (!existsSync(path)) {
