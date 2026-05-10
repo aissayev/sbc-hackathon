@@ -29,6 +29,7 @@ export const ROLE_TOOL_ALLOWLIST: Record<AgentRole, string[]> = {
     // (see ARCHITECTURE.md and DATA-MODEL.md flow §99).
     'mcp__happycake__whatsapp_send',
     'mcp__happycake__instagram_send_dm',
+    'mcp__happycake__instagram_reply_to_comment',
     'mcp__happycake__kitchen_get_menu_constraints',
     'mcp__happycake__kitchen_get_capacity',
     // Local: thread state + drafts + escalation
