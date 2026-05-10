@@ -31,6 +31,7 @@ import {
   dailyReport,
 } from '../../domain/tools.ts'
 import { postDraftOrderCard, postEscalationCard } from '../../bots/owner.ts'
+import { brandLookup, brandLookupSchema } from './brand-rag.ts'
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] }
@@ -171,6 +172,20 @@ server.registerTool(
     const id = `aprv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     return ok({ ok: true, approval_id: id, kind, summary, detail })
   },
+)
+
+server.registerTool(
+  'brand_lookup',
+  {
+    description:
+      'Brand-RAG. Search the HappyCake brandbook for guidance on voice, tone, ' +
+      'cake-naming, visual identity, content strategy, community management, or ' +
+      'agent rules. Returns the most relevant sections so the reply can be ' +
+      'grounded in the brandbook instead of memory. Use when uncertain about ' +
+      'brand voice, allowed phrases, capitalization, or visual conventions.',
+    inputSchema: brandLookupSchema.shape,
+  },
+  async (args) => ok(brandLookup(args as z.infer<typeof brandLookupSchema>)),
 )
 
 server.registerTool(
