@@ -100,6 +100,15 @@ export const ASSETS = {
       ? `${CDN}/team/family-couple.jpg`
       : '/assets/team/family-couple.jpg',
   },
+  // Stylised brand portraits used on the About page hero and the home-page
+  // "Our story" tile in the editorial triptych. These are deliberately
+  // composited / branded — they're a marketing surface, not a literal photo
+  // of the owner. Same CDN-vs-local fall-back as `team.*`.
+  about: {
+    hero: process.env.NEXT_PUBLIC_CDN_BASE
+      ? `${CDN}/about/chef-with-cake.jpg`
+      : '/assets/about/chef-with-cake.jpg',
+  },
   // Real interior photography from the Sugar Land storefront. Same fall-back
   // pattern as `team` — local public/ until they land on the CDN.
   store: {

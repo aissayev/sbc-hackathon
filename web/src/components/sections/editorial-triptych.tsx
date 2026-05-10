@@ -14,7 +14,7 @@ import { ASSETS } from '@/lib/brand'
 const CARDS = [
   {
     href: '/about',
-    image: ASSETS.team.ownerPortrait,
+    image: ASSETS.about.hero,
     title: 'Our story',
     tagline: 'A family bakery, baking for our Sugar Land neighbours.',
     cta: 'Learn more',
