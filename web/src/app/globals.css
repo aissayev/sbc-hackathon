@@ -119,19 +119,19 @@
        multiply blend would tint the cake too dark over the cream — a
        straight low-opacity filtered photo composes more cleanly. */
   .hero-photo-mask {
-    /* Bright center pulled to the very left so the cake texture peaks
-       outside the type column and fades out well before the headline.
-       The 55% transparent stop kills the photo before it reaches the
-       middle of the hero — keeps headline + body contrast clean. */
-    -webkit-mask-image: radial-gradient(ellipse 60% 95% at 14% 50%, black 14%, transparent 58%);
-    mask-image: radial-gradient(ellipse 60% 95% at 14% 50%, black 14%, transparent 58%);
+    /* Goldilocks tuning: bright center at 16% (cake reads as a real
+       photo on the left, not just wash) with a tighter 52% transparent
+       stop so the falloff happens BEFORE body-copy starts. Tested at
+       1280, 1440, and 1920 — type contrast holds at all three. */
+    -webkit-mask-image: radial-gradient(ellipse 60% 100% at 16% 50%, black 18%, transparent 52%);
+    mask-image: radial-gradient(ellipse 60% 100% at 16% 50%, black 18%, transparent 52%);
   }
   .hero-photo-tint {
-    /* Lower opacity (was 0.68 → 0.5) so the photo reads as warm wash
-       rather than competing photographic subject. Slight desaturation +
-       brightness lift keep it on-palette with the cream gradient. */
-    filter: saturate(0.82) brightness(1.05) contrast(0.93) hue-rotate(-3deg);
-    opacity: 0.58;
+    /* Modest opacity bump (0.58 → 0.65) gives the cake texture more
+       presence where the mask shows it. Tint stays close to brand
+       palette so the warm orange doesn't shout. */
+    filter: saturate(0.85) brightness(1.05) contrast(0.94) hue-rotate(-3deg);
+    opacity: 0.65;
   }
 
   /* Paper grain — fractal-noise SVG tiled and overlaid in multiply mode.
