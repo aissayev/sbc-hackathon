@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +25,7 @@ import type { Product } from '@/lib/api'
 import { fmtUsd, leadTimeLabel } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -391,10 +393,17 @@ function CakesStep({
 }) {
   return (
     <div className="mt-6 space-y-3">
+      {products.length === 0 && (
+        <div className="rounded-lg border border-berry/30 bg-berry/5 p-4 text-sm text-cocoa-900">
+          We can't reach the kitchen catalog right now. Try refreshing — or message us on{' '}
+          <Link href="/chat" className="text-sky-700 underline">chat</Link> and we'll take the
+          order by hand.
+        </div>
+      )}
       {fields.map((field, idx) => {
         const product = products.find((p) => p.id === watchItems[idx]?.product_id)
         return (
-          <div key={field.id} className="rounded-md border border-cocoa-700/15 bg-white p-4">
+          <div key={field.id} className="rounded-lg border border-cocoa-700/15 bg-white p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
               <div>
                 <Label htmlFor={`item-${idx}`}>Cake</Label>
@@ -402,19 +411,23 @@ function CakesStep({
                   control={form.control}
                   name={`items.${idx}.product_id`}
                   render={({ field }) => (
-                    <select
-                      {...field}
-                      id={`item-${idx}`}
-                      className="mt-1 flex h-11 w-full rounded-md border border-cocoa-700/20 bg-white px-3 text-sm"
-                    >
+                    <Select {...field} id={`item-${idx}`} className="mt-1">
+                      <option value="" disabled>
+                        Pick a cake from the case…
+                      </option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name} · {fmtUsd(p.price_cents)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   )}
                 />
+                {form.formState.errors.items?.[idx]?.product_id && (
+                  <p className="mt-1 text-xs text-berry">
+                    {form.formState.errors.items[idx]?.product_id?.message}
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Qty</Label>

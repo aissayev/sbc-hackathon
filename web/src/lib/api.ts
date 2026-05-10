@@ -74,42 +74,63 @@ async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> 
 }
 
 // Catalog read path:
-//   1. Try backend `/api/products`. The backend SQLite seed (data/catalog/
-//      happycake.seed.json) is now identical to lib/catalog.ts by id, so the
-//      live response is structurally compatible plus whatever `in_stock` /
-//      `daily_capacity` Square tells the kitchen.
-//   2. If the backend is offline, fall back to the local catalog so the menu
-//      still renders. Either way the typed `kind` axis comes from the local
-//      catalog — backend doesn't carry it (yet).
-// Prefer /api/catalog (the live MCP-mirrored snapshot from the backend's
-// SQLite) and fall back to /api/products if /api/catalog isn't deployed yet.
-// In both cases the website overlays the brand catalog's `kind` so menu
-// grouping (slice / whole / pastry / custom / catering) stays stable.
-async function fetchBackendProducts(): Promise<Product[] | null> {
-  const live = await safeFetch<{ products: Array<Omit<Product, 'kind'>> }>(`${BACKEND}/api/catalog`)
-  const products = live?.products?.length
-    ? live.products
-    : (await safeFetch<{ products: Array<Omit<Product, 'kind'>> }>(`${BACKEND}/api/products`))?.products
+//   The canonical menu is `lib/catalog.ts`. Backend endpoints (`/api/catalog`
+//   newer MCP-mirrored snapshot, `/api/products` legacy) are used only for
+//   *live signals* (in_stock toggling, daily_capacity) layered onto canonical
+//   items by id. Items the backend doesn't know about stay visible from the
+//   local seed; placeholder backend SKUs that don't match any local id are
+//   ignored — they're stale rows that shadowed the real catalog before this
+//   defensive layer was added. The typed `kind` axis (slice / whole /
+//   pastry / custom / catering) always comes from the local catalog.
+type LiveSignal = { in_stock?: number; daily_capacity?: number | null }
+
+async function fetchLiveSignals(): Promise<Map<string, LiveSignal> | null> {
+  // Prefer /api/catalog (newer MCP-mirrored). Fall back to /api/products if
+  // the deploy hasn't picked it up yet. Both return {products: [...]} with
+  // id/in_stock/daily_capacity.
+  const fresh = await safeFetch<{ products: Array<{ id: string } & LiveSignal> }>(
+    `${BACKEND}/api/catalog`,
+  )
+  const products = fresh?.products?.length
+    ? fresh.products
+    : (await safeFetch<{ products: Array<{ id: string } & LiveSignal> }>(`${BACKEND}/api/products`))
+        ?.products
   if (!products?.length) return null
-  return products.map((p) => {
-    const local = findCatalogProduct(p.id)
-    return { ...p, kind: local?.kind ?? 'slice' } as Product
-  })
+  const out = new Map<string, LiveSignal>()
+  for (const p of products) {
+    if (!findCatalogProduct(p.id)) continue
+    out.set(p.id, { in_stock: p.in_stock, daily_capacity: p.daily_capacity })
+  }
+  return out
 }
 
 export async function listProducts(): Promise<Product[]> {
-  const live = await fetchBackendProducts()
-  if (live) return live.filter((p) => p.in_stock)
-  return CATALOG.filter((p) => p.in_stock)
+  const live = await fetchLiveSignals()
+  return CATALOG
+    .map((p) => {
+      const sig = live?.get(p.id)
+      if (!sig) return p
+      return {
+        ...p,
+        in_stock: sig.in_stock ?? p.in_stock,
+        daily_capacity: sig.daily_capacity ?? p.daily_capacity,
+      }
+    })
+    .filter((p) => p.in_stock)
 }
 
 export async function getProduct(id: string): Promise<Product | null> {
-  const live = await safeFetch<Omit<Product, 'kind'>>(`${BACKEND}/api/products/${encodeURIComponent(id)}`)
-  if (live && live.id) {
-    const local = findCatalogProduct(id)
-    return { ...live, kind: local?.kind ?? 'slice' } as Product
+  const local = findCatalogProduct(id)
+  if (!local) return null
+  const live = await safeFetch<LiveSignal & { id?: string }>(
+    `${BACKEND}/api/products/${encodeURIComponent(id)}`,
+  )
+  if (!live) return local
+  return {
+    ...local,
+    in_stock: live.in_stock ?? local.in_stock,
+    daily_capacity: live.daily_capacity ?? local.daily_capacity,
   }
-  return findCatalogProduct(id)
 }
 
 export async function getOrder(id: string): Promise<OrderStatus | null> {

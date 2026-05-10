@@ -80,6 +80,30 @@ export async function sendTelegram(
 }
 
 /**
+ * Post a photo to Telegram by URL. Telegram fetches the URL server-side and
+ * renders the image inline. Best-effort: returns null if upload fails or
+ * the URL isn't reachable from Telegram's network.
+ */
+export async function sendTelegramPhoto(
+  token: string,
+  chatId: string | number,
+  photoUrl: string,
+  caption?: string,
+): Promise<number | null> {
+  try {
+    const res = await tgRequest<SendMessageResponse>(token, 'sendPhoto', {
+      chat_id: chatId,
+      photo: photoUrl,
+      caption,
+    })
+    return res.result?.message_id ?? null
+  } catch (err) {
+    console.warn('[telegram] sendPhoto failed:', (err as Error).message)
+    return null
+  }
+}
+
+/**
  * Edit a previously-sent message. Used to turn a "🤔 thinking..." placeholder
  * into the final reply once `claude -p` returns. No-throw on edit failure
  * (e.g. message too old) — caller falls back to sendMessage.

@@ -51,6 +51,7 @@ export const customCakeSchema = z.object({
   color_theme: z.string().optional(),
   inscription: z.string().max(50, 'Keep it short — fits the cake top').optional(),
   dietary_tags: z.array(z.string()).default([]),
+  reference_photo_urls: z.array(z.string().url()).max(5).default([]),
   scheduled_at_iso: z.string().min(1, 'When would you like it?'),
   pickup_or_delivery: z.enum(['pickup', 'delivery']),
   customer_name: z.string().min(1, 'Your name'),
@@ -81,6 +82,11 @@ export function formatCustomSpec(v: CustomCakeValues): string {
   lines.push(`Customer:   ${v.customer_name}`)
   lines.push(`Phone:      ${v.customer_phone}`)
   if (v.customer_email) lines.push(`Email:      ${v.customer_email}`)
+  if (v.reference_photo_urls && v.reference_photo_urls.length > 0) {
+    lines.push('')
+    lines.push('Reference photos:')
+    for (const url of v.reference_photo_urls) lines.push(`  ${url}`)
+  }
   if (v.notes) {
     lines.push('')
     lines.push('Customer notes:')

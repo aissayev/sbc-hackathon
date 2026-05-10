@@ -2,29 +2,27 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { Button } from '@/components/ui/button'
-import { HoursTable } from '@/components/brand/hours'
 import { HeroImage } from '@/components/brand/hero-image'
 import { BRAND, ASSETS } from '@/lib/brand'
+import { APPEARANCES } from '@/lib/press'
 import {
-  MapPin,
-  Phone,
-  Instagram,
-  Mail,
   Heart,
   Users,
   Sparkles,
   Home as HomeIcon,
+  Newspaper,
+  Youtube,
+  ArrowRight,
+  ExternalLink,
+  Plane,
 } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'About — a family-owned bakery in Sugar Land',
+  title: 'About — a family bakery from Kazakhstan, baking in Sugar Land',
   description:
-    'Happy Cake is a family-owned, family-run bakery in Sugar Land, Texas. Run by Askhat and his wife — European cake traditions, warm Kazakh hospitality, and the kind of café you stay an extra cup in.',
+    'Happy Cake is a family-owned bakery — born in Kazakhstan, baking in Sugar Land, Texas. Run by Askhat and his wife. European cake traditions, warm Kazakh hospitality, every cake hand-decorated.',
   alternates: { canonical: '/about' },
 }
-
-// Schema.org Person + LocalBusiness JSON-LD so AI agents and search treat
-// the family-owned framing as first-class data, not just marketing copy.
 
 const VALUES = [
   {
@@ -56,45 +54,27 @@ const VALUES = [
 const TIMELINE = [
   {
     year: '2018',
-    title: 'A kitchen in the family home',
+    title: 'A kitchen in Kazakhstan',
     body:
-      'Askhat and his wife start baking honey cakes for friends, neighbours, and the local diaspora. Every recipe came from the family — written by hand, tested at the dinner table.',
+      'HappyCake started in Kazakhstan as a family kitchen. Askhat and his wife bake honey cakes for friends, neighbours, and the local diaspora. Every recipe came from family — written by hand, tested at the dinner table, passed down.',
   },
   {
     year: '2022',
-    title: 'The first counter',
+    title: 'A community, then a brand',
     body:
-      'Word-of-mouth filled the calendar. Time to open a real shop. We picked Sugar Land because that\'s where our community lives — and because the community deserves a bakery that knows them.',
+      'Word-of-mouth filled the calendar. HappyCake grew across Kazakhstan as a community of families who all believed cakes belong made by hand — not on a conveyor.',
+  },
+  {
+    year: '2024',
+    title: 'First US location — Sugar Land',
+    body:
+      'We moved the family to Sugar Land and opened our first counter on Promenade Way. Same recipes from Kazakhstan, same hands behind the case. Featured by Community Impact as the first US location of a Kazakhstan-born bakery.',
   },
   {
     year: '2026',
-    title: 'A real cake shop on Promenade Way',
+    title: 'A real café for the neighbourhood',
     body:
       'A real café and counter in the heart of Sugar Land. Same family. Same recipes. Same warm welcome — now with seats, espresso, and a bigger oven.',
-  },
-]
-
-const CONTACT_CHANNELS = [
-  {
-    icon: Phone,
-    label: 'Call us',
-    detail: BRAND.phone.display,
-    href: BRAND.phone.hrefTel,
-    note: 'Fastest answer during open hours.',
-  },
-  {
-    icon: Mail,
-    label: 'Email',
-    detail: BRAND.email,
-    href: `mailto:${BRAND.email}`,
-    note: 'For B2B, press, partnerships.',
-  },
-  {
-    icon: Instagram,
-    label: 'Follow on Instagram',
-    detail: BRAND.instagramHandle,
-    href: BRAND.instagram,
-    note: 'New cakes, behind-the-scenes, daily counter shots.',
   },
 ]
 
@@ -104,13 +84,13 @@ export default function AboutPage() {
     '@type': 'LocalBusiness',
     '@id': `${BRAND.origin}/#bakery`,
     name: BRAND.legal,
-    alternateName: 'Happy Cake',
+    alternateName: 'HappyCake',
     description:
-      'A family-owned, family-run cake shop in Sugar Land, Texas — European traditions, warm Kazakh hospitality.',
+      'A family-owned, family-run cake shop — born in Kazakhstan, baking in Sugar Land, Texas. European traditions, warm Kazakh hospitality.',
     url: BRAND.origin,
     telephone: BRAND.phone.e164,
     email: BRAND.email,
-    image: `${BRAND.origin}${ASSETS.team.ownerPortrait}`,
+    image: ASSETS.hero[0],
     address: {
       '@type': 'PostalAddress',
       streetAddress: BRAND.address.line1,
@@ -125,6 +105,7 @@ export default function AboutPage() {
       jobTitle: 'Owner + Head Baker',
     },
     foundingDate: '2018',
+    foundingLocation: { '@type': 'Place', name: 'Kazakhstan' },
     areaServed: { '@type': 'Place', name: BRAND.region },
     sameAs: [BRAND.instagram, BRAND.whatsapp],
   }
@@ -138,31 +119,31 @@ export default function AboutPage() {
         <div className="container relative pt-12 md:pt-20 pb-16 grid gap-10 lg:grid-cols-12 items-center">
           <div className="lg:col-span-6">
             <span className="inline-flex items-center gap-2 rounded-full bg-sky/10 text-sky-700 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em]">
-              <HomeIcon className="h-3.5 w-3.5" /> Family-owned · Sugar Land
+              <Plane className="h-3.5 w-3.5" /> From Kazakhstan · baking in Sugar Land
             </span>
             <h1 className="display-h1 mt-5 [text-wrap:balance]">
-              A small bakery,
+              A family bakery
               <br className="hidden md:block" />
-              <span className="text-sky">run by a family</span> who cares.
+              <span className="text-sky">that crossed an ocean</span>.
             </h1>
             <p className="mt-5 text-lg text-cocoa-900/80 leading-relaxed max-w-xl">
-              Happy Cake is owned and run by Askhat and his wife — a family business in the heart
-              of Sugar Land. European cake traditions, warm Kazakh hospitality, baked fresh every
-              morning. The cake on your table tonight is the cake we'd serve at our own.
+              Happy Cake started in a family kitchen in Kazakhstan and grew into a community of
+              families baking by hand. In 2024 we opened our first US location on Promenade Way in
+              Sugar Land — same recipes, same hands behind the case.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
                 <Link href="/menu">See the menu</Link>
               </Button>
               <Button asChild size="lg" variant="outline-sky">
-                <Link href="#visit">Visit us</Link>
+                <Link href="#timeline">Our journey</Link>
               </Button>
             </div>
           </div>
           <div className="lg:col-span-6">
             <HeroImage
               src={ASSETS.team.ownerPortrait}
-              alt="Askhat, owner of Happy Cake, with his wife at a community event"
+              alt="Askhat and his wife — owners of HappyCake — at a community event in traditional Kazakh dress"
               className="aspect-[4/5]"
             />
             <p className="mt-3 text-xs text-cocoa-900/55 text-right">
@@ -173,29 +154,34 @@ export default function AboutPage() {
       </section>
 
       <section className="container mt-4 max-w-5xl">
-        <div className="rounded-2xl bg-cream-100 border border-cocoa-700/10 p-6 md:p-8 grid gap-4 md:grid-cols-3">
-          <Quick label="Founded" value="2018" />
+        <div className="rounded-2xl bg-cream-100 border border-cocoa-700/10 p-6 md:p-8 grid gap-4 md:grid-cols-4">
+          <Quick label="Born" value="Kazakhstan, 2018" />
+          <Quick label="In Sugar Land" value="Since 2024" />
           <Quick label="Owners" value="Askhat + family" />
-          <Quick label="Where" value="Sugar Land, TX" />
+          <Quick label="Where" value="Promenade Way, TX" />
         </div>
       </section>
 
       <section className="container mt-16 max-w-3xl text-cocoa-900/85 space-y-5 text-lg leading-relaxed">
         <Eyebrow>Our story</Eyebrow>
-        <h2 className="display-h2 mt-2">From the family kitchen to Promenade Way</h2>
+        <h2 className="display-h2 mt-2">From a Kazakh family kitchen to Promenade Way</h2>
         <p>
-          Happy Cake started in a family kitchen, with Askhat baking honey cakes for friends and
-          family. Every recipe was written by hand, tested at the dinner table, and refined until
-          it earned a place in our notebook.
+          Happy Cake was born from a love of bringing people together through exceptional baked
+          goods. From layered honey cakes to delicate cloud cakes, every item is crafted fresh
+          every day — the same recipes Askhat&apos;s family has perfected since 2018, written by
+          hand and tested at the dinner table.
         </p>
         <p>
-          As the calendar filled with weekend orders, it was clear the cakes belonged with more
-          neighbours than just ours. We opened a real counter in Sugar Land — close to where our
-          community lives, walks, and gathers — so we could welcome people in person.
+          We grew across Kazakhstan as a community of families who believe a truly delicious cake
+          can&apos;t be made on a conveyor — it has to be made by people who care. As word
+          travelled, our customers asked us to bring those cakes to their families abroad. So we
+          did.
         </p>
         <p>
-          We are not a chain. We are not a franchise. We are one family making cakes the way we
-          would for our own table — and serving them to yours.
+          In 2024 we opened our first US location in Sugar Land, the closest place to where our
+          community already lives, walks, and gathers. We&apos;re not a chain. We&apos;re not a
+          franchise out here. We&apos;re one family, making cakes the way we would for our own
+          table — and serving them to yours.
         </p>
       </section>
 
@@ -215,7 +201,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="container mt-20 max-w-3xl">
+      <section className="container mt-20 max-w-3xl" id="timeline">
         <Eyebrow>Timeline</Eyebrow>
         <h2 className="display-h2 mt-3">How we got here</h2>
         <ol className="mt-8 space-y-6">
@@ -238,13 +224,13 @@ export default function AboutPage() {
           <div className="text-cocoa-900/85 leading-relaxed space-y-4">
             <p>
               When you buy a cake from us, your money stays in Sugar Land. It pays our family,
-              our neighbours on the team, and the local suppliers we work with. There's no
+              our neighbours on the team, and the local suppliers we work with. There&apos;s no
               corporate parent skimming the top.
             </p>
             <p>
-              Family-owned also means accountable. If something's off about your cake, the person
-              fixing it is the same person who baked it. We don't have a "customer success" queue
-              — we just have us.
+              Family-owned also means accountable. If something&apos;s off about your cake, the
+              person fixing it is the same person who baked it. We don&apos;t have a
+              &quot;customer success&quot; queue — we just have us.
             </p>
             <p>
               Supporting local family businesses keeps neighbourhoods alive. Sugar Land has been
@@ -275,58 +261,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="container mt-20 max-w-5xl" id="visit">
-        <Eyebrow>Visit · contact · follow</Eyebrow>
-        <h2 className="display-h2 mt-3">Come say hello</h2>
-        <p className="mt-3 text-cocoa-900/70 max-w-xl">
-          The fastest way to know us is to walk in. The second-fastest is to follow along — we
-          post the day's bake, behind-the-scenes, and the occasional family moment.
-        </p>
-
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <div className="bakery-card p-7">
-            <Eyebrow decorator={false}>Hours</Eyebrow>
-            <h3 className="display-h3 mt-2 text-xl">When we're open</h3>
-            <HoursTable className="mt-4" />
-          </div>
-          <div className="bakery-card p-7">
-            <Eyebrow decorator={false}>Location</Eyebrow>
-            <h3 className="display-h3 mt-2 text-xl">Where to find us</h3>
-            <p className="mt-4 text-cocoa-900/85 leading-relaxed">
-              {BRAND.address.line1}
-              <br />
-              {BRAND.address.city}, {BRAND.address.region} {BRAND.address.postalCode}
-            </p>
-            <p className="mt-3 text-sm text-cocoa-900/65">{BRAND.address.parkingNote}</p>
-            <Button asChild variant="sky" size="sm" className="mt-5">
-              <a href={BRAND.mapsUrl} target="_blank" rel="noopener">
-                <MapPin /> Get directions
-              </a>
-            </Button>
-          </div>
-        </div>
-
-        <div className="mt-8 grid gap-5 md:grid-cols-3">
-          {CONTACT_CHANNELS.map((c) => (
-            <a
-              key={c.label}
-              href={c.href}
-              target={c.href.startsWith('http') ? '_blank' : undefined}
-              rel={c.href.startsWith('http') ? 'noopener' : undefined}
-              className="bakery-card p-6 hover:bg-cream-100 transition-colors flex items-start gap-4"
-            >
-              <div className="h-10 w-10 rounded-full bg-sky-100 text-sky inline-flex items-center justify-center shrink-0">
-                <c.icon className="h-4.5 w-4.5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.14em] text-cocoa-900/55">{c.label}</div>
-                <div className="font-medium text-cocoa-900 mt-0.5 truncate">{c.detail}</div>
-                <div className="text-xs text-cocoa-900/65 mt-1 leading-relaxed">{c.note}</div>
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
+      <PressBand />
 
       <section className="container mt-20 mb-20 max-w-5xl">
         <div className="rounded-[28px] bg-cocoa-900 text-cream p-10 md:p-14 relative overflow-hidden">
@@ -356,11 +291,79 @@ export default function AboutPage() {
   )
 }
 
+function PressBand() {
+  const featured = APPEARANCES.slice(0, 3)
+  if (featured.length === 0) return null
+  return (
+    <section className="container mt-20 max-w-5xl" aria-labelledby="press">
+      <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
+        <div>
+          <Eyebrow>We&apos;re in the media</Eyebrow>
+          <h2 id="press" className="display-h2 mt-3">Press, podcasts, and YouTube</h2>
+          <p className="mt-2 text-cocoa-900/70 max-w-xl">
+            Where Askhat&apos;s told the story of HappyCake — Sugar Land, family recipes, and a
+            kitchen that opened with one oven.
+          </p>
+        </div>
+        <Button asChild variant="outline-sky" shape="pill">
+          <Link href="/press">
+            All appearances
+            <ArrowRight />
+          </Link>
+        </Button>
+      </div>
+      <ul className="grid gap-5 md:grid-cols-3">
+        {featured.map((a) => {
+          const Icon = a.type === 'youtube' ? Youtube : Newspaper
+          const tone = a.type === 'youtube' ? 'bg-berry/10 text-berry' : 'bg-sky/10 text-sky-700'
+          const href = a.url ?? '/press'
+          const external = Boolean(a.url)
+          return (
+            <li key={a.title}>
+              <a
+                href={href}
+                target={external ? '_blank' : undefined}
+                rel={external ? 'noopener' : undefined}
+                className="group bakery-card flex flex-col h-full p-5 hover:-translate-y-0.5 transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`h-10 w-10 rounded-full inline-flex items-center justify-center shrink-0 ${tone}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-cocoa-900/55 truncate">
+                      {a.outlet}
+                    </div>
+                    <div className="text-xs text-cocoa-900/55">
+                      {new Date(a.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                </div>
+                <h3 className="display-h3 mt-4 text-lg group-hover:text-sky-700 transition-colors [text-wrap:balance]">
+                  {a.title}
+                </h3>
+                <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed line-clamp-3">
+                  {a.description}
+                </p>
+                {external && (
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs text-sky-700">
+                    Open <ExternalLink className="h-3 w-3" />
+                  </span>
+                )}
+              </a>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 function Quick({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-center md:text-left">
       <div className="text-xs uppercase tracking-[0.14em] text-cocoa-900/55">{label}</div>
-      <div className="font-display text-2xl text-cocoa-900 mt-1">{value}</div>
+      <div className="font-display text-xl md:text-2xl text-cocoa-900 mt-1 leading-tight">{value}</div>
     </div>
   )
 }
