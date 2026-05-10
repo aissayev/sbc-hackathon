@@ -38,7 +38,7 @@ Until the chosen strategy spends $50 in market every CTR / CPL / CVR figure carr
 
 The sandbox simulator returns flat ~4.20% CTR and ~$42 average order across all campaigns regardless of SKU or channel — useful as a "loop completes" check, not as a production forecast. Live performance will show variance, and the median row of the [sensitivity table](#sensitivity) is a more realistic operating expectation than the simulator output.
 
-**Subscription positioning.** The Weekly Corporate Subscription tier is a Phase-2 lever that activates only after Phase 1 (months 1–3) demonstrates catering acquisition is working. The $5,000/mo target is hit by month six on Phase 1 alone — see [Target math: with vs. without subscription](#target-math-with-vs-without-subscription).
+**Subscription positioning.** The Weekly Corporate Subscription is a **deferred month-4+ expansion bet**, not a Phase-1 commitment. It pilots only if Phase 1 cohorts produce a specific reorder cadence (≥ 8 acquired accounts with ≥ 2 hitting 3+ reorders by m3) and is **deleted entirely** if the cadence isn't there by m4. The $5,000/mo target is hit by month six on Phase 1 alone — see [Target math: with vs. without subscription](#target-math-with-vs-without-subscription) and [Subscription program](#subscription-program).
 
 The plan's value is structural: the catering strategy clears the target at the expected case, the alternatives are explicit when conditions change, and the kill criteria limit downside to $250 of pre-pivot spend.
 
@@ -106,33 +106,57 @@ Sized to fit inside the 420-minute kitchen envelope and not displace existing sl
 
 ---
 
-## Subscription program {#subscription-program}
+## Subscription program (deferred month-4+ expansion bet) {#subscription-program}
 
-The Weekly Corporate Subscription is a **deferred month-4+ expansion bet**. It activates in month four only after Phase 1 demonstrates catering acquisition is working, and the headline $5K/mo target does not depend on it.
+> **Headline math does not depend on this.** The $5,000/mo target is reached at month six on Phase 1 catering acquisition alone (`b2b-catering-offensive`). The subscription is a separate, conditional bet that activates only if Phase 1 demonstrates the right repeat behavior.
 
-### Mechanics
+### What is being proposed, exactly
 
-- **Sign-up.** Website form (`/subscribe`) or Telegram-approved owner email. Capacity check at signup: each new subscriber consumes one Office Box slot/week permanently.
-- **Billing.** Monthly recurring via Square Subscriptions. $432/mo charged on a fixed date each month.
-- **Delivery cadence.** One Office Box per week, day of customer's choosing.
-- **Lock-in.** None. Month-to-month. Cancel anytime with seven days' written notice.
+A new SKU in Square POS — `weekly-corporate-subscription` — that bundles the existing **Office Dessert Box** ($120, LIVE) into a **weekly recurring delivery at $108/wk** (10% volume discount, $432/mo per subscriber). It is **not a new product** — it is a billing wrapper around the existing Office Box. No new prep recipe, no new packaging beyond what's already used for catering. The subscription's role is to convert a customer who would otherwise place ad-hoc catering orders into a predictable weekly cadence.
+
+| Field | Value | Source |
+|---|---|---|
+| Underlying SKU | Office Dessert Box (existing) | LIVE |
+| Subscriber price | $108/week | OUR PROPOSAL ($120 × 0.9) |
+| Monthly billing | $432/mo recurring | computed |
+| Underlying margin | 56% (after 10% subscriber discount) | computed from LIVE 60% |
+| Margin per subscriber per month | ~$60 | computed |
+| Capacity consumed | 1 Office Box slot per week per subscriber | LIVE (kitchen 8/day cap) |
+
+### Pilot trigger (must all hold by end of month 3)
+
+The subscription pilot does not run unless Phase 1 produces evidence that the recurring cadence is real. Concretely:
+
+- **≥ 8 acquired catering accounts** with at least one Office Dessert Box order
+- **≥ 2 of those accounts** with **3 or more reorders** in months 1–3
+- Office Box capacity utilization below 50% (room to reserve slots)
+- Square Subscriptions configured and recurring billing tested in sandbox
+- Owner explicitly approves activation in Telegram
+
+These conditions are the difference between launching a subscription against demonstrated demand and launching against an assumption. If Phase 1 doesn't hit them, the subscription does not pilot.
+
+### Hard kill
+
+If, by end of month 4, **no acquired account has reached 3+ reorders**, retire the subscription proposal entirely. Delete the SKU from Square, remove the `/subscribe` page, archive this section. The cadence required to make subscription work is not present in the customer base.
+
+### Mechanics (only relevant if the pilot trigger fires)
+
+- **Sign-up.** Website `/subscribe` form or Telegram-approved owner email. Capacity check at signup; each new subscriber permanently consumes one Office Box slot/week.
+- **Billing.** Square Subscriptions, $432/mo charged on a fixed date each month.
+- **Delivery cadence.** One Office Box per week, day of subscriber's choosing.
+- **Lock-in.** None — month-to-month, seven days' written notice to cancel.
 - **Pause.** Up to four free pause weeks per year for customer holiday closures.
-- **Trial offer.** First month at 50% off ($216) to lower commitment friction. Full $432 cycle from month two.
-- **Tier flexibility.** Subscribers may swap weekly delivery between Sampler / Office / Big Day Box without re-signing. Box value differential billed at next cycle.
-- **Churn baseline.** 8% monthly churn modeled (industry corporate-subscription baseline 5–8%).
+- **Trial offer.** First month at 50% off ($216), full $432 from month two.
+- **Tier flexibility.** Subscribers may swap weekly between Sampler / Office / Big Day Box; value differential billed next cycle.
+- **Churn baseline.** 8% monthly churn modeled (general B2B subscription baseline 5–8%; modeled conservatively).
 
-### Activation gate
+### Upside if activated and sustained
 
-Do not enable the subscription tier until **all** conditions hold at end of month three:
+By month six and assuming the pilot trigger fired at end of month three, six active subscribers × $432/mo = **$2,592/mo of recurring revenue**, incremental on top of the $7,500/mo Phase 1 rollout. Run-rate moves from $7,500 → ~$10,000/mo without additional ad spend. **This is upside, not committed revenue.**
 
-- 25+ acquired catering accounts active across Phase 1
-- Office Box capacity utilization < 50% (room for recurring slots)
-- Square Subscriptions configured and recurring billing tested
-- Owner approves activation in Telegram
+### Where this proposal came from (transparency)
 
-### Upside if activated
-
-By month six: 6 active subscribers × $432/mo = **$2,592/mo of recurring revenue**, incremental on top of the $7,500/mo Phase 1 catering rollout. Activation moves the run-rate from $7,500 → ~$10,000/mo without additional ad spend.
+The subscription idea was generated in a Claude Code session in May 2026 (PR #57). The build-up math was internally consistent — every input (Office Box price, kitchen capacity, slice composition) traces to LIVE MCP data — but an earlier framing positioned subscription revenue as roughly 50% of the $5K target. That framing was an overreach: a deferred SKU that has not been built or validated cannot be load-bearing for the headline number. The current treatment removes that overreach. Subscription is now positioned as: "if Phase 1 cohorts demonstrate weekly cadence, we have a productized path to capture it; if they don't, we delete the proposal."
 
 ---
 
@@ -194,7 +218,7 @@ The chain — 33,000 impressions → 462 clicks → 37 leads → 9 SQLs → **5 
 | 3-yr margin/account | $2,108 | × 60% |
 | **LTV:CAC (3-yr)** | **21×** | $2,108 / $100 |
 
-> A 5:1 LTV:CAC ratio is the standard "excellent" benchmark across subscription and DTC categories. The projected 8.6:1 on year-1 alone clears that comfortably before any retention compounding is factored in.
+> A 5:1 LTV:CAC ratio is a common shorthand for healthy unit economics across DTC and B2B services. The projected 8.6:1 on year-1 margin alone — built on the LIVE 60% Office Box margin and a conservative 5.5×/yr reorder cadence — clears that bar comfortably before any year-2 retention is counted.
 
 ### Attribution model and conservative scenario
 
@@ -238,7 +262,7 @@ No live MCP data is available for competitor signals — this section is INDUSTR
 | **M1 — Test breadth** | $500 | 6 ad sets × 4 creatives = 24 ads. 33k imps · 460 clicks · 32 leads · 9 SQLs · **5 first orders / $1,200 rev** |
 | **M2 — Concentrate winners** | $500 | Pause kills, top 2 sets get 70%. Retargeting layer launches. 50 leads, 9 first + 3 reorders. **$2,400 mo / $3,600 cum** |
 | **M3 — Scale lookalikes** | $500 | 1% lookalike off purchaser list. 13 first + 8 reorders. **$4,400 mo / $8,000 cum / 5.3× cum ROAS** |
-| **M4 — Subscription gate** | $500 | If activation gate passes, soft-launch subscription tier. Catering acquisition continues. |
+| **M4 — Subscription pilot decision** | $500 | If pilot trigger passes (≥ 8 accounts, ≥ 2 with 3+ reorders by m3), soft-launch subscription tier. Otherwise hard-kill the proposal entirely. Catering acquisition continues either way. |
 | **M6 — Compounding** | $500 | Repeat-cycle is the engine. **$7,500 mo / $28,000 cum / 9.3× cum ROAS / 55 acquired / 38 active** |
 
 ### Week-by-week activity calendar (Month 1)
@@ -277,7 +301,8 @@ The plan is cash-negative for roughly the first week, breaks even mid-month-1, a
 | End M1 | 3+ first orders | Continue m2 unchanged |
 | End M1 | 5+ first orders | Ahead of plan; flag m3 budget bump option |
 | End M3 | Blended ROAS > 4× | Recommend owner approve $750/mo budget for m4 |
-| End M3 | 25+ active accounts AND owner approves Square Subscriptions setup | Soft-launch Subscription tier (Phase 2) |
+| End M3 | Pilot trigger holds (≥ 8 accounts, ≥ 2 with 3+ reorders, capacity < 50%, owner approves) | Soft-launch Subscription pilot in m4 |
+| End M4 | No acquired account has reached 3+ reorders | Hard-kill subscription proposal: delete SKU + `/subscribe` + retire section |
 | Anytime | New 1–2★ review on FOH speed | Hold Local Awareness recommendation; do not launch even if owner asks |
 
 "Blended CTR" means impression-weighted across all six ad sets, not the simple mean. Same for blended CPL.
@@ -304,16 +329,16 @@ The plan is cash-negative for roughly the first week, breaks even mid-month-1, a
 
 ## Target math: with vs. without subscription {#target-math-with-vs-without-subscription}
 
-The $5,000/mo target is reached by Phase 1 catering acquisition alone. Subscription is upside.
+The $5,000/mo target is reached by Phase 1 catering acquisition alone. The subscription pilot is upside that is conditional on the [pilot trigger](#subscription-program) firing — and explicitly **not credited to the headline math**.
 
-| Path | Phase 1 (catering only) | + Phase 2 (subscription added m4) |
+| Path | Phase 1 catering only (committed) | Phase 1 + subscription pilot (conditional, m4+) |
 |---|---|---|
-| M3 monthly revenue | $4,400 | $4,400 (sub not yet active) |
-| M6 monthly revenue | **$7,500** (clears target) | **~$10,100** (target +100%) |
+| M3 monthly revenue | $4,400 | $4,400 (subscription not yet piloted) |
+| M6 monthly revenue | **$7,500** — clears target | ~$10,100 if pilot fires and 6 subs land |
 | M6 cumulative revenue | $28,000 | ~$33,000 |
 | M6 cumulative ROAS | 9.3× | ~11× |
 
-If the Subscription tier underperforms or never activates, the plan still hits target. If it works, the plan over-delivers. The structural risk of the subscription proposal is bounded.
+If the subscription proposal is hard-killed at end of m4 (no accounts with 3+ reorders), the plan still clears the headline target. If it pilots and sustains, the plan over-delivers. The downside of the subscription proposal is bounded by the deletion path.
 
 ---
 
@@ -376,7 +401,8 @@ Four observed signals support the catering recommendation over alternatives:
 | Catering capacity becomes binding | `kitchen_get_production_summary` shows 8/8 daily slots filled | Cap budget; route overflow to next-week pickup |
 | Front-of-house speed still slow | New 1–2★ reviews mentioning wait time | Hold Local Awareness; address operations first |
 | Margin compresses below LIVE values | Office Box margin drops below 50% | Re-run year-1 economics with new inputs |
-| Subscription underperforms | Fewer than 1 active subscriber by m6 | Retire subscription tier; Phase 1 still clears target |
+| Subscription pilot trigger fails | Pilot trigger conditions not met by end of m3 (fewer than 8 accounts or fewer than 2 with 3+ reorders) | Do not pilot subscription; Phase 1 catering continues. Headline target unaffected. |
+| Subscription pilot fires but stalls | No acquired account has reached 3+ reorders by end of m4 | Hard-kill subscription proposal: delete SKU + `/subscribe` page + retire section. Phase 1 still clears target. |
 | **Form abandonment higher than 25%** | Lead-form fill rate < 6% on Meta | Reduce form fields; A/B simpler mobile-first form |
 | **Delivery-zone mismatch** | Significant lead volume from outside ZIPs 770–777 | Tighten Meta geo-fence; auto-decline out-of-zone leads in concierge agent |
 | **Seasonality drag** | Aug–Dec is the corporate-catering peak; Jan–Feb is the trough | Plan launches in May (shoulder); model 30% trough-month dip in m9–m10 if running long |
@@ -401,7 +427,7 @@ Four observed signals support the catering recommendation over alternatives:
 - **"Blended CTR" / "blended CPL"** are impression-weighted across all six ad sets, not simple means.
 - **If proposed SKUs are not yet in Square at launch time:** block the launch with a clear error referencing the [Implementation prerequisite](#proposed-new-skus-our-proposal). Do not silently proceed without them; the campaign creative depends on them.
 - **Auto-adjust scope:** ad-set-level kill on threshold breach is automatic. Strategy-level pivot (switching from Catering to B2C Anchor) requires owner approval through Telegram.
-- **Subscription activation gate:** the agent reads three conditions (25+ active accounts, capacity < 50%, owner-approved billing setup) and blocks subscription tier creation until all three pass.
+- **Subscription pilot trigger / hard kill:** the agent enforces both gates without prompting the owner. **Pilot trigger** (m3): block subscription pilot creation until ≥ 8 acquired catering accounts exist, ≥ 2 of those have placed 3+ reorders, Office Box capacity < 50%, and Square Subscriptions is configured. **Hard kill** (m4): if no acquired account has reached 3+ reorders by end of m4, automatically retire the subscription proposal — delete the SKU stub, remove `/subscribe`, file an `escalate_to_owner` note for confirmation.
 
 ---
 

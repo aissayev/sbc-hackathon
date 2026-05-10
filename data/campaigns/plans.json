@@ -112,23 +112,38 @@
       {
         "id": "weekly-corporate-subscription-NEW",
         "name": "Weekly Corporate Subscription (deferred — month-4+ expansion bet)",
-        "newOrExisting": "NEW — deferred month-4+ expansion bet. Activates only after activation gate passes (m4+). The $5K/mo target is reached on Phase 1 catering acquisition alone; subscription is upside, not load-bearing.",
+        "newOrExisting": "NEW — deferred month-4+ expansion bet. The proposal is a billing wrapper around the existing Office Box (LIVE), not a new product. Pilots only if Phase 1 cohorts demonstrate weekly reorder cadence; hard-killed otherwise. The $5K/mo target is reached on Phase 1 catering acquisition alone — subscription is conditional upside, NOT credited to the headline math.",
         "deferred": true,
+        "originNote": "Idea generated in a Claude Code session, May 2026 (PR #57). Build-up math is internally consistent (every input traces to LIVE MCP data) but the earlier 'subscription = ~50% of $5K target' framing was an overreach. Current treatment removes that overreach.",
+        "underlyingExistingSku": "office-dessert-box",
         "priceUsd": 108,
-        "buildup": "Office Box ($120) × 0.9 (subscription discount) = $108/wk = $432/mo recurring",
+        "buildup": "Office Box ($120) × 0.9 (subscription discount) = $108/wk = $432/mo recurring. Bundles the existing Office Box; no new prep recipe or packaging.",
         "marginPctTarget": 56,
         "marginUsd": 60.48,
-        "campaignRole": "Deferred upside — moves m6 run-rate from $7,500/mo (Phase 1 alone) to ~$10,100/mo if activated. Not credited to headline $500 → $5,000 math.",
+        "marginPerSubscriberPerMonthUsd": 60,
+        "campaignRole": "Conditional upside — IF the pilot trigger fires AND 6 subscribers land by m6, run-rate moves from $7,500/mo (Phase 1 alone) to ~$10,100/mo. Not committed; not credited to the headline $5K math.",
         "capacityHint": "Each subscriber consumes 1 Office Box slot/week — caps at ~6 active subscribers (8 slots/day × 5 days / 4 weeks per slot ≈ 10 max with buffer for one-off catering)",
         "phase": 2,
-        "activationGate": {
-          "_note": "All conditions must hold at end of month 3 before subscription tier activates.",
-          "minAcquiredCateringAccounts": 25,
+        "pilotTrigger": {
+          "_note": "All conditions must hold at end of month 3 before the subscription pilot launches in m4. The trigger replaces the earlier softer 'activation gate' that did not require demonstrated reorder behavior.",
+          "minAcquiredCateringAccounts": 8,
+          "minAccountsWith3PlusReorders": 2,
           "officeBoxCapacityUtilizationMaxPct": 50,
           "squareSubscriptionsConfigured": true,
           "ownerApprovalInTelegram": true
         },
+        "hardKill": {
+          "_note": "If by end of month 4 no acquired account has reached 3+ reorders, the proposal is retired entirely — SKU deleted from Square, /subscribe page removed, this section archived. The recurring cadence required for subscription to work is not present in the customer base.",
+          "trigger": "End of month 4 with zero acquired accounts at 3+ reorders",
+          "actions": [
+            "Delete weekly-corporate-subscription SKU from Square POS",
+            "Remove /subscribe page from website",
+            "Archive Subscription program section in HYPOTHESIS.md",
+            "File escalate_to_owner note for confirmation"
+          ]
+        },
         "mechanics": {
+          "_note": "Only relevant if pilotTrigger fires. Otherwise the entire mechanics block is moot.",
           "signup": "Website /subscribe form OR owner-approved email. Capacity check at signup.",
           "billing": "Square Subscriptions, $432/mo charged on fixed date.",
           "deliveryCadence": "1× Office Box/week, day of customer's choosing.",
@@ -137,7 +152,7 @@
           "trial": "First month at 50% off ($216) to lower friction. Full $432/cycle from m2.",
           "tierFlexibility": "Subscribers may swap weekly delivery between Sampler / Office / Big Day Box without re-signing; box-value differential billed at next cycle.",
           "churnBaselineMonthlyPct": 8,
-          "churnSourceNote": "INDUSTRY: B2B subscription churn baseline 5–8%; we model 8% conservatively."
+          "churnSourceNote": "INDUSTRY shorthand: general B2B subscription churn 5–8%; modeled at 8% conservatively. Not specific-to-corporate-catering since no public benchmark exists."
         }
       }
     ]
