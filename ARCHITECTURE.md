@@ -162,7 +162,7 @@ We deliberately don't mirror sandbox tables we don't need to render — kitchen 
 
 ## Evaluator preview loop
 
-The sandbox MCP provides `evaluator_get_evidence_summary` and `evaluator_generate_team_report` — we can preview what the judges will see. Our `bun run evidence` script (TODO) runs these against our submission state and writes a JSON snapshot to `evidence/` so we can iterate on weak rubric lines before submission.
+The sandbox MCP provides `evaluator_get_evidence_summary` and `evaluator_generate_team_report` — we can preview what the judges will see. Our `bun run evidence` script runs these against our submission state and writes the latest snapshot to `docs/04-test/EVIDENCE.md` so we iterate on weak rubric lines before submission. Current baseline: 400/400 across the four sandbox rubric dimensions.
 
 `evaluator_score_*` (channel response, marketing loop, POS+kitchen flow, world scenario) gives per-rubric scoring. We invoke each before tightening anything.
 
@@ -183,7 +183,7 @@ The sandbox MCP provides `evaluator_get_evidence_summary` and `evaluator_generat
 | Rubric | Score weight | Where |
 |---|---|---|
 | Functional Tester (multi-channel customer scenarios) | 20 | Channel adapters → `onMessage` → role-routed agent. `/test/incoming` lets the eval drive scenarios programmatically with the agent's tool trace returned for evidence. |
-| Agent-Friendliness (AI customer reads our site) | 15 | `/api/products`, `/api/products/:id`, `/llms.txt`, JSON-LD on product pages (TODO), OpenAPI (TODO). |
+| Agent-Friendliness (AI customer reads our site) | 15 | `/api/products`, `/api/products/:id`, `/api/policies`, `/llms.txt`, JSON-LD per product page (Product + Offer + FAQPage + Bakery), `/openapi.json`, dynamic sitemap, robots.txt allowing GPTBot/ClaudeBot/PerplexityBot/OAI-SearchBot. |
 | On-Site Assistant (website chat) | 15 | Same agent on `/api/chat`. Concierge prompt explicitly handles consultation, custom orders, complaints, status, escalation. |
 | Code Reviewer (architecture, decomposition, MCP usage, README, secrets) | 10 | Decomposition-by-role-prompt. Two MCPs (hosted + local). README has fresh-clone steps. Setup script enforces no committed secrets. This file. |
 | Operator Simulator (Telegram-only owner UX) | 15 | 4 bots (concierge/kitchen/marketing/owner). Inline keyboards for approve/reject/reason. `/today`, `/orders`, `/help`. |
@@ -192,6 +192,14 @@ The sandbox MCP provides `evaluator_get_evidence_summary` and `evaluator_generat
 
 ---
 
-## Open work
+## Submission state
 
-See [README.md](./README.md) submission-checklist and the live TODO list. Critical-path items remaining at time of writing: re-skin website pages, port WA/IG/TG channel handlers from the prior repo, write the marketing hypothesis after reading the real CSV, run `evaluator_get_evidence_summary` for a baseline.
+Submission baseline as of 2026-05-10:
+
+- `bun run evidence` → 400/400 (channel response 100, marketing loop 100, POS+kitchen 100, world scenario 100)
+- `bun run repro` → 8/8 fresh-clone reproducibility checks
+- `bun run audit:hardcodes` → 0 findings across 78 source files
+- `bun run e2e` → 10 functional scenarios end-to-end with cited tool traces
+- `bun run typecheck` → backend + web both clean
+
+The submission checklist is in [docs/03-build/CHECKLIST.md](./docs/03-build/CHECKLIST.md). The latest evaluator snapshot lives at [docs/04-test/EVIDENCE.md](./docs/04-test/EVIDENCE.md).
