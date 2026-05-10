@@ -1,5 +1,5 @@
 {
-  "_note": "Source of truth for the marketing strategy. $500/mo deploys to ONE strategy at a time — no splitting. Each strategy includes month 1/2/3/6 rollout and CAC/LTV math. Owner picks ONE in Telegram /campaigns. Organic always runs alongside.",
+  "_note": "Source of truth for the marketing strategy. The full $500/mo concentrates on a single strategy at a time — concurrent splits across channels yield sub-learning-threshold spend per channel. Each strategy carries a month-1/2/3/6 rollout and explicit CAC/LTV economics. Selection happens through Telegram /campaigns; organic content runs alongside the chosen paid strategy.",
   "version": 5,
   "lastReviewed": "2026-05-10",
   "dataSources": {
@@ -32,7 +32,7 @@
     "rationale": "Highest first-order value ($240) × highest repeat cadence (catering corporate accounts) × validated by real customer (review rev_004 — already a repeat office-birthday client). At $500 against a 10× ROAS target the only unit economics that close are B2B catering."
   },
   "existingCatalogSnapshot": {
-    "_note": "These 5 SKUs are what the sandbox `marketing_get_margin_by_product` and `kitchen_get_menu_constraints` model. The website seed file has 5 additional SKUs (cloud-cake-slice, tiramisu-slice, chak-chak, truffle-bites, morning-pastry-mix) that render on /menu but aren't scored by the simulator. Source: live MCP, pulled 2026-05-09.",
+    "_note": "Live snapshot of the SKUs scored by the sandbox simulator (`marketing_get_margin_by_product` and `kitchen_get_menu_constraints`). The website seed file includes five additional items (cloud-cake-slice, tiramisu-slice, chak-chak, truffle-bites, morning-pastry-mix) that render on /menu but are not scored. Pulled 2026-05-09.",
     "skus": [
       { "id": "honey-cake-slice", "priceUsd": 8.50, "marginPct": 68, "marginUsd": 5.78, "prepMinutes": 3, "capacityPerDay": 80, "dailyMarginCeilingUsd": 462, "minPerMarginDollar": 0.52, "category": "slice" },
       { "id": "whole-honey-cake", "priceUsd": 55, "marginPct": 62, "marginUsd": 34.10, "prepMinutes": 25, "capacityPerDay": 12, "dailyMarginCeilingUsd": 409, "minPerMarginDollar": 0.73, "category": "whole" },
@@ -43,8 +43,8 @@
     "kitchenDailyBudgetMinutes": 420
   },
   "suggestedNewSkus": {
-    "_note": "These are NOT in HappyCake's live catalog. They are OUR proposal — a tiered ladder built on top of existing SKUs to give the B2B campaign an entry / core / upsell offer structure. Each price is a build-up from existing SKU costs (margin% conservatively held flat to existing-SKU level). Owner approves before adding to Square.",
-    "rationale": "A single $120 entry point is a high commitment for a first-time B2B buyer. Adding a $48 sampler reduces trial friction; adding a $185 premium tier gives upsell room; the hotel and subscription variants serve specific ICPs.",
+    "_note": "Proposed new SKUs. Not in HappyCake's live catalog yet — these are recommended for creation in Square POS prior to campaign launch. Each is composed from existing inventory items, with margin held conservatively flat to existing-SKU levels.",
+    "rationale": "A single $120 entry point is a high commitment for a first-time B2B buyer. The $48 Sampler reduces trial friction; the $185 Big Day Box opens upsell room for larger events; the Hotel and Subscription variants serve ICP-specific demand the existing catalog does not address.",
     "skus": [
       {
         "id": "sampler-box-NEW",
