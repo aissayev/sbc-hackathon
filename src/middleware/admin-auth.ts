@@ -1,5 +1,4 @@
-// Authentication for /api/admin/* — closes the open-access caveat once the
-// owner has either deployment in place. Two trust paths:
+// Authentication for /api/admin/* — three trust paths:
 //
 //   1. Server-to-server (Next.js SSR → Hono backend): a shared secret in the
 //      `X-Backend-Secret` header. Used by web/src/lib/api.ts for SSR reads of
@@ -11,18 +10,27 @@
 //      token. Optional whitelist gate via TG_OWNER_CHAT_IDS — if any chat ids
 //      are configured, only those Telegram users authenticate.
 //
-// Open mode (hackathon default): if neither WEB_BACKEND_SECRET nor
-// TG_OWNER_BOT_TOKEN is set, the middleware passes through. The boot warning
-// in src/server.ts surfaces this so it can't ship to production by accident.
+//   3. Browser session cookie (`hc_owner_session`): set after a successful
+//      POST /api/auth/login or /api/auth/setup. HMAC-SHA256 signed with the
+//      session_secret persisted in the auth_settings table. Cleared on
+//      logout. See src/domain/auth.ts.
+//
+// Open mode (hackathon default): if NONE of WEB_BACKEND_SECRET,
+// TG_OWNER_BOT_TOKEN, or an owner password are set, the middleware passes
+// through. The boot warning in src/server.ts surfaces this so it can't
+// ship to production by accident.
 
 import type { Context, Next } from 'hono'
+import { getCookie } from 'hono/cookie'
 import { config } from '../config.ts'
 import { verifyTelegramInitData, type TelegramInitDataUser } from '../lib/telegram-initdata.ts'
+import { isOwnerPasswordSet, verifySession, SESSION_COOKIE } from '../domain/auth.ts'
 
 export type AdminActor =
   | { kind: 'open' }
   | { kind: 'server' }
   | { kind: 'tg'; user?: TelegramInitDataUser }
+  | { kind: 'session' }
 
 // Log the "open admin" warning at most once per process. Same pattern as the
 // webhook handler's "no app secret" warning — visible in logs, not noisy.
@@ -38,7 +46,8 @@ function warnOpenMode() {
 export async function adminAuth(c: Context, next: Next) {
   const backendSecret = config.web.backendSecret
   const ownerToken = config.telegram.owner.token
-  const requiresAuth = Boolean(backendSecret) || Boolean(ownerToken)
+  const passwordSet = isOwnerPasswordSet()
+  const requiresAuth = Boolean(backendSecret) || Boolean(ownerToken) || passwordSet
 
   if (!requiresAuth) {
     warnOpenMode()
@@ -74,6 +83,22 @@ export async function adminAuth(c: Context, next: Next) {
       // Bad signature / expired init-data — surface the reason in logs once
       // per actor for debug visibility, but return a generic 401 to callers.
       console.warn(`[admin] init-data rejected: ${v.reason}`)
+    }
+  }
+
+  // Path 3: browser session cookie (hc_owner_session). Only consulted when
+  // a password has actually been set — otherwise the cookie can't possibly
+  // be valid (the session_secret is rotated on reset).
+  if (passwordSet) {
+    const token = getCookie(c, SESSION_COOKIE)
+    if (token) {
+      const v = await verifySession(token)
+      if (v.ok) {
+        c.set('admin', { kind: 'session' } satisfies AdminActor)
+        return next()
+      }
+      // Don't log every bad session — they're noisy when a logged-out
+      // browser has stale state. Just fall through to 401.
     }
   }
 

@@ -17,6 +17,7 @@ import { createWebhookRoutes } from './routes/webhooks.ts'
 import { catalogRoutes } from './routes/catalog.ts'
 import { orderRoutes } from './routes/orders.ts'
 import { adminRoutes } from './routes/admin.ts'
+import { authRoutes } from './routes/auth.ts'
 import { leadRoutes } from './routes/leads.ts'
 import { uploadRoutes } from './routes/uploads.ts'
 import { metaRoutes } from './routes/meta.ts'
@@ -148,6 +149,7 @@ app.route('/', orderRoutes)
 app.route('/', leadRoutes)
 app.route('/', uploadRoutes)
 app.route('/', adminRoutes)
+app.route('/', authRoutes)
 app.route('/', createWebhookRoutes(onMessage))
 app.route('/', createTestRoutes(onMessage))
 

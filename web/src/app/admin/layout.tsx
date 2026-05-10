@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { AdminNav } from '@/components/admin/admin-nav'
 import { TgAppProvider } from '@/components/admin/tg-app-provider'
 import { Eyebrow } from '@/components/brand/eyebrow'
@@ -8,13 +9,31 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-// Layout is mobile-first now: this page is the canonical owner cockpit
-// inside a Telegram Mini App on a phone, with desktop-browser use as the
-// secondary case. Tight padding by default, expands on `md+`. The intro
-// paragraph is hidden on small screens (the title + nav speak for
-// themselves; the explainer is only useful on a wide screen where it
-// fits comfortably).
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+// Auth pages (login + setup) need to render WITHOUT the cockpit chrome
+// — they're standalone screens. We can't use a Next route group to bail
+// out of this layout because route groups only ADD wrappers, they don't
+// escape. Instead, our /admin/* middleware (web/middleware.ts) sets
+// x-pathname on the request; we read it here and skip the chrome on
+// auth paths. Mini App and authed-cockpit paths get the full chrome.
+const AUTH_PATHS = new Set(['/admin/login', '/admin/setup'])
+
+// Layout is mobile-first: this page is the canonical owner cockpit
+// inside a Telegram Mini App on a phone, with desktop-browser use as
+// the secondary case. Tight padding by default, expands on `md+`. The
+// intro paragraph is hidden on small screens.
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const h = await headers()
+  const pathname = h.get('x-pathname') ?? ''
+  const isAuthPage = AUTH_PATHS.has(pathname)
+
+  if (isAuthPage) {
+    // Standalone screens — no admin chrome, just the page itself.
+    // TgAppProvider still wraps so initData-launched browsers don't
+    // accidentally bypass, though in practice these routes are skipped
+    // by the middleware Mini App check anyway.
+    return <TgAppProvider>{children}</TgAppProvider>
+  }
+
   return (
     <TgAppProvider>
       <div>

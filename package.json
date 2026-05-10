@@ -31,6 +31,7 @@
     "register-webhooks": "bun src/scripts/register-webhooks.ts",
     "tg:menu": "bun src/scripts/tg-menu.ts",
     "tg:menu:status": "bun src/scripts/tg-menu-status.ts",
+    "auth:reset": "bun src/scripts/auth-reset.ts",
     "webhooks:status": "bun src/scripts/webhooks-status.ts",
     "world:tick": "bun src/scripts/world-tick.ts",
     "evidence": "bun src/scripts/evidence.ts",
