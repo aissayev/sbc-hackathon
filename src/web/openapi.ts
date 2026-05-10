@@ -58,6 +58,7 @@ export function openApiSpec(): object {
                     pickup_or_delivery: { type: 'string', enum: ['pickup', 'delivery'] },
                     notes: { type: 'string' },
                     channel: { type: 'string', enum: ['web', 'whatsapp', 'instagram', 'telegram'] },
+                    referral_source: { type: 'string', maxLength: 64, description: 'Optional `?ref=<token>` attribution (e.g. `ig`, `gbp`, `email-2026-05`). Lowercased + capped at 64 chars.' },
                   },
                 },
               },

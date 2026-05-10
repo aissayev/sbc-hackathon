@@ -265,6 +265,11 @@ export function OrderForm({ products }: { products: Product[] }) {
         : null
     const composedNotes = [addressLine, values.notes?.trim() || null].filter(Boolean).join('\n')
 
+    // Pull captured `?ref=` (sessionStorage, set by ReferralCapture in
+    // providers.tsx). Lazy-import keeps SSR clean.
+    const { getReferral } = await import('@/lib/referral')
+    const referral_source = getReferral() ?? undefined
+
     const payload = {
       thread_id: threadId,
       channel: 'web' as const,
@@ -274,6 +279,7 @@ export function OrderForm({ products }: { products: Product[] }) {
       scheduled_at_iso: new Date(values.scheduled_at_iso).toISOString(),
       pickup_or_delivery: values.pickup_or_delivery,
       notes: composedNotes || undefined,
+      referral_source,
     }
 
     const result = await postJson<DraftOrderResponse>('/api/orders/draft', payload)

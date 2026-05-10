@@ -6,6 +6,9 @@ import type { BotReply } from './commands.ts'
 import type { IncomingMessage } from '../../channels/types.ts'
 import { shortId } from './format.ts'
 import { scoreReply } from './score.ts'
+import { referralSummary } from '../../domain/tools.ts'
+
+const fmtUsd = (cents: number): string => `$${(cents / 100).toFixed(2)}`
 
 interface ThreadRow { threadId?: string; id?: string; from?: string; customerHandle?: string; customer_handle?: string; lastMessage?: string; last_message?: string }
 interface ReviewRow { id?: string; reviewId?: string; rating?: number; stars?: number; text?: string; body?: string; authorName?: string; author?: string; hasReply?: boolean; replied?: boolean }
@@ -74,8 +77,34 @@ async function spendReply(): Promise<BotReply> {
   const cumSpend = all.reduce((acc, c) => acc + (c.spendUsd ?? c.spend_usd ?? 0), 0)
   const remaining = Math.max(0, monthly - cumSpend)
   const cumLeads = all.reduce((acc, c) => acc + (c.leads ?? 0), 0)
+
+  // Referral attribution from local DB. Shows where MTD orders actually came
+  // from \u2014 the cheapest closed-loop signal on whether the campaigns are
+  // landing customers, not just impressions.
+  const refs = referralSummary({ limit: 5 })
+  const refLines: string[] = []
+  if (refs.attributed_orders > 0) {
+    refLines.push('', 'By referral source (MTD):')
+    for (const r of refs.rows) {
+      refLines.push(`  ${r.source.padEnd(16)} ${r.orders}\u00d7 ${fmtUsd(r.revenue_cents)}`)
+    }
+    const attribPct = refs.total_orders > 0 ? Math.round((refs.attributed_orders / refs.total_orders) * 100) : 0
+    refLines.push(`  attributed: ${refs.attributed_orders}/${refs.total_orders} orders (${attribPct}%)`)
+  } else if (refs.total_orders > 0) {
+    refLines.push('', `No \`?ref=\` attribution yet \u2014 ${refs.total_orders} MTD orders all direct.`)
+    refLines.push('Tag campaign URLs with `?ref=ig` / `?ref=gbp` etc. to track.')
+  }
+
   return {
-    text: ['Marketing \u2014 month to date', '', `Budget:    $${monthly} target $${target} effect`, `Spent:     $${cumSpend.toFixed(2)}`, `Remaining: $${remaining.toFixed(2)}`, `Leads:     ${cumLeads}`].join('\n'),
+    text: [
+      'Marketing \u2014 month to date',
+      '',
+      `Budget:    $${monthly} target $${target} effect`,
+      `Spent:     $${cumSpend.toFixed(2)}`,
+      `Remaining: $${remaining.toFixed(2)}`,
+      `Leads:     ${cumLeads}`,
+      ...refLines,
+    ].join('\n'),
     keyboard: [[{ text: '\ud83d\udce3 Campaigns', data: '/campaigns' }]],
   }
 }

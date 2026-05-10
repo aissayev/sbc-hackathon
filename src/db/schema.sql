@@ -59,12 +59,18 @@ CREATE TABLE IF NOT EXISTS orders (
   square_order_id TEXT,
   -- Kitchen MCP ticket link if synced
   kitchen_ticket_id TEXT,
+  -- Attribution tag from a `?ref=<token>` query param. Lets the owner answer
+  -- "where did this customer come from" without bolting on a real analytics
+  -- pipeline. Token is whatever the campaign URL set — usually a short slug
+  -- like `ig`, `gbp`, `email-2026-05`, or a partner code. NULL = direct.
+  referral_source TEXT,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_thread ON orders(thread_id);
+CREATE INDEX IF NOT EXISTS idx_orders_referral ON orders(referral_source);
 
 CREATE TABLE IF NOT EXISTS escalations (
   id          TEXT PRIMARY KEY,
