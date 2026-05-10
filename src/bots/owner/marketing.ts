@@ -18,6 +18,7 @@ import { tryCallSandboxTool } from '../../lib/sandbox-mcp.ts'
 import type { BotReply } from './commands.ts'
 import type { IncomingMessage } from '../../channels/types.ts'
 import { shortId, stars, truncate } from './format.ts'
+import { scoreReply } from './score.ts'
 
 interface ThreadRow {
   threadId?: string; id?: string; from?: string
@@ -168,6 +169,7 @@ export async function handleOwnerAsyncCommand(msg: IncomingMessage): Promise<Bot
     case '/campaigns': return await campaignsReply()
     case '/spend': return await spendReply()
     case '/gb': return await gbReply()
+    case '/score': return await scoreReply()
     default: return null
   }
 }
