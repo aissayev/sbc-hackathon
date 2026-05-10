@@ -170,6 +170,18 @@ export function OrderForm({ products }: { products: Product[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const seededProduct = searchParams.get('product') ?? products[0]?.id ?? ''
+  const seededMode = (searchParams.get('mode') === 'delivery' ? 'delivery' : 'pickup') as
+    | 'pickup'
+    | 'delivery'
+  // The hero quick-form posts an ISO string; honour it if the timestamp is
+  // still in the future (an hour-old link shouldn't reseed a past date).
+  const seededWhen = (() => {
+    const raw = searchParams.get('when')
+    if (!raw) return defaultPickupTime()
+    const t = Date.parse(raw)
+    if (Number.isNaN(t) || t < Date.now() + 30 * 60 * 1000) return defaultPickupTime()
+    return toLocalDatetimeValue(new Date(t))
+  })()
   const threadId = useWebThreadId()
   const [stepIdx, setStepIdx] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
@@ -186,8 +198,8 @@ export function OrderForm({ products }: { products: Product[] }) {
     mode: 'onTouched',
     defaultValues: {
       items: [{ product_id: seededProduct, quantity: 1 }],
-      scheduled_at_iso: defaultPickupTime(),
-      pickup_or_delivery: 'pickup',
+      scheduled_at_iso: seededWhen,
+      pickup_or_delivery: seededMode,
       customer_name: '',
       customer_phone: '',
       notes: '',
