@@ -30,7 +30,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = React.useState(makeClient)
   return (
     <QueryClientProvider client={client}>
-      <ReferralCapture />
+      {/* Suspense isolates ReferralCapture's useSearchParams from the rest
+          of the tree. Without it, every page that statically prerenders
+          fails with "useSearchParams() should be wrapped in a suspense
+          boundary" (Next 15 CSR-bailout). */}
+      <React.Suspense fallback={null}>
+        <ReferralCapture />
+      </React.Suspense>
       {children}
     </QueryClientProvider>
   )

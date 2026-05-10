@@ -9,6 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { HoursTable, isOpenNow } from '@/components/brand/hours'
 import { QuickOrderForm } from '@/components/order/quick-order-form'
+import { HeroDecor } from '@/components/sections/hero-decor'
+import { PlaceToGather } from '@/components/sections/place-to-gather'
+import { Testimonials } from '@/components/sections/testimonials'
+import { NewsletterBand } from '@/components/sections/newsletter-band'
+import { VisitBand } from '@/components/sections/visit-band'
+import { ThreeWaysBand } from '@/components/sections/three-ways-band'
 import {
   ArrowRight,
   Sparkles,
@@ -116,11 +122,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <DietaryAndCustomBand />
+      <ThreeWaysBand />
+      <PlaceToGather />
+      <Testimonials />
       <Manifesto />
       <StoriesBand />
-      <VisitSection />
+      <VisitBand />
       <BusinessBand />
+      <NewsletterBand />
       <ClosingCta />
     </>
   )
@@ -142,6 +151,10 @@ function Hero({
       <div className="absolute inset-0 home-hero-grid pointer-events-none opacity-70" aria-hidden />
       <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky/15 blur-3xl pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -left-32 h-[28rem] w-[28rem] rounded-full bg-berry/10 blur-3xl pointer-events-none" aria-hidden />
+      {/* Friendly cake-themed line-art that floats behind the copy. Subtle on
+          purpose — sits at low opacity so it reads as wallpaper rather than
+          decoration. Hidden on small viewports. */}
+      <HeroDecor />
 
       <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
         <div className="lg:col-span-7">
@@ -227,64 +240,6 @@ function Pillars() {
   )
 }
 
-function DietaryAndCustomBand() {
-  return (
-    <section className="container mt-20" aria-labelledby="dietary-and-custom">
-      <h2 id="dietary-and-custom" className="sr-only">
-        Dietary guide and custom cakes
-      </h2>
-      <div className="grid gap-5 md:grid-cols-2">
-        <Link
-          href="/dietary"
-          className="group relative overflow-hidden rounded-2xl bg-sage/15 border border-sage/30 p-6 md:p-8 hover:-translate-y-0.5 transition-transform"
-        >
-          <div className="flex items-start gap-4">
-            <span className="h-11 w-11 rounded-full bg-sage/30 inline-flex items-center justify-center shrink-0">
-              <Leaf className="h-5 w-5 text-emerald-700" />
-            </span>
-            <div className="min-w-0">
-              <Eyebrow>Dietary guide</Eyebrow>
-              <h3 className="display-h3 mt-2 group-hover:text-emerald-700 transition-colors">
-                Gluten, nuts, dairy, vegan, halal — what we can and can&apos;t do
-              </h3>
-              <p className="mt-2 text-sm text-cocoa-900/75 leading-relaxed">
-                Plain-English answers from a small kitchen with shared benches. Read this before
-                ordering for someone with an allergy.
-              </p>
-              <span className="mt-3 inline-flex items-center text-sm text-emerald-700">
-                Read the guide <ArrowRight className="ml-1 h-4 w-4" />
-              </span>
-            </div>
-          </div>
-        </Link>
-        <Link
-          href="/order/custom"
-          className="group relative overflow-hidden rounded-2xl bg-sky/10 border border-sky/30 p-6 md:p-8 hover:-translate-y-0.5 transition-transform"
-        >
-          <div className="flex items-start gap-4">
-            <span className="h-11 w-11 rounded-full bg-sky/25 inline-flex items-center justify-center shrink-0">
-              <Sparkles className="h-5 w-5 text-sky-700" />
-            </span>
-            <div className="min-w-0">
-              <Eyebrow>Custom cake</Eyebrow>
-              <h3 className="display-h3 mt-2 group-hover:text-sky-700 transition-colors">
-                Birthdays, anniversaries — designed with you in five steps
-              </h3>
-              <p className="mt-2 text-sm text-cocoa-900/75 leading-relaxed">
-                Flavors, fillings, message, photo or fondant. 24 hours notice (36 for vegan or
-                gluten-free). Askhat quotes by phone.
-              </p>
-              <span className="mt-3 inline-flex items-center text-sm text-sky-700">
-                Start the design <ArrowRight className="ml-1 h-4 w-4" />
-              </span>
-            </div>
-          </div>
-        </Link>
-      </div>
-    </section>
-  )
-}
-
 function StoriesBand() {
   const featured = BLOG_POSTS.slice(0, 3)
   return (
@@ -364,62 +319,6 @@ function Manifesto() {
               Read our story →
             </Link>
           </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function VisitSection() {
-  return (
-    <section className="container mt-24" id="visit">
-      <div className="text-center max-w-2xl mx-auto">
-        <Eyebrow>When + where</Eyebrow>
-        <h2 className="display-h2 mt-3">Come see us</h2>
-      </div>
-      {/* Real interior shot anchors the section so "come see us" reads as an
-          invitation to a real room, not a postcode. */}
-      <div className="mt-8 relative overflow-hidden rounded-[28px] aspect-[21/9] bg-cream-100">
-        <Image
-          src={ASSETS.store.signOverTable}
-          alt="Inside Happy Cake on Promenade Way — the long blue-chair table under our neon sign"
-          fill
-          sizes="(min-width: 1024px) 1024px, 100vw"
-          className="object-cover"
-        />
-      </div>
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <div className="bakery-card p-7">
-          <Eyebrow decorator={false}>Hours</Eyebrow>
-          <h3 className="display-h3 mt-2 text-xl">When to visit</h3>
-          <HoursTable className="mt-4" />
-        </div>
-        <div className="bakery-card p-7">
-          <Eyebrow decorator={false}>Location</Eyebrow>
-          <h3 className="display-h3 mt-2 text-xl">Where to find us</h3>
-          <p className="mt-4 text-cocoa-900/85 leading-relaxed">
-            {BRAND.address.line1}
-            <br />
-            {BRAND.address.city}, {BRAND.address.region} {BRAND.address.postalCode}
-          </p>
-          <p className="mt-3 text-sm text-cocoa-900/65 leading-relaxed">{BRAND.address.parkingNote}</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button asChild variant="sky" size="sm">
-              <a href={BRAND.mapsUrl} target="_blank" rel="noopener">
-                <MapPin /> Get directions
-              </a>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <a href={BRAND.phone.hrefTel}>
-                <Phone /> {BRAND.phone.display}
-              </a>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <a href={BRAND.instagram} target="_blank" rel="noopener">
-                <Instagram /> {BRAND.instagramHandle}
-              </a>
-            </Button>
-          </div>
         </div>
       </div>
     </section>
