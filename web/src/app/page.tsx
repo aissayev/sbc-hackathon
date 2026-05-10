@@ -7,7 +7,6 @@ import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
 import { Button } from '@/components/ui/button'
 import { QuickOrderForm } from '@/components/order/quick-order-form'
-import { HeroDecor } from '@/components/sections/hero-decor'
 import { EditorialTriptych } from '@/components/sections/editorial-triptych'
 import { PlaceToGather } from '@/components/sections/place-to-gather'
 import { Testimonials } from '@/components/sections/testimonials'
@@ -15,7 +14,7 @@ import { NewsletterBand } from '@/components/sections/newsletter-band'
 import { VisitBand } from '@/components/sections/visit-band'
 import { ThreeWaysBand } from '@/components/sections/three-ways-band'
 import { ShowcaseRow } from '@/components/sections/showcase-row'
-import { ArrowRight, Sparkles, MapPin, Star, Clock } from 'lucide-react'
+import { ArrowRight, MapPin } from 'lucide-react'
 
 export const revalidate = 60
 
@@ -87,44 +86,40 @@ export default async function HomePage() {
 function Hero({ products }: { products: Product[] }) {
   return (
     <section className="relative overflow-hidden">
-      {/* Layered editorial backdrop, back to front:
-          1. home-hero-bg     — warm cream + butter/sky/blush radial glows
-          2. home-hero-grain  — subtle paper grain (multiply blend) for tactility
-          3. hero-photo       — real honey-cake photo on the left, masked
-                                to dissolve into the cream toward the type
-          4. soft-blur orbs   — atmospheric bloom in the corners
-          5. HeroDecor        — bunting, frosting swoosh, cake silhouette
-          The photo is the anchor — research shows real food photography
-          is the dominant pattern across leading bakery heroes (Magnolia,
-          Janjou, Levain). Decoration is now restrained accent, not
-          competing focus. */}
-      <div className="absolute inset-0 home-hero-bg pointer-events-none" aria-hidden />
-      <div className="absolute inset-0 home-hero-grain pointer-events-none" aria-hidden />
+      {/* Atmospheric backdrop, Seed-style:
+          1. Cream base — sets the brand wash
+          2. Heavily-blurred dining-room photo — full-bleed, gives the
+             hero real depth without competing with type. The photo is
+             our actual interior, not stock.
+          3. Cream + sky overlay — preserves text contrast on the left
+             and softens the photo into a gradient atmosphere.
+          The form gets a glass-morphism treatment further down so it
+          reads as placed in the scene, not pasted on top. */}
+      <div className="absolute inset-0 bg-cream pointer-events-none" aria-hidden />
 
-      {/* Editorial cake photo — bleeds in from the left, masked with a
-          radial fade so it dissolves into the cream around the headline.
-          Color-graded warm via mix-blend-mode + filter so it reads as
-          part of the page, not a stock-photo slap. Hidden on mobile. */}
-      <div className="absolute -left-[18%] top-0 bottom-0 w-[68%] hidden md:block pointer-events-none" aria-hidden>
-        <div className="relative h-full w-full hero-photo-mask hero-px-back">
-          <Image
-            src={ASSETS.hero[0]}
-            alt=""
-            fill
-            priority
-            sizes="68vw"
-            className="object-cover hero-photo-tint"
-          />
-        </div>
+      {/* Full-bleed honey-cake photo — heavy blur turns the warm amber/
+          cream tones into Seed-style depth-of-field bokeh that's already
+          on-brand. Better than the dining-room shot (which was cool grey)
+          for our cream/cocoa palette. Hidden on mobile. */}
+      <div className="absolute inset-0 hidden md:block pointer-events-none" aria-hidden>
+        <Image
+          src={ASSETS.hero[0]}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover hero-photo-atmospheric"
+        />
       </div>
 
-      <div className="absolute -top-40 -right-32 h-[26rem] w-[26rem] rounded-full bg-amber-300/25 blur-3xl pointer-events-none" aria-hidden />
-      <div className="absolute -bottom-44 -left-32 h-[30rem] w-[30rem] rounded-full bg-berry/15 blur-3xl pointer-events-none" aria-hidden />
-      <HeroDecor />
+      {/* Cream-to-warm overlay — strongest on the left where type lives,
+          fades toward the right so the photo retains some life behind
+          the form column. */}
+      <div className="absolute inset-0 hero-overlay-veil pointer-events-none" aria-hidden />
 
       <div className="container relative pt-10 pb-16 md:pt-16 md:pb-24 grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
         <div className="lg:col-span-7">
-          <Eyebrow>Family-owned cake shop & coffee bar</Eyebrow>
+          <Eyebrow>Family-owned cake shop &amp; coffee bar</Eyebrow>
           <h1
             id="hero-tagline"
             className="display-h1 mt-5 [text-wrap:balance]"
@@ -132,28 +127,9 @@ function Hero({ products }: { products: Product[] }) {
             Cakes worth <span className="text-sky">driving for</span>.
           </h1>
           <p className="mt-5 text-lg text-cocoa-900/75 max-w-xl leading-relaxed">
-            Small-batch cakes and pastries, baked from scratch every morning. Real ingredients,
-            generous slices, and the kind of welcome that turns first-time guests into Saturday
-            regulars.
+            Small-batch cakes and pastries, baked from scratch every morning.
           </p>
 
-          {/* Trust strip — replaces the noisy CTA stack with three quiet
-              proof points the eye can scan in a glance. */}
-          <ul className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-cocoa-900/75">
-            <li className="inline-flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-sky-700" /> Baked fresh daily
-            </li>
-            <li className="inline-flex items-center gap-2">
-              <Star className="h-4 w-4 text-sky-700" /> 500+ regulars and counting
-            </li>
-            <li className="inline-flex items-center gap-2">
-              <Clock className="h-4 w-4 text-sky-700" /> Pickup or local delivery
-            </li>
-          </ul>
-
-          {/* Hours + phone live in the header now (HeaderStatus + tel link).
-              Hero meta row keeps just the address — the one piece the
-              header doesn't surface. */}
           <div className="mt-7 flex flex-wrap items-center gap-4 text-sm">
             <a
               href={BRAND.mapsUrl}

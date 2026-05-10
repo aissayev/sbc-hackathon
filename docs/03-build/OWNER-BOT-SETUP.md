@@ -87,7 +87,47 @@ Pickup: 2026-05-10T16:00
 
 Tap Approve → confirmation with `Square: sq_…` + `Kitchen: tkt_…`.
 
-## 6. Failure modes
+## 6. Mini App menu button (optional but nice)
+
+Telegram bots can have a button next to the message input that opens a
+Web App inside the chat. Ours opens the `/admin` cockpit (orders, threads,
+posts queue, reviews) — same UI a customer would never see.
+
+### One-time setup
+
+You need a public HTTPS URL that serves the web frontend. In dev that's
+typically an ngrok tunnel pointing at the Next.js port; in prod it's
+whatever domain you've put the site on. Then:
+
+```bash
+bun run tg:menu https://your-tunnel.ngrok-free.app
+# or
+bun run tg:menu https://happycake.flowleads.dev
+```
+
+The script:
+- Calls `setChatMenuButton` on each configured TG bot token, pointing at
+  `<URL>/admin`. The button label is per-role (`🎂 HappyCake`, `🎂 Kitchen`,
+  `🎂 Marketing`).
+- Calls `setMyCommands` so the `/` autocomplete menu shows the right slash
+  commands per role (no more BotFather pasting).
+
+Idempotent. Re-run when the tunnel URL changes or you add a new bot.
+
+### What the user sees
+
+1. Open the bot in Telegram → there's a `🎂 HappyCake` button next to the
+   message input (replacing the default `/` menu button).
+2. Tap it → the Mini App opens inside Telegram, fills the screen, and
+   loads `/admin`.
+3. The Mini App SDK injects signed `initData`; our `TgAppProvider` patches
+   `fetch` to attach `X-Telegram-Init-Data` to every `/api/admin/*` call
+   so the backend can verify it without a separate login.
+
+If the button doesn't appear in the bot chat, force-restart Telegram (it
+caches the menu config aggressively) and pull-to-refresh the chat.
+
+## 7. Failure modes
 
 - **`TG_OWNER_BOT_TOKEN not set`** — paste it into `.env.local`, restart `bun run dev`.
 - **`getUpdates failed: Conflict: terminated by other getUpdates request`** — two pollers are running on the same token. Stop one (`bun run dev` or the standalone `bun src/scripts/owner-bot.ts`).
@@ -95,7 +135,7 @@ Tap Approve → confirmation with `Square: sq_…` + `Kitchen: tkt_…`.
 - **`/today` shows zero data** — your local SQLite is fresh; run `bun run smoke:agent "test order"` or any flow that creates a draft.
 - **Free-text reply never lands, "thinking…" stays forever** — check `bun run dev` logs for an `agent error`. The next message will work; the dead placeholder can be ignored.
 
-## 7. Streaming behaviour (free-text turns)
+## 8. Streaming behaviour (free-text turns)
 
 Free-text owner turns feel like Claude Code in chat: a placeholder is posted immediately, then live-edited as the agent works. No separate Bot API method is involved — this is the "Streaming Text for Bots" UX from Telegram's May 2026 update, implemented over the existing `editMessageText` we already use.
 
@@ -132,7 +172,7 @@ Bot:  Tomorrow looks tight on whole honey cakes — already at 9/12 with
 
 Grain note: `claude -p stream-json` emits **one event per assistant turn or tool round-trip**, not per token. So "streaming" here is step-granular — which lines up naturally with TG's edit cadence and avoids rate-limit errors.
 
-## 8. Owner event log — emoji legend + verbosity
+## 9. Owner event log — emoji legend + verbosity
 
 When the bot is configured, every customer-facing turn posts a one-line entry to the owner's TG chat. This is the "live tape" the brief asks for (*"System leaves evidence in logs/state so the evaluator can verify what happened"*).
 
@@ -160,13 +200,13 @@ Set in `.env.local` or omit (defaults to `normal`):
 
 Pick `quiet` if your sandbox traffic is high and the `📨/✓` lines are noisy. Pick `verbose` during a demo so the boot ping is visible.
 
-## 9. What this costs
+## 10. What this costs
 
 Slash commands and callback taps cost **$0** — pure DB reads + sandbox HTTP (covered by team token, not Max).
 
 Free text falls through to `claude -p` (~$0.05–0.40 per turn) and burns Claude Max budget. Use `/reset` to drop accumulated context if conversation history is making turns expensive.
 
-## 10. Architecture notes
+## 11. Architecture notes
 
 ```
 src/

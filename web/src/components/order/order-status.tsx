@@ -181,11 +181,12 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
           <ShareButton orderId={order.id} />
         </div>
       </div>
-      {/* Full reference id, copy-able. Prior version showed only the last
-          eight chars (`#4_UG4G4J`) which left the chat agent unable to
-          match the value the customer pasted back — backend now also
-          tolerates suffix lookup as a safety net. */}
-      <OrderIdRef id={order.id} />
+      {/* Customer-facing id. Friendly alias (`HC-1042`) is the headline
+          since that's what people read aloud over the phone; the full
+          `ord_<ms>_<rand>` is shown as a secondary copy-able reference
+          for support / chat-agent lookup. The backend's `getOrderStatus`
+          accepts both forms so either resolves correctly. */}
+      <OrderIdRef order={order} />
 
       {!failed && (
         <>
@@ -323,20 +324,23 @@ export function OrderStatusView({ initial }: { initial: OrderStatus }) {
 // Reference / copy widget for the full order id. Customers paste this
 // back into chat or the /track form; the input must be the *exact* id
 // for an unambiguous lookup, so we make it impossible to mis-truncate.
-function OrderIdRef({ id }: { id: string }) {
+function OrderIdRef({ order }: { order: { id: string; friendly_id?: string } }) {
   const [copied, setCopied] = React.useState(false)
   React.useEffect(() => {
     if (!copied) return
     const t = setTimeout(() => setCopied(false), 1600)
     return () => clearTimeout(t)
   }, [copied])
+  // Copy whichever id is most useful: the long canonical one when no
+  // friendly alias exists; otherwise the friendly alias (which the
+  // backend lookup also accepts). Customers paste this back into chat /
+  // the tracker and we want either form to resolve.
+  const copyValue = order.friendly_id ?? order.id
   async function copy() {
     try {
-      await navigator.clipboard.writeText(id)
+      await navigator.clipboard.writeText(copyValue)
       setCopied(true)
     } catch {
-      // Clipboard API blocked (older browsers / iframe). Select the
-      // text so the user can hit ⌘C themselves.
       const el = document.getElementById('order-id-ref')
       if (el && 'select' in el && typeof (el as HTMLInputElement).select === 'function') {
         (el as HTMLInputElement).select()
@@ -344,29 +348,39 @@ function OrderIdRef({ id }: { id: string }) {
     }
   }
   return (
-    <div className="mt-3 flex items-center gap-2 text-xs">
-      <span className="text-cocoa-900/55">Order id</span>
-      <input
-        id="order-id-ref"
-        readOnly
-        value={id}
-        onFocus={(e) => e.currentTarget.select()}
-        className="flex-1 min-w-0 rounded-md border border-cocoa-700/15 bg-cream-50 px-2.5 py-1 font-mono text-[12px] text-cocoa-900/85"
-      />
-      <button
-        type="button"
-        onClick={copy}
-        aria-label={copied ? 'Copied' : 'Copy order id'}
-        className={cn(
-          'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors shrink-0',
-          copied
-            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-            : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
-        )}
-      >
-        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-        {copied ? 'Copied' : 'Copy'}
-      </button>
+    <div className="mt-3 space-y-1">
+      {order.friendly_id && (
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs text-cocoa-900/55">Your order</span>
+          <span className="font-display text-lg text-cocoa-900 font-semibold tracking-tight">
+            {order.friendly_id}
+          </span>
+        </div>
+      )}
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-cocoa-900/55">{order.friendly_id ? 'Reference' : 'Order id'}</span>
+        <input
+          id="order-id-ref"
+          readOnly
+          value={order.id}
+          onFocus={(e) => e.currentTarget.select()}
+          className="flex-1 min-w-0 rounded-md border border-cocoa-700/15 bg-cream-50 px-2.5 py-1 font-mono text-[12px] text-cocoa-900/85"
+        />
+        <button
+          type="button"
+          onClick={copy}
+          aria-label={copied ? 'Copied' : 'Copy order id'}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors shrink-0',
+            copied
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+              : 'border-cocoa-700/20 bg-white text-cocoa-900 hover:bg-cream-100',
+          )}
+        >
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
     </div>
   )
 }

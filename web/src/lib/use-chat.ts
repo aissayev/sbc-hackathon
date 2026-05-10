@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { autoLinkProducts } from './auto-link-products'
 
 // One-stop chat-thread hook used by both the full /chat page and the
 // floating help-widget mini-chat. Persists thread_id across visits so the
@@ -14,7 +15,22 @@ export interface ChatMessage {
   ts: number
   pending?: boolean
   failed?: boolean
+  // True while the bubble is typewriter-animating its text. Set when a
+  // newly-arrived assistant chunk is appended; the bubble clears it once
+  // the animation completes. Used to gate markdown formatting (partial
+  // markdown looks broken mid-stream).
+  streaming?: boolean
 }
+
+// Roughly ms per character for the typewriter timing. Punctuation pauses
+// are added on top inside ChatBubble. Picked to feel like fluent typing,
+// not an old-school terminal.
+const MS_PER_CHAR = 18
+
+// Pause between chunks so the prior bubble settles before the next one
+// appears. Multi-paragraph replies feel like a person sending two or
+// three short messages in a row, not a wall of text.
+const CHUNK_PAUSE_MS = 350
 
 const THREAD_KEY = 'hc_thread'
 
@@ -39,6 +55,7 @@ export interface UseChatResult {
   threadId: string | null
   send: (text: string) => Promise<void>
   reset: () => void
+  finishStreaming: (id: string) => void
 }
 
 export function useChat({ greeting, resetOnMount }: UseChatOptions = {}): UseChatResult {
@@ -96,13 +113,38 @@ export function useChat({ greeting, resetOnMount }: UseChatOptions = {}): UseCha
         const replies = data.replies?.length
           ? data.replies
           : ["I caught that, but didn't have a reply. Could you tell me a bit more?"]
-        setMessages((m) => {
-          const without = m.filter((x) => x.id !== pendingId)
-          return [
-            ...without,
-            ...replies.map((t) => ({ id: uid(), role: 'assistant' as const, text: t, ts: Date.now() })),
-          ]
-        })
+        // Drop the typing dots immediately. Each reply is split on
+        // paragraph breaks so a multi-paragraph response feels like the
+        // person sent two or three short messages instead of one wall.
+        // Each chunk lands as a separate streaming bubble that the
+        // ChatBubble typewrites; staggered so the previous chunk has time
+        // to finish typing before the next one appears.
+        setMessages((m) => m.filter((x) => x.id !== pendingId))
+        const chunks: string[] = []
+        for (const reply of replies) {
+          for (const para of reply.split(/\n{2,}/)) {
+            const t = para.trim()
+            if (t) chunks.push(autoLinkProducts(t))
+          }
+        }
+        let elapsed = 0
+        for (const chunk of chunks) {
+          const delay = elapsed
+          setTimeout(() => {
+            setMessages((m) => [
+              ...m,
+              {
+                id: uid(),
+                role: 'assistant' as const,
+                text: chunk,
+                ts: Date.now(),
+                streaming: true,
+              },
+            ])
+          }, delay)
+          // Stagger the next chunk by this chunk's typing time + a pause.
+          elapsed += chunk.length * MS_PER_CHAR + CHUNK_PAUSE_MS
+        }
       } catch (err) {
         setMessages((m) =>
           m.map((x) =>
@@ -132,7 +174,14 @@ export function useChat({ greeting, resetOnMount }: UseChatOptions = {}): UseCha
     try { localStorage.removeItem(THREAD_KEY) } catch {}
   }, [greeting])
 
-  return { messages, sending, threadId, send, reset }
+  // Bubble notifies the hook when its typewriter finishes so we can flip
+  // `streaming` off and let downstream renders use the formatted markdown
+  // (links, bold) instead of the plain stream text.
+  const finishStreaming = React.useCallback((id: string) => {
+    setMessages((m) => m.map((x) => (x.id === id ? { ...x, streaming: false } : x)))
+  }, [])
+
+  return { messages, sending, threadId, send, reset, finishStreaming }
 }
 
 // Tiny markdown-lite formatter for chat bubbles. Handles **bold**, autolinks

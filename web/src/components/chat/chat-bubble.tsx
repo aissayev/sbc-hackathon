@@ -13,10 +13,15 @@ import { formatChatText, formatChatTime, type ChatMessage } from '@/lib/use-chat
 // upload-and-send), we strip them out of the prose and render thumbnails
 // underneath. The agent's prompt also passes these markers through so the
 // owner's escalation context shows the URL.
+//
+// Typewriter: when `message.streaming` is true the bubble reveals the text
+// character-by-character (with a tiny pause on punctuation so it doesn't
+// machine-gun through "Hi!" → "Hello, here's…"). While streaming we render
+// plain text — markdown is applied only after the animation completes
+// since partial markdown (`[Hone`) looks broken mid-stream. The hook owns
+// the `streaming` flag; the bubble calls back via `onTypingComplete` to
+// flip it.
 
-// Separate the image markers from the prose body. Returns the cleaned text
-// (with markers removed) plus an array of image URLs. Markers are matched
-// loosely: `[image:` `[photo:` `[attached:` are all accepted.
 const IMAGE_MARKER_RE = /\[(?:image|photo|attached):\s*([^\]\s]+)\s*\]/gi
 
 function extractImages(text: string): { body: string; urls: string[] } {
@@ -26,18 +31,25 @@ function extractImages(text: string): { body: string; urls: string[] } {
       urls.push(url)
       return ''
     })
-    // Collapse the empty lines we just left behind.
     .replace(/\n{3,}/g, '\n\n')
     .trim()
   return { body, urls }
 }
 
+// Characters revealed per millisecond. ~50 cps reads as confident
+// fluent typing without feeling sluggish. Punctuation costs the equivalent
+// of a few extra characters so sentences breathe.
+const CHARS_PER_MS = 1 / 18
+const PUNCT_BUDGET_CHARS = 5
+
 export function ChatBubble({
   message,
   size = 'default',
+  onTypingComplete,
 }: {
   message: ChatMessage
   size?: 'default' | 'compact'
+  onTypingComplete?: (id: string) => void
 }) {
   const isUser = message.role === 'user'
   const padX = size === 'compact' ? 'px-3' : 'px-4'
@@ -46,6 +58,68 @@ export function ChatBubble({
   const labelText = isUser ? 'You' : 'Happy Cake'
   const time = formatChatTime(message.ts)
   const { body, urls } = extractImages(message.text)
+
+  // Typewriter state. When `streaming` is true we step `revealedCount` up
+  // to body.length on a timer; once equal we notify the hook and the bubble
+  // re-renders with the full markdown-formatted text.
+  //
+  // Counter lives in a ref so React Strict Mode's double-invoke + Next.js
+  // Fast Refresh don't reset progress to 0. Each effect run cancels its
+  // local tick chain via the closure flag and the next run picks up from
+  // wherever the ref left off.
+  const streaming = Boolean(message.streaming) && !message.failed && !message.pending
+  const [revealedCount, setRevealedCount] = React.useState(streaming ? 0 : body.length)
+  const iRef = React.useRef<number>(streaming ? 0 : body.length)
+  const messageIdRef = React.useRef<string>(message.id)
+
+  React.useEffect(() => {
+    if (!streaming) {
+      iRef.current = body.length
+      setRevealedCount(body.length)
+      return
+    }
+    // Genuinely new bubble → restart from 0. Same id = effect re-ran for
+    // a transient reason (Strict Mode, HMR, prop identity flip), keep
+    // ticking from where we were.
+    if (messageIdRef.current !== message.id) {
+      iRef.current = 0
+      messageIdRef.current = message.id
+    }
+    // setInterval-based loop integrating real elapsed time. Avoids RAF
+    // (which Chrome throttles to ~1Hz in background/hidden iframes) and
+    // avoids the recursive-setTimeout cascade that competes with React
+    // renders. Punctuation is "taxed": crossing `.,;:!?—` consumes
+    // PUNCT_BUDGET_CHARS extra character-units of progress, so the
+    // display pauses briefly there.
+    const charCost = (idx: number) =>
+      /[.,;:!?—]/.test(body[idx] ?? '') ? 1 + PUNCT_BUDGET_CHARS : 1
+    let walked = 0 // residual fractional progress toward the next char
+    let lastT = performance.now()
+    const tick = () => {
+      const now = performance.now()
+      const dt = now - lastT
+      lastT = now
+      walked += dt * CHARS_PER_MS
+      let displayed = iRef.current
+      while (displayed < body.length && walked >= charCost(displayed)) {
+        walked -= charCost(displayed)
+        displayed += 1
+      }
+      if (displayed !== iRef.current) {
+        iRef.current = displayed
+        setRevealedCount(displayed)
+      }
+      if (displayed >= body.length) {
+        window.clearInterval(handle)
+        onTypingComplete?.(message.id)
+      }
+    }
+    const handle = window.setInterval(tick, 30) // ~33Hz, plenty for 50 cps
+    return () => {
+      window.clearInterval(handle)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streaming, body, message.id])
 
   return (
     <div className={cn('flex flex-col gap-1 animate-fade-in', isUser ? 'items-end' : 'items-start')}>
@@ -77,7 +151,11 @@ export function ChatBubble({
           </span>
         ) : (
           <>
-            {body && formatChatText(body)}
+            {body && (
+              streaming && revealedCount < body.length
+                ? <>{body.slice(0, revealedCount)}<Caret /></>
+                : formatChatText(body)
+            )}
             {urls.length > 0 && (
               <div
                 className={cn(
@@ -140,6 +218,17 @@ function Dot({ delay }: { delay: string }) {
     <span
       className="inline-block h-1.5 w-1.5 rounded-full bg-cocoa-900/50 animate-pulse"
       style={{ animationDelay: delay }}
+    />
+  )
+}
+
+// Blinking caret rendered at the end of the streaming text so the visitor
+// sees something live. Uses tailwind's animate-pulse for the blink.
+function Caret() {
+  return (
+    <span
+      aria-hidden
+      className="inline-block ml-[1px] w-[6px] h-[14px] -mb-[2px] bg-cocoa-900/55 animate-pulse"
     />
   )
 }

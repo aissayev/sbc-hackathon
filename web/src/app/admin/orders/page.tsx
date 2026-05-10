@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { listAdminOrders } from '@/lib/api'
-import { fmtUsd, fmtRelativeDate, formatOrderId } from '@/lib/format'
+import { fmtUsd, fmtRelativeDate, displayOrderId } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 
 export const dynamic = 'force-dynamic'
@@ -48,10 +48,10 @@ function Section({
               <div>
                 <Link
                   href={`/admin/orders/${o.id}`}
-                  className="font-medium text-cocoa-900 hover:text-cocoa-700 font-mono text-xs"
+                  className="font-medium text-cocoa-900 hover:text-cocoa-700 tabular-nums text-sm"
                   title={o.id}
                 >
-                  {formatOrderId(o.id, 'short')}
+                  {displayOrderId(o, 'short')}
                 </Link>
                 <span className="ml-3 text-sm text-cocoa-900/70">{o.customer_name ?? '—'}</span>
               </div>
