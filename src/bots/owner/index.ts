@@ -6,7 +6,11 @@ export {
   handleOwnerCommand,
   sendOwnerReply,
 } from './commands.ts'
-export { handleOwnerCallback, tryHandlePendingRefundDenial } from './callbacks.ts'
+export {
+  handleOwnerCallback,
+  tryHandlePendingRefundDenial,
+  tryHandlePendingThreadReply,
+} from './callbacks.ts'
 export {
   postDraftOrderCard,
   postEscalationCard,

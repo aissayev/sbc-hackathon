@@ -65,11 +65,19 @@ export function SimulateInboundComposer() {
       setResult({ ok: res.ok && data.ok === true, message: data.message ?? `HTTP ${res.status}` })
       if (res.ok && data.ok) {
         setMessage('')
-        // Refresh the server-rendered inbox so the new thread (or new
-        // last-message preview) shows up. The agent reply is async so
-        // the user may need a second refresh — we surface that in the
-        // success line.
+        // The injected message is now in the sandbox; the agent's reply is
+        // async (sandbox → webhook → claude -p → adapter.send). Poll a few
+        // times so the new thread + reply appear without the owner having
+        // to manually refresh. Stops after either reply is observed or 12s.
         router.refresh()
+        let elapsed = 0
+        const interval = 2000
+        const timeout = 12_000
+        const poll = window.setInterval(() => {
+          elapsed += interval
+          router.refresh()
+          if (elapsed >= timeout) window.clearInterval(poll)
+        }, interval)
       }
     } catch (err) {
       setResult({ ok: false, message: (err as Error).message })
