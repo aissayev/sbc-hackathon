@@ -276,7 +276,13 @@ export async function simulateInbound(
   if (igHandle.length < 2) {
     return { ok: false, channel: 'instagram', message: 'Instagram handle is too short.' }
   }
+  // The sandbox tool requires `threadId` in addition to `from` + `message`
+  // (verified live 2026-05-10 via probe: posting only `from` + `message`
+  // returns "threadId, from, message required"). Use the IG handle as the
+  // thread id so repeat injections from the same user collapse onto a
+  // single thread the way Instagram itself would.
   const raw = await tryCallSandboxTool('instagram_inject_dm', {
+    threadId: igHandle,
     from: igHandle,
     message,
   })

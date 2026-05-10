@@ -43,6 +43,10 @@ const allowList = new Set([
   // Test harness — synthetic phone numbers are the whole point. Not a path
   // any customer-facing agent reasoning runs through.
   'src/scripts/demo-smoke.ts',
+  // Real-channel smoke fires a sandbox-tracked test phone + IG handle to
+  // verify the WA / IG round-trip before a real demo. Same justification
+  // as demo-smoke — not customer-facing reasoning.
+  'src/scripts/wa-ig-smoke.ts',
   // Domain bridge mappings between SKU and Square variation IDs are deliberate
   'src/domain/order-orchestration.ts',
   // Admin-cockpit smoke action: a single synthetic phone fed into the sandbox
