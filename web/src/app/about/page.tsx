@@ -143,12 +143,12 @@ export default function AboutPage() {
           </div>
           <div className="lg:col-span-6">
             <HeroImage
-              src={ASSETS.team.ownerPortrait}
-              alt="Askhat and his wife — owners of HappyCake — at a community event in traditional Kazakh dress"
+              src={ASSETS.about.hero}
+              alt="HappyCake baker holding a tiramisu tart, surrounded by floating slices, berries and pastries — a stylized family-bakery portrait"
               className="aspect-[4/5]"
             />
             <p className="mt-3 text-xs text-cocoa-900/55 text-right">
-              Askhat and his wife — owners + every-day operators.
+              The HappyCake family — small bakery, big love.
             </p>
           </div>
         </div>
