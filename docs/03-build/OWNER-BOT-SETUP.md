@@ -95,13 +95,78 @@ Tap Approve → confirmation with `Square: sq_…` + `Kitchen: tkt_…`.
 - **`/today` shows zero data** — your local SQLite is fresh; run `bun run smoke:agent "test order"` or any flow that creates a draft.
 - **Free-text reply never lands, "thinking…" stays forever** — check `bun run dev` logs for an `agent error`. The next message will work; the dead placeholder can be ignored.
 
-## 7. What this costs
+## 7. Streaming behaviour (free-text turns)
+
+Free-text owner turns feel like Claude Code in chat: a placeholder is posted immediately, then live-edited as the agent works. No separate Bot API method is involved — this is the "Streaming Text for Bots" UX from Telegram's May 2026 update, implemented over the existing `editMessageText` we already use.
+
+### Lifecycle of one turn
+
+```
+You:  how's the kitchen tomorrow?
+Bot:  🤔 thinking…                                  ← sent immediately, ~50ms
+       ↓ (~2s — first tool call lands)
+Bot:  🛠 calling kitchen_get_capacity…              ← edit in place
+       ↓ (~6s — assistant text comes back)
+Bot:  🤔 Tomorrow looks tight on whole honey        ← edit in place
+       ↓ (next tool call)
+Bot:  🛠 calling list_orders…                       ← edit in place
+       ↓ (final, with footer)
+Bot:  Tomorrow looks tight on whole honey cakes — already at 9/12 with
+      3 drafts pending. Pistachio rolls open. Want me to redirect
+      tomorrow's website asks toward pistachio?
+
+      — used: kitchen_get_capacity, list_orders · 12.3s · $0.18
+```
+
+### Throttling
+
+- ≤ 1 `editMessageText` per **800ms** (Telegram's soft per-chat rate limit is ~1/sec).
+- Identical text edits are skipped (TG rejects them).
+- If an edit fails, the next one falls back to a fresh `sendMessage`.
+
+### Where it lives
+
+- [src/agent/invoke.ts](../../src/agent/invoke.ts) — line-buffered `stream-json` parser; emits `StreamEvent` per turn/tool call via `opts.onStream` callback.
+- [src/bots/owner/live.ts](../../src/bots/owner/live.ts) — `makeOwnerStreamSink(threadId, messageId)` returns a throttled `(StreamEvent) => void` closure.
+- [src/server.ts](../../src/server.ts) `onMessage` — passes `onStream` only when `role === 'owner'`. Customer channels still use a single send-on-completion (no streaming).
+
+Grain note: `claude -p stream-json` emits **one event per assistant turn or tool round-trip**, not per token. So "streaming" here is step-granular — which lines up naturally with TG's edit cadence and avoids rate-limit errors.
+
+## 8. Owner event log — emoji legend + verbosity
+
+When the bot is configured, every customer-facing turn posts a one-line entry to the owner's TG chat. This is the "live tape" the brief asks for (*"System leaves evidence in logs/state so the evaluator can verify what happened"*).
+
+### Emoji prefixes
+
+| Prefix | Category | Example |
+|---|---|---|
+| 📨 | inbound — customer message arrived | `📨 [wa] +12815559001 → concierge: "do you have honey today?"` |
+| ✓ | outbound — agent reply sent | `✓ [wa] +12815559001 ← 2 tools · 12.3s · $0.18` |
+| ⚠ | error — agent failed or timed out | `⚠ [wa] +12815559001 agent error: timeout after 90s` |
+| 🔧 | system — server boot, scheduled job, config change | `🔧 server up · channels: wa,ig,web,telegram · agent: claude-opus-4-7` |
+
+Owner-role turns (you talking to the bot) don't echo to the log — you ARE the source.
+
+### Verbosity dial — `TG_OWNER_LOG_LEVEL`
+
+Set in `.env.local` or omit (defaults to `normal`):
+
+| Level | Emits |
+|---|---|
+| `verbose` | All four prefixes including `🔧` system events |
+| `normal` (default) | `📨` inbound + `✓` outbound + `⚠` errors. Skips `🔧` system. |
+| `quiet` | `⚠` errors only |
+| `off` | Nothing — logger is a no-op |
+
+Pick `quiet` if your sandbox traffic is high and the `📨/✓` lines are noisy. Pick `verbose` during a demo so the boot ping is visible.
+
+## 9. What this costs
 
 Slash commands and callback taps cost **$0** — pure DB reads + sandbox HTTP (covered by team token, not Max).
 
 Free text falls through to `claude -p` (~$0.05–0.40 per turn) and burns Claude Max budget. Use `/reset` to drop accumulated context if conversation history is making turns expensive.
 
-## 8. Architecture notes
+## 10. Architecture notes
 
 ```
 src/
@@ -111,11 +176,12 @@ src/
 │   ├── commands.ts                 /today /orders /escalations /reset /help
 │   ├── callbacks.ts                approve: reject: view_esc:
 │   ├── cards.ts                    postDraftOrderCard, postEscalationCard
-│   ├── live.ts                     sendOwnerThinking, finalizeOwnerThinking
+│   ├── live.ts                     sendOwnerThinking, finalizeOwnerThinking, makeOwnerStreamSink
+│   ├── log.ts                      logInbound / logOutbound / logError / logSystem
 │   └── format.ts                   shared fmtMoney/shortId/hhmm
-├── server.ts                       three-lane router (slash / callback / agent)
-├── agent/invoke.ts                 claude -p subprocess (this IS the agent)
-└── agent/prompts/owner.md          owner system prompt
+├── server.ts                       three-lane router (slash / callback / agent w/ stream)
+├── agent/invoke.ts                 claude -p subprocess + stream-json onStream callback
+└── agent/prompts/owner.md          owner system prompt (no brand-voice prepend)
 ```
 
 The owner role's tool allowlist is in `src/agent/invoke.ts` (`ROLE_TOOL_ALLOWLIST.owner`). Add a tool there to make it available to free-text owner turns.
