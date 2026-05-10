@@ -1,5 +1,5 @@
-// Hono entrypoint. Webhooks → onMessage → agent invoke → channel reply.
-// Per-channel adapters live in src/channels; per-role agents live in src/agent.
+// Hono entrypoint. Composition root: wire route groups, define onMessage,
+// boot pollers + catalog sync. Per-route handlers live in src/routes/*.
 //
 // Hard rules: agent runtime is `claude -p` only (Claude Code CLI), Opus 4.7 pinned.
 
@@ -14,7 +14,14 @@ import { startTelegramPollers } from './channels/telegram-poller.ts'
 import { invokeAgent, recordRun } from './agent/invoke.ts'
 import { pickRole } from './agent/router.ts'
 import { createWebhookRoutes } from './routes/webhooks.ts'
-import type { IncomingMessage, MessageHandler, ChannelAdapter } from './channels/types.ts'
+import { catalogRoutes } from './routes/catalog.ts'
+import { orderRoutes } from './routes/orders.ts'
+import { adminRoutes } from './routes/admin.ts'
+import { leadRoutes } from './routes/leads.ts'
+import { uploadRoutes } from './routes/uploads.ts'
+import { metaRoutes } from './routes/meta.ts'
+import { createTestRoutes } from './routes/test.ts'
+import type { MessageHandler, ChannelAdapter } from './channels/types.ts'
 import {
   isOwnerSlashCommand,
   handleOwnerCommand,
@@ -30,24 +37,7 @@ import {
   logSystem,
 } from './bots/owner.ts'
 import { clearHistory } from './db/threads.ts'
-import {
-  listProducts,
-  getProduct,
-  createDraftOrder,
-  createDraftOrderSchema,
-  getOrderStatus,
-  createLead,
-  createLeadSchema,
-  listOrders,
-  listEscalations,
-  dailyReport,
-} from './domain/tools.ts'
-import { getPolicies } from './domain/policies.ts'
-import { syncCatalogFromSandbox, getLastSync, startCatalogSync } from './domain/catalog-sync.ts'
-import { approveDraftAndPromote, rejectDraft } from './domain/order-orchestration.ts'
-import { postDraftOrderCard } from './bots/owner.ts'
-import { openApiSpec } from './web/openapi.ts'
-import { loadSpacesConfig, uploadToSpaces, buildUploadKey, UPLOAD_LIMITS } from './lib/spaces.ts'
+import { startCatalogSync } from './domain/catalog-sync.ts'
 
 const app = new Hono()
 
@@ -137,319 +127,21 @@ const onMessage: MessageHandler = async (msg) => {
   console.log(`[${msg.channel}] ${msg.threadId} total ${Date.now() - t0}ms`)
 }
 
-// ─── Health + introspection ──────────────────────────────────────────────
+// ─── Route mounting ──────────────────────────────────────────────────────
+// Public surfaces and webhooks first; admin + test surfaces last so the
+// "open access" routes are easy to spot. Order doesn't matter to Hono — this
+// is for human readers.
 
-app.get('/', (c) =>
-  c.json({
-    name: 'happycake-agents',
-    version: '0.1.0',
-    channels: configuredChannels(),
-    agent: { enabled: config.agent.enabled, model: config.agent.model },
-    sandbox_mcp: config.sandbox.mcpUrl,
-  }),
-)
-
-// The public website now lives in web/ (Next.js, see web/src/app/*). The
-// backend serves only API + agent surfaces; nginx routes / to the Next.js
-// process and /api/* to here.
-
-// ─── Public catalog API (Agent-Friendliness) ─────────────────────────────
-
-app.get('/api/products', (c) => c.json({ products: listProducts({ in_stock_only: true }) }))
-app.get('/api/products/:id', (c) => {
-  const p = getProduct(c.req.param('id'))
-  return p ? c.json(p) : c.json({ error: 'not found' }, 404)
-})
-app.get('/openapi.json', (c) => c.json(openApiSpec()))
-app.get('/api/policies', (c) => c.json(getPolicies()))
-
-// ─── Catalog (sandbox MCP-mirrored, served from SQLite) ──────────────────
-// The website calls this — never the MCP directly. The agent still calls the
-// sandbox tool itself (rubric requirement); this endpoint is for the storefront.
-app.get('/api/catalog', (c) => {
-  const products = listProducts({ in_stock_only: false })
-  const sync = getLastSync()
-  return c.json({
-    products,
-    sync: sync ? { ok: sync.ok, at: sync.at, matched: sync.matched, error: sync.error } : null,
-  })
-})
-
-// On-demand refresh. Gated by a shared secret so it can't be triggered by the
-// public internet. Disabled entirely when CATALOG_SYNC_SECRET is unset.
-app.post('/api/catalog/sync', async (c) => {
-  if (!config.catalog.syncSecret) {
-    return c.json({ error: 'sync endpoint disabled (CATALOG_SYNC_SECRET not set)' }, 503)
-  }
-  const provided = c.req.header('x-sync-secret')
-  if (provided !== config.catalog.syncSecret) {
-    return c.json({ error: 'forbidden' }, 403)
-  }
-  const result = await syncCatalogFromSandbox()
-  return c.json(result, result.ok ? 200 : 502)
-})
-
-// ─── Orders API (customer-side direct order flow) ────────────────────────
-
-app.post('/api/orders/draft', async (c) => {
-  let body: unknown
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'invalid json' }, 400)
-  }
-  const parsed = createDraftOrderSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: 'validation failed', issues: parsed.error.issues }, 400)
-  }
-  const result = createDraftOrder(parsed.data)
-  if (!result.ok) {
-    return c.json(result, 400)
-  }
-  // Web-submitted drafts also need to ping the owner — same card the agent
-  // would post via the MCP `create_draft_order` tool. Best-effort; never blocks.
-  postDraftOrderCard(result.order_id).catch((err) =>
-    console.error('[orders/draft] postDraftOrderCard failed:', (err as Error).message),
-  )
-  return c.json({
-    order_id: result.order_id,
-    total_cents: result.total_cents,
-    status: result.status,
-    items: result.items,
-    next_step: 'awaiting_owner_approval',
-  })
-})
-
-app.get('/api/orders/:id', (c) => {
-  const id = c.req.param('id')
-  const status = getOrderStatus({ order_id: id }) as Record<string, unknown>
-  if (status && 'ok' in status && status.ok === false) {
-    return c.json(status, 404)
-  }
-  return c.json(status)
-})
-
-// ─── Owner admin API (powers /admin/* in the website) ────────────────────
-//
-// ⚠️ HACKATHON-MODE OPEN ACCESS:
-// These routes are intentionally unauthenticated for the build window — the
-// admin pages are owner-facing per the brief ("owner UI is Telegram only" is
-// the agent constraint; the website's /admin/* is a Mini-App-style surface
-// for the owner). For any public deploy, gate behind cookie auth or the
-// X-Telegram-Init-Data header (Mini App pattern).
-app.get('/api/admin/today', (c) => c.json(dailyReport()))
-app.get('/api/admin/orders', (c) => {
-  const status = c.req.query('status') ?? undefined
-  return c.json({ orders: listOrders({ status }) })
-})
-app.get('/api/admin/orders/:id', (c) => {
-  const id = c.req.param('id')
-  const status = getOrderStatus({ order_id: id }) as Record<string, unknown>
-  if (status && 'ok' in status && status.ok === false) return c.json(status, 404)
-  return c.json(status)
-})
-app.get('/api/admin/escalations', (c) => {
-  const status = c.req.query('status') ?? undefined
-  return c.json({ escalations: listEscalations({ status }) })
-})
-
-app.post('/api/admin/orders/:id/approve', async (c) => {
-  const id = c.req.param('id')
-  const result = await approveDraftAndPromote(id)
-  return c.json(result, result.ok ? 200 : 400)
-})
-app.post('/api/admin/orders/:id/reject', async (c) => {
-  const id = c.req.param('id')
-  let body: { reason?: string } = {}
-  try {
-    body = (await c.req.json()) as { reason?: string }
-  } catch {}
-  const reason = (body.reason ?? '').trim() || 'Owner declined via admin'
-  const result = await rejectDraft(id, reason)
-  return c.json(result, result.ok ? 200 : 400)
-})
-
-// ─── Leads (B2B + custom-cake funnels) ───────────────────────────────────
-//
-// Multi-step funnels on the website (web/src/components/business/inquire-form,
-// web/src/components/order/custom-cake-funnel) submit here. We capture the
-// freeform context as `meta_json` so the owner-side TG bot can render it as a
-// review card without us needing a per-source schema.
-
-app.post('/api/leads/:source', async (c) => {
-  const source = c.req.param('source')
-  let body: unknown
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'invalid json' }, 400)
-  }
-  const parsed = createLeadSchema.safeParse({ ...(body as Record<string, unknown>), source })
-  if (!parsed.success) {
-    return c.json({ error: 'validation failed', issues: parsed.error.issues }, 400)
-  }
-  const result = createLead(parsed.data)
-  // Forward to the owner: a one-line lead summary plus inline previews of any
-  // reference photos the customer attached. Best-effort — no-op when the
-  // owner-bot env vars aren't set.
-  if (result.ok) {
-    notifyOwnerOfLead(source, result.lead_id, parsed.data).catch((err) =>
-      console.error('[server] notifyOwnerOfLead failed:', (err as Error).message),
-    )
-  }
-  return c.json({ ...result, next_step: 'awaiting_owner_review' })
-})
-
-// ─── Uploads → DigitalOcean Spaces ───────────────────────────────────────
-//
-// Multipart endpoint for chat attachments + admin-uploaded photos. Files
-// land in `<bucket>/uploads/<scope>s/<scope_id>/<date>_<random>.<ext>` and
-// the response carries a public CDN URL the chat bubble can render via the
-// existing `[image: <url>]` markers.
-//
-// Auth: this endpoint is open to anonymous callers; the rate limit is the
-// 10 MB-per-file ceiling + the implicit "one request per UI click" cap on
-// the chat. If we ever ship admin-only uploads, gate them on the
-// X-Telegram-Init-Data header used by /api/admin/*.
-
-app.post('/api/uploads', async (c) => {
-  const cfg = loadSpacesConfig()
-  if (!cfg) {
-    return c.json(
-      { error: 'uploads_not_configured', reason: 'SPACES_* env vars are unset on the backend.' },
-      503,
-    )
-  }
-
-  let body: FormData
-  try {
-    body = await c.req.formData()
-  } catch {
-    return c.json({ error: 'expected multipart/form-data' }, 400)
-  }
-  const file = body.get('file')
-  if (!(file instanceof File)) {
-    return c.json({ error: 'missing file field' }, 400)
-  }
-  if (file.size > UPLOAD_LIMITS.maxBytes) {
-    return c.json({ error: 'file too large', max_bytes: UPLOAD_LIMITS.maxBytes }, 413)
-  }
-  const mime = file.type || 'application/octet-stream'
-  if (!UPLOAD_LIMITS.allowedMime.has(mime.toLowerCase())) {
-    return c.json({ error: 'unsupported file type', mime }, 415)
-  }
-
-  const scopeRaw = (body.get('scope') ?? 'thread').toString()
-  const scope: 'thread' | 'order' | 'admin' =
-    scopeRaw === 'order' ? 'order' : scopeRaw === 'admin' ? 'admin' : 'thread'
-  const scopeId = body.get('scope_id')?.toString()
-
-  const key = buildUploadKey({ scope, scopeId, mimeType: mime })
-  const buf = Buffer.from(await file.arrayBuffer())
-  try {
-    const result = await uploadToSpaces(cfg, { key, body: buf, mimeType: mime })
-    // `type` aliases `mime` so the chat-widget's typed response narrows
-    // cleanly without touching its existing client code.
-    return c.json({ ok: true, ...result, mime, type: mime })
-  } catch (err) {
-    console.error('[uploads] put failed', err)
-    return c.json({ error: 'upload_failed', reason: (err as Error).message }, 502)
-  }
-})
-
-// Forward a custom-cake / B2B lead to the owner's Telegram chat: a one-line
-// summary plus inline previews of any reference_photo_urls the customer
-// attached. Best-effort — no-op when the owner-bot env vars aren't set.
-async function notifyOwnerOfLead(
-  source: string,
-  leadId: string,
-  payload: { contact: string; meta?: Record<string, unknown> },
-): Promise<void> {
-  const meta = (payload.meta ?? {}) as Record<string, unknown>
-  const photoUrls = Array.isArray(meta.reference_photo_urls)
-    ? (meta.reference_photo_urls as unknown[]).filter((u): u is string => typeof u === 'string')
-    : []
-  const formatted = typeof meta.formatted === 'string' ? meta.formatted : null
-  const header = `🎂 New ${source} lead · ${leadId}\n${formatted ?? `Contact: ${payload.contact}`}`
-  const { sendTelegram, sendTelegramPhoto } = await import('./channels/telegram.ts')
-  const token = config.telegram.owner.token
-  const chatId = config.telegram.owner.chatId
-  if (!token || !chatId) return
-  await sendTelegram(token, chatId, header)
-  for (const url of photoUrls) {
-    await sendTelegramPhoto(token, chatId, url, `📷 Reference for ${leadId}`)
-  }
-}
-
-app.get('/llms.txt', (c) =>
-  c.text(`# HappyCake — agent-readable surface
-
-HappyCake is a real bakery in Sugar Land, TX. AI agents are welcome to use this site directly via JSON.
-
-## Endpoints
-- GET /api/products             List in-stock products
-- GET /api/products/{id}        Product detail
-- POST /api/orders/draft        Create a draft order (returns order_id; queued for owner approval)
-- GET /api/orders/{id}          Order status (public, by id)
-- POST /api/leads/{source}      Capture a B2B / custom-cake / newsletter / press lead (queued for owner review)
-- POST /api/chat                Talk to the on-site assistant; returns thread_id + replies[]
-- GET /openapi.json             Full API spec
-- GET /menu                     Human-readable catalog (HTML, with Schema.org Product JSON-LD per product)
-
-## Conventions
-- Prices are USD cents (e.g. 850 = $8.50)
-- Times are ISO 8601
-- /api/chat maintains conversation history via thread_id
-
-## Order intent flow
-1. GET /api/products  — find a product id
-2. POST /api/chat with text describing what + when — agent will check kitchen capacity, draft an order, and queue for owner approval.
-`),
-)
-
-// ─── /test/incoming — eval surface ───────────────────────────────────────
-// Accepts an IncomingMessage shape and returns reply + tool-call trace.
-
-app.post('/test/incoming', async (c) => {
-  const body = (await c.req.json()) as Partial<IncomingMessage>
-  if (!body.text || !body.threadId) return c.json({ error: 'text, threadId required' }, 400)
-  const msg: IncomingMessage = {
-    channel: body.channel ?? 'web',
-    threadId: body.threadId,
-    senderId: body.senderId ?? body.threadId,
-    senderName: body.senderName,
-    text: body.text,
-    timestamp: body.timestamp ?? Date.now(),
-    raw: body,
-    roleHint: body.roleHint,
-  }
-  await onMessage(msg)
-  const replies = msg.channel === 'web' ? webAdapter.drain(msg.threadId) : []
-  return c.json({ thread_id: msg.threadId, replies })
-})
-
-// ─── /api/chat — public web chat (will back the on-site assistant) ───────
-
-// ─── Channel webhooks (WA, IG) ───────────────────────────────────────────
-
+app.route('/', metaRoutes)
+app.route('/', catalogRoutes)
+app.route('/', orderRoutes)
+app.route('/', leadRoutes)
+app.route('/', uploadRoutes)
+app.route('/', adminRoutes)
 app.route('/', createWebhookRoutes(onMessage))
+app.route('/', createTestRoutes(onMessage))
 
-app.post('/api/chat', async (c) => {
-  const body = (await c.req.json()) as { thread_id?: string; text?: string; sender_name?: string }
-  if (!body.text) return c.json({ error: 'text required' }, 400)
-  const threadId = body.thread_id ?? `web_${Math.random().toString(36).slice(2, 10)}`
-  await onMessage({
-    channel: 'web',
-    threadId,
-    senderId: threadId,
-    senderName: body.sender_name,
-    text: body.text,
-    timestamp: Date.now(),
-    raw: body,
-  })
-  const replies = webAdapter.drain(threadId)
-  return c.json({ thread_id: threadId, replies })
-})
+// ─── Boot ────────────────────────────────────────────────────────────────
 
 console.log(`[server] starting on :${config.port} channels=${configuredChannels().join(',')}`)
 console.log(`[server] agent=${config.agent.enabled ? config.agent.model : 'disabled'}`)
