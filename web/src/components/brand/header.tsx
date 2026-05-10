@@ -14,7 +14,7 @@ import { Wordmark } from './wordmark'
 const NAV = [
   { href: '/menu', label: 'Menu' },
   { href: '/business', label: 'For business' },
-  { href: '/about', label: 'Our story' },
+  { href: '/about', label: 'About us' },
   { href: '/policies', label: 'Visit & FAQ' },
 ]
 
@@ -82,12 +82,15 @@ export function SiteHeader() {
 
       {/* Mobile drawer — rendered as a sibling of <header> because the
           header's backdrop-blur creates a containing block that would clip
-          a fixed-positioned drawer to the header's height. */}
+          a fixed-positioned drawer to the header's height. Uses opacity +
+          visibility for hide/show (translate-y-[110%] computed against the
+          element's collapsed bbox and leaked the menu through). */}
       <div
         className={cn(
-          'md:hidden fixed inset-x-0 top-[60px] bottom-0 z-40 bg-cream overflow-y-auto transition-transform duration-300 ease-out',
-          open ? 'translate-y-0' : '-translate-y-[110%] pointer-events-none',
+          'md:hidden fixed inset-x-0 top-[60px] z-40 bg-cream overflow-y-auto transition-opacity duration-200 ease-out',
+          open ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none',
         )}
+        style={{ height: 'calc(100dvh - 60px)' }}
       >
         <nav className="container pt-6 pb-8 flex flex-col gap-1">
           {[...NAV, ...NAV_SECONDARY].map((n) => (

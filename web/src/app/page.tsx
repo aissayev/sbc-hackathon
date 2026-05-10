@@ -3,7 +3,6 @@ import Image from 'next/image'
 import { listProducts, type Product } from '@/lib/api'
 import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
 import { BLOG_POSTS } from '@/lib/blog'
-import { APPEARANCES } from '@/lib/press'
 import { KIND_LABELS } from '@/lib/catalog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
@@ -20,8 +19,6 @@ import {
   MapPin,
   Phone,
   Instagram,
-  Newspaper,
-  Youtube,
   Leaf,
   ExternalLink,
   Star,
@@ -138,7 +135,6 @@ export default async function HomePage() {
 
       <DietaryAndCustomBand />
       <Manifesto />
-      <InTheMediaBand />
       <StoriesBand />
       <VisitSection />
       <BusinessBand />
@@ -306,74 +302,6 @@ function DietaryAndCustomBand() {
   )
 }
 
-function InTheMediaBand() {
-  const featured = APPEARANCES.slice(0, 3)
-  if (featured.length === 0) return null
-  return (
-    <section className="container mt-24">
-      <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
-        <div>
-          <Eyebrow>We&apos;re in the media</Eyebrow>
-          <h2 className="display-h2 mt-3">Press, podcasts, and YouTube</h2>
-          <p className="mt-2 text-cocoa-900/70 max-w-xl">
-            Where Askhat&apos;s told the story of Happy Cake — Sugar Land, family recipes, and a
-            kitchen that opened with one oven.
-          </p>
-        </div>
-        <Button asChild variant="outline-sky" shape="pill">
-          <Link href="/press">
-            All appearances
-            <ArrowRight />
-          </Link>
-        </Button>
-      </div>
-      <ul className="grid gap-5 md:grid-cols-3">
-        {featured.map((a) => {
-          const Icon = a.type === 'youtube' ? Youtube : Newspaper
-          const tone = a.type === 'youtube' ? 'bg-berry/10 text-berry' : 'bg-sky/10 text-sky-700'
-          const href = a.url ?? '/press'
-          const external = Boolean(a.url)
-          return (
-            <li key={a.title}>
-              <a
-                href={href}
-                target={external ? '_blank' : undefined}
-                rel={external ? 'noopener' : undefined}
-                className="group bakery-card flex flex-col h-full p-5 hover:-translate-y-0.5 transition-transform"
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`h-10 w-10 rounded-full inline-flex items-center justify-center shrink-0 ${tone}`}>
-                    <Icon className="h-4.5 w-4.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-cocoa-900/55 truncate">
-                      {a.outlet}
-                    </div>
-                    <div className="text-xs text-cocoa-900/55">
-                      {new Date(a.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                    </div>
-                  </div>
-                </div>
-                <h3 className="display-h3 mt-4 text-lg group-hover:text-sky-700 transition-colors [text-wrap:balance]">
-                  {a.title}
-                </h3>
-                <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed line-clamp-3">
-                  {a.description}
-                </p>
-                {external && (
-                  <span className="mt-3 inline-flex items-center gap-1 text-xs text-sky-700">
-                    Open <ExternalLink className="h-3 w-3" />
-                  </span>
-                )}
-              </a>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
-
 function StoriesBand() {
   const featured = BLOG_POSTS.slice(0, 3)
   return (
@@ -435,22 +363,22 @@ function Manifesto() {
     <section className="container mt-24">
       <div className="grid gap-10 md:grid-cols-12 items-start">
         <div className="md:col-span-5">
-          <Eyebrow>Our story</Eyebrow>
-          <h2 className="display-h2 mt-3">{BRAND.tagline}</h2>
+          <Eyebrow>About us</Eyebrow>
+          <h2 className="display-h2 mt-3">A family-run cake shop, hands behind every slice.</h2>
         </div>
         <div className="md:col-span-7 text-cocoa-900/85 space-y-4 leading-relaxed">
           <p>
-            Happy Cake was born from a love of bringing people together through exceptional baked
-            goods. From layered honey cakes to delicate cloud cakes, every item is crafted fresh,
-            every day.
+            HappyCake is owned and run by Askhat and his wife. Every cake is hand-decorated and
+            hand-packed; recipes were tested at the dinner table and refined until they earned
+            their names.
           </p>
           <p>
-            We believe the best moments in life come with great coffee and something sweet. Come
-            in, sit down, and let us take care of the rest.
+            We&apos;re not a chain. We&apos;re one family making cakes the way we would for our
+            own table — and serving them to yours, on Promenade Way in Sugar Land.
           </p>
           <p>
             <Link href="/about" className="text-sky-700 underline-offset-4 hover:underline font-medium">
-              Read the rest of our story →
+              Read our story →
             </Link>
           </p>
         </div>
