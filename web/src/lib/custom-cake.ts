@@ -55,7 +55,7 @@ export const customCakeSchema = z.object({
   scheduled_at_iso: z.string().min(1, 'When would you like it?'),
   pickup_or_delivery: z.enum(['pickup', 'delivery']),
   customer_name: z.string().min(1, 'Your name'),
-  customer_phone: z.string().min(7, 'Phone or WhatsApp number'),
+  customer_phone: z.string().min(7, 'Phone number'),
   customer_email: z.string().email('Email looks off').optional().or(z.literal('')),
   notes: z.string().max(500).optional(),
 })

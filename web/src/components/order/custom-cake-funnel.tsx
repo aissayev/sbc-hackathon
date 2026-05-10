@@ -615,12 +615,20 @@ function ContactStep({ form }: { form: ReturnType<typeof useForm<CustomCakeValue
           {form.formState.errors.customer_name && <Err>{form.formState.errors.customer_name.message}</Err>}
         </div>
         <div>
-          <Label htmlFor="customer_phone">Phone or WhatsApp</Label>
+          <Label htmlFor="customer_phone">Phone</Label>
           <Input
             id="customer_phone"
-            placeholder="+1 555 555 1234"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="+1 281 555 1234"
             className="mt-1"
-            {...form.register('customer_phone')}
+            {...form.register('customer_phone', {
+              // Strip disallowed chars on the way in so users can paste
+              // formatted numbers but can't sneak in letters.
+              setValueAs: (v: string) =>
+                typeof v === 'string' ? v.replace(/[^+()\d\s\-.]/g, '') : v,
+            })}
           />
           {form.formState.errors.customer_phone && <Err>{form.formState.errors.customer_phone.message}</Err>}
         </div>

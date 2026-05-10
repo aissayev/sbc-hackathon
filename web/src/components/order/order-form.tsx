@@ -133,9 +133,9 @@ const baseSchema = z.object({
   customer_phone: z
     .string()
     .trim()
-    .min(7, 'Phone or WhatsApp number')
+    .min(7, 'Phone number')
     .max(20, 'That looks long — is it a typo?')
-    .regex(PHONE_REGEX, 'Use digits, spaces, +, -, ( or )')
+    .regex(PHONE_REGEX, 'Numbers only — digits, spaces, +, -, ( or ) allowed')
     .refine((s) => s.replace(/\D/g, '').length >= 7, 'Need at least 7 digits'),
   notes: z.string().max(500, 'Keep notes under 500 characters').optional(),
   // Delivery-only — validated conditionally below.
@@ -715,63 +715,65 @@ function WhenStep({
   // Round-trips a single ISO string via react-hook-form's setValue.
   const scheduledAt = form.watch('scheduled_at_iso')
   return (
-    <div className="mt-6">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div>
-          <Label htmlFor="scheduled_at_iso">Pickup / delivery time</Label>
-          <div className="mt-1.5">
-            <DateTimePicker
-              id="scheduled_at_iso"
-              value={scheduledAt}
-              onChange={(iso) => form.setValue('scheduled_at_iso', iso, { shouldValidate: true })}
-              minLeadHours={maxLead || undefined}
-            />
-          </div>
-          {form.formState.errors.scheduled_at_iso && (
-            <p className="mt-1 text-xs text-berry">
-              {form.formState.errors.scheduled_at_iso.message}
-            </p>
-          )}
+    <div className="mt-6 space-y-5">
+      {/* Stacked rows — pickup/delivery type FIRST (so the choice is made
+          before the time picker, since delivery may add an address block
+          below). Then the time. Each row gets the full width so the
+          calendar inside DateTimePicker has room to breathe. */}
+      <div>
+        <Label>How would you like it?</Label>
+        <div className="mt-1.5 grid grid-cols-2 gap-2 max-w-md">
+          {(
+            [
+              { mode: 'pickup', label: 'Pickup', icon: Store, hint: 'Free at our shop' },
+              { mode: 'delivery', label: 'Delivery', icon: Truck, hint: 'Greater Houston' },
+            ] as const
+          ).map(({ mode: m, label, icon: Icon, hint }) => {
+            const value = form.watch('pickup_or_delivery')
+            const active = value === m
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => form.setValue('pickup_or_delivery', m)}
+                aria-pressed={active}
+                className={cn(
+                  'h-auto py-3 px-4 rounded-xl border text-left transition-all duration-150',
+                  active
+                    ? 'border-sky bg-sky/10 text-cocoa-900 shadow-sm'
+                    : 'border-cocoa-700/15 bg-cream-50 text-cocoa-900 hover:border-cocoa-700/30',
+                )}
+              >
+                <span className="flex items-center gap-2 font-medium text-sm">
+                  <Icon className={cn('h-4 w-4', active ? 'text-sky-700' : 'text-cocoa-700')} />
+                  {label}
+                </span>
+                <span className="block mt-0.5 text-[11px] text-cocoa-900/60">{hint}</span>
+              </button>
+            )
+          })}
         </div>
-        <div>
-          <Label>How would you like it?</Label>
-          <div className="mt-1.5 grid grid-cols-2 gap-2">
-            {(
-              [
-                { mode: 'pickup', label: 'Pickup', icon: Store, hint: 'Free at our shop' },
-                { mode: 'delivery', label: 'Delivery', icon: Truck, hint: 'Greater Houston' },
-              ] as const
-            ).map(({ mode: m, label, icon: Icon, hint }) => {
-              const value = form.watch('pickup_or_delivery')
-              const active = value === m
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => form.setValue('pickup_or_delivery', m)}
-                  aria-pressed={active}
-                  className={cn(
-                    'h-auto py-3 px-4 rounded-xl border text-left transition-all duration-150',
-                    active
-                      ? 'border-sky bg-sky/10 text-cocoa-900 shadow-sm'
-                      : 'border-cocoa-700/15 bg-cream-50 text-cocoa-900 hover:border-cocoa-700/30',
-                  )}
-                >
-                  <span className="flex items-center gap-2 font-medium text-sm">
-                    <Icon className={cn('h-4 w-4', active ? 'text-sky-700' : 'text-cocoa-700')} />
-                    {label}
-                  </span>
-                  <span className="block mt-0.5 text-[11px] text-cocoa-900/60">{hint}</span>
-                </button>
-              )
-            })}
-          </div>
-          <p className="mt-1.5 text-xs text-cocoa-900/60">
-            {mode === 'delivery'
-              ? 'Delivery in Sugar Land + Greater Houston only. Fee confirmed at order time.'
-              : 'Pickup is free at our Promenade Way location.'}
+        <p className="mt-1.5 text-xs text-cocoa-900/60">
+          {mode === 'delivery'
+            ? 'Delivery in Sugar Land + Greater Houston only. Fee confirmed at order time.'
+            : 'Pickup is free at our Promenade Way location.'}
+        </p>
+      </div>
+      <div>
+        <Label htmlFor="scheduled_at_iso">Pickup / delivery time</Label>
+        <div className="mt-1.5">
+          <DateTimePicker
+            id="scheduled_at_iso"
+            value={scheduledAt}
+            onChange={(iso) => form.setValue('scheduled_at_iso', iso, { shouldValidate: true })}
+            minLeadHours={maxLead || undefined}
+          />
+        </div>
+        {form.formState.errors.scheduled_at_iso && (
+          <p className="mt-1 text-xs text-berry">
+            {form.formState.errors.scheduled_at_iso.message}
           </p>
-        </div>
+        )}
       </div>
 
       {mode === 'delivery' && (
@@ -822,14 +824,33 @@ function ContactStep({ form }: { form: ReturnType<typeof useForm<FormValues>> })
           )}
         </div>
         <div>
-          <Label htmlFor="customer_phone">Phone or WhatsApp</Label>
-          <Input
-            id="customer_phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder="+1 555 555 1234"
-            {...form.register('customer_phone')}
-            className="mt-1"
+          <Label htmlFor="customer_phone">Phone</Label>
+          {/* Hardened input: type=tel + inputMode=tel surfaces the numeric
+              keypad on mobile. We *also* strip disallowed characters in the
+              onChange handler so a desktop user pasting an email-like string
+              can't get past the regex (regex still backstops at submit). */}
+          <Controller
+            control={form.control}
+            name="customer_phone"
+            render={({ field }) => (
+              <Input
+                id="customer_phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="+1 281 555 1234"
+                value={field.value ?? ''}
+                onBlur={field.onBlur}
+                onChange={(e) => {
+                  // Allow only the chars the regex accepts. This lets
+                  // users still type "+1 (281) 555-1234" naturally but
+                  // silently drops letters/symbols on the way in.
+                  const cleaned = e.target.value.replace(/[^+()\d\s\-.]/g, '')
+                  field.onChange(cleaned)
+                }}
+                className="mt-1"
+              />
+            )}
           />
           {form.formState.errors.customer_phone && (
             <p className="mt-1 text-xs text-berry">{form.formState.errors.customer_phone.message}</p>
