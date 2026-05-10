@@ -12,6 +12,7 @@ const ITEMS = [
   { href: '/admin/channels', label: 'Channels' },
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/customers', label: 'Customers' },
+  { href: '/admin/careers', label: 'Careers' },
   { href: '/admin/escalations', label: 'Escalations' },
   { href: '/admin/settings', label: 'Settings' },
 ]

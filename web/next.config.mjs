@@ -35,6 +35,9 @@ const nextConfig = {
       { source: '/api/orders/draft', destination: `${backend}/api/orders/draft` },
       { source: '/api/orders/:id', destination: `${backend}/api/orders/:id` },
       { source: '/api/leads/:source', destination: `${backend}/api/leads/:source` },
+      // Career applications — public submission endpoint. Admin-side list +
+      // status updates ride the /api/admin/:path* rewrite below.
+      { source: '/api/careers/apply', destination: `${backend}/api/careers/apply` },
       { source: '/api/uploads', destination: `${backend}/api/uploads` },
       { source: '/api/admin/:path*', destination: `${backend}/api/admin/:path*` },
       // Policies — backed by getPolicies() in src/domain/policies.ts.
