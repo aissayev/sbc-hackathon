@@ -71,7 +71,7 @@ export function ChatWidget({
     ? `Hi — looking at ${productNames?.[seedProduct] ?? seedProduct.replace(/-/g, ' ')}? Tell me when you'd like it and how many people you're feeding.`
     : "Hi! What can we help with — a slice from the case, a whole cake, or something custom? I can check what's available today and draft an order for the kitchen."
 
-  const { messages, sending, send, reset } = useChat({ greeting, resetOnMount: Boolean(seedProduct) })
+  const { messages, sending, send, reset, finishStreaming } = useChat({ greeting, resetOnMount: Boolean(seedProduct) })
 
   const [input, setInput] = React.useState('')
   const [attachments, setAttachments] = React.useState<StagedAttachment[]>([])
@@ -194,7 +194,7 @@ export function ChatWidget({
 
       <div ref={logRef} className="p-5 space-y-3 h-[440px] overflow-y-auto" aria-live="polite">
         {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} />
+          <ChatBubble key={m.id} message={m} onTypingComplete={finishStreaming} />
         ))}
       </div>
 
