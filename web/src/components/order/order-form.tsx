@@ -375,8 +375,11 @@ export function OrderForm({ products }: { products: Product[] }) {
     const digits = payment.number.replace(/\s/g, '')
     if (!payment.cardholder.trim()) return 'Cardholder name required.'
     if (digits.length < 13) return 'Card number looks too short.'
-    if (!TEST_CARDS.has(digits)) {
-      return 'Use a Stripe test card — 4242 4242 4242 4242 always works in this build.'
+    // Test-card guard runs in development only. In production we accept
+    // any well-formed PAN — real Square capture happens after the team
+    // confirms the order, so even a typo here doesn't move money.
+    if (process.env.NODE_ENV !== 'production' && !TEST_CARDS.has(digits)) {
+      return 'Use a test card — 4242 4242 4242 4242 always works in this build.'
     }
     if (!/^\d{2}\s*\/\s*\d{2}$/.test(payment.expiry.trim())) return 'Expiry as MM / YY.'
     if (!/^\d{3,4}$/.test(payment.cvc.trim())) return 'CVC is 3 or 4 digits.'
@@ -979,7 +982,12 @@ function validateCardNumber(v: string): string | null {
   const digits = v.replace(/\s/g, '')
   if (digits.length === 0) return 'Required.'
   if (digits.length < 13) return 'Card number looks too short.'
-  if (!TEST_CARDS.has(digits)) return 'Use 4242 4242 4242 4242 in test mode.'
+  // Only enforce the test-card whitelist outside production. Real Square
+  // capture happens after approval, so any well-formed PAN is accepted
+  // on the live site.
+  if (process.env.NODE_ENV !== 'production' && !TEST_CARDS.has(digits)) {
+    return 'Use 4242 4242 4242 4242 in test mode.'
+  }
   return null
 }
 function validateExpiry(v: string): string | null {
@@ -1054,26 +1062,35 @@ function PaymentStep({
     if (digits.length <= 2) return digits
     return `${digits.slice(0, 2)} / ${digits.slice(2)}`
   }
+  // In production we hide the dev-only "test card autofill" link and
+  // rephrase the banner so it reads like a real bakery's payment policy
+  // (no charge until we approve and confirm the cake), not a hackathon
+  // demo. The mechanic itself is the same — we authorise here, capture
+  // after approval — that's just the actual story we want customers to
+  // read on the live site.
+  const isDev = process.env.NODE_ENV !== 'production'
   return (
     <div className="mt-6 space-y-5">
-      {/* Test-mode banner — explicit so customers (and reviewers) know
-          this isn't a live charge surface in the hackathon build. */}
       <div className="rounded-2xl border border-sky/30 bg-sky/5 p-4 flex items-start gap-3">
         <Sparkles className="h-5 w-5 text-sky-700 shrink-0 mt-0.5" />
         <div className="text-sm text-cocoa-900/85 leading-relaxed">
-          <p className="font-medium text-cocoa-900">Test mode · no charge yet</p>
-          <p className="mt-1 text-cocoa-900/70">
-            Card details are captured here so the team sees them with the order. The actual
-            charge happens via Square <strong>after</strong> we approve the draft and confirm
-            the cake by phone — never before.
+          <p className="font-medium text-cocoa-900">
+            {isDev ? 'Test mode · no charge yet' : 'No charge until we confirm the cake'}
           </p>
-          <button
-            type="button"
-            onClick={autofillTestCard}
-            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 underline-offset-4 hover:underline"
-          >
-            Autofill Stripe test card (4242 4242 4242 4242)
-          </button>
+          <p className="mt-1 text-cocoa-900/70">
+            We capture your card details with the order so we&apos;ve got everything ready, then
+            charge via Square <strong>after</strong> our team confirms the cake by phone — never
+            before. Cancel free until then.
+          </p>
+          {isDev && (
+            <button
+              type="button"
+              onClick={autofillTestCard}
+              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-900 underline-offset-4 hover:underline"
+            >
+              Autofill test card (4242 4242 4242 4242)
+            </button>
+          )}
         </div>
       </div>
 
