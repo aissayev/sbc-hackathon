@@ -37,3 +37,26 @@ export function brandCakeName(name: string): string {
   if (/\bcake\b/i.test(cleaned)) return cleaned
   return `cake "${cleaned}"`
 }
+
+// Single source of truth for how an order id is shown in the UI.
+//
+// The full id is `ord_<13-digit-ms>_<6-char-base36>` — 24 chars. Showing
+// just the trailing slice (e.g. `#4_UG4G4J`) used to seem prettier, but
+// caused customers to paste truncated values into chat / track that the
+// backend's strict `WHERE id = ?` lookup couldn't match. The backend is
+// now suffix-tolerant (src/domain/tools.ts:getOrderStatus), but the
+// long-term fix is: SHOW THE FULL ID anywhere a customer might copy it.
+//
+// Variants:
+//   `full`   — entire `ord_<ms>_<rand>` string. Use anywhere a customer
+//              might copy the value to look it up later (confirmation
+//              page, tracker, chat-widget order card, B2B inquiry sent).
+//   `short`  — `…<last 6>` for owner-only table compactness (admin
+//              tables / lists). The leading `…` makes truncation
+//              obvious so nobody mistakes it for a complete id.
+export function formatOrderId(id: string, variant: 'full' | 'short' = 'full'): string {
+  if (variant === 'full') return id
+  // Tail of the random suffix only — owner already has the full id in the
+  // row's anchor URL, so this is purely a visual handle.
+  return `…${id.slice(-6)}`
+}

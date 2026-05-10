@@ -15,6 +15,7 @@ import {
   MessageSquareHeart,
   Minus,
   Plus,
+  Sparkles,
   Store,
   Truck,
 } from 'lucide-react'
@@ -52,11 +53,19 @@ import { Calendar } from '@/components/ui/calendar'
 
 type Mode = 'pickup' | 'delivery'
 
-const TAB_DEFS: Array<{ kind: ProductKind; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { kind: 'slice', label: 'By the slice', icon: Cake },
-  { kind: 'whole', label: 'Whole cake', icon: Gift },
-  { kind: 'pastry', label: 'Pastries', icon: Croissant },
-  { kind: 'custom', label: 'Custom', icon: ChefHat },
+// `shortLabel` is the single-word version that fits inside the tab pill
+// without wrapping; `label` is the longer form used in section headers
+// downstream (`Pick your slice`, etc.).
+const TAB_DEFS: Array<{
+  kind: ProductKind
+  label: string
+  shortLabel: string
+  icon: React.ComponentType<{ className?: string }>
+}> = [
+  { kind: 'slice', label: 'By the slice', shortLabel: 'Slices', icon: Cake },
+  { kind: 'whole', label: 'Whole cake', shortLabel: 'Whole', icon: Gift },
+  { kind: 'pastry', label: 'Pastries', shortLabel: 'Pastries', icon: Croissant },
+  { kind: 'custom', label: 'Custom', shortLabel: 'Custom', icon: ChefHat },
 ]
 
 // Quantity caps mirror the order-form's intent: slices and pastries can be
@@ -148,12 +157,27 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
   }, [slots, time])
 
   const qtyMax = QTY_CAPS[kind]
-  const canSubmit = !!productId && !!time && !submitting
+  const isCustom = kind === 'custom'
+  // For non-custom orders we need a product + a chosen time. Custom skips
+  // the catalog entirely (the design funnel collects flavor/headcount/etc)
+  // so the only requirement here is the date.
+  const canSubmit = isCustom ? !submitting : !!productId && !!time && !submitting
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!canSubmit) return
     setSubmitting(true)
+    if (isCustom) {
+      // Custom orders go through the dedicated 5-step design funnel —
+      // we just hand off the chosen pickup-or-delivery and the calendar
+      // date as defaults. The funnel re-asks for time + everything else.
+      const params = new URLSearchParams({
+        mode,
+        date: date.toISOString().slice(0, 10),
+      })
+      router.push(`/order/custom?${params.toString()}`)
+      return
+    }
     const when = combineDateAndTime(date, time)
     const params = new URLSearchParams({
       product: productId,
@@ -182,9 +206,12 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
         </div>
       </div>
 
-      {/* Kind tabs — pill-row, scrolls horizontally on tight viewports. */}
-      <div className="mt-5 -mx-1 px-1 overflow-x-auto">
-        <div className="inline-flex gap-1 p-1 rounded-full bg-cream-100 border border-cocoa-700/10">
+      {/* Kind tabs — pill row that scrolls horizontally on tight viewports
+          rather than wrapping the labels onto two lines. Labels use the
+          short / single-word display names from KIND_LABELS, NOT
+          KIND_LABELS.singular (which would say "Whole cake" → wraps). */}
+      <div className="mt-5 -mx-1 px-1 overflow-x-auto scrollbar-none">
+        <div className="inline-flex gap-1 p-1 rounded-full bg-cream-100 border border-cocoa-700/10 whitespace-nowrap">
           {tabs.map((t) => {
             const active = t.kind === kind
             const Icon = t.icon
@@ -195,22 +222,22 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
                 onClick={() => setKind(t.kind)}
                 aria-pressed={active}
                 className={cn(
-                  'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-medium transition-all',
+                  'inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0',
                   active
                     ? 'bg-cocoa-700 text-cream shadow-sm'
                     : 'text-cocoa-900/70 hover:text-cocoa-900',
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {t.label}
+                {t.shortLabel}
               </button>
             )
           })}
         </div>
       </div>
 
-      {kind === 'custom' && optionsForKind.length === 0 ? (
-        <CustomCakePromo />
+      {isCustom ? (
+        <CustomCakeBrief />
       ) : (
         <CakePicker
           options={optionsForKind}
@@ -258,10 +285,10 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <div className={cn('mt-5 grid gap-3', isCustom ? 'grid-cols-1' : 'grid-cols-2')}>
         <div>
           <label htmlFor="quick-date" className="block text-sm font-medium text-cocoa-900">
-            Date
+            {isCustom ? 'Need it by' : 'Date'}
           </label>
           <Popover open={calOpen} onOpenChange={setCalOpen}>
             <PopoverTrigger
@@ -294,40 +321,47 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
               </div>
             </PopoverContent>
           </Popover>
+          {isCustom && (
+            <p className="mt-1.5 text-[11px] text-cocoa-900/60">
+              Custom cakes need 24h notice (36h for vegan / gluten-free).
+            </p>
+          )}
         </div>
 
-        <div>
-          <label htmlFor="quick-time" className="block text-sm font-medium text-cocoa-900">
-            Time
-          </label>
-          <Select value={time} onValueChange={setTime}>
-            <SelectTrigger id="quick-time" className="mt-1.5">
-              <span className="inline-flex items-center gap-2">
-                <Clock className="h-4 w-4 text-cocoa-700" />
-                <SelectValue placeholder={slots.length === 0 ? 'Closed this day' : 'Pick a time'} />
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {slots.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-cocoa-900/60">
-                  We&apos;re closed on {format(date, 'EEEE')}.
-                </div>
-              ) : (
-                slots.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <p className="mt-1.5 text-[11px] text-cocoa-900/60">
-            {hoursLabelForDay(date)}
-            {selected?.lead_time_hours
-              ? ` · earliest ${leadTimeLabel(selected.lead_time_hours).toLowerCase()}`
-              : ''}
-          </p>
-        </div>
+        {!isCustom && (
+          <div>
+            <label htmlFor="quick-time" className="block text-sm font-medium text-cocoa-900">
+              Time
+            </label>
+            <Select value={time} onValueChange={setTime}>
+              <SelectTrigger id="quick-time" className="mt-1.5">
+                <span className="inline-flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-cocoa-700" />
+                  <SelectValue placeholder={slots.length === 0 ? 'Closed this day' : 'Pick a time'} />
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {slots.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-cocoa-900/60">
+                    We&apos;re closed on {format(date, 'EEEE')}.
+                  </div>
+                ) : (
+                  slots.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <p className="mt-1.5 text-[11px] text-cocoa-900/60">
+              {hoursLabelForDay(date)}
+              {selected?.lead_time_hours
+                ? ` · earliest ${leadTimeLabel(selected.lead_time_hours).toLowerCase()}`
+                : ''}
+            </p>
+          </div>
+        )}
       </div>
 
       <button
@@ -335,7 +369,7 @@ export function QuickOrderForm({ products }: { products: Product[] }) {
         disabled={!canSubmit}
         className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-cocoa-700 text-cream font-medium h-12 px-6 hover:bg-cocoa-900 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       >
-        Continue to checkout
+        {isCustom ? 'Start the design' : 'Continue to checkout'}
       </button>
 
       <div className="mt-4 flex items-center justify-between text-xs text-cocoa-900/65">
@@ -466,19 +500,43 @@ function CakeOptionRow({ product, compact = false }: { product: Product; compact
   )
 }
 
-function CustomCakePromo() {
+// Custom cake briefing surface — shown when the Custom tab is active.
+// We deliberately don't try to recreate the 5-step funnel here; the
+// hero stays compact and the user is handed off to /order/custom with
+// the date pre-seeded. This component is content / explanation only —
+// the form's submit button drives the actual hand-off.
+function CustomCakeBrief() {
+  const items: Array<{ label: string; example: string }> = [
+    { label: 'Occasion', example: 'birthday, baby shower, wedding…' },
+    { label: 'Headcount', example: 'serves 8 / 16 / 30+' },
+    { label: 'Flavor + design', example: 'honey, pistachio, fondant, photo' },
+    { label: 'Allergens', example: 'gluten-free, vegan, no nuts' },
+  ]
   return (
     <div className="mt-5 rounded-2xl border border-sky/30 bg-sky/5 p-4">
-      <p className="text-sm text-cocoa-900">
-        Custom designs go through a quick chat — flavors, message, photo or fondant. Askhat quotes
-        by phone within an hour.
-      </p>
-      <Link
-        href="/order/custom"
-        className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-sky-700 underline-offset-4 hover:underline"
-      >
-        Start a custom design →
-      </Link>
+      <div className="flex items-start gap-3">
+        <span className="h-8 w-8 rounded-full bg-sky/15 inline-flex items-center justify-center shrink-0">
+          <Sparkles className="h-4 w-4 text-sky-700" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-cocoa-900">Designed with Askhat, our owner</p>
+          <p className="mt-0.5 text-xs text-cocoa-900/65 leading-relaxed">
+            Quick brief next, then a phone call to lock the price and timing. Most quotes back
+            within the hour during open hours.
+          </p>
+        </div>
+      </div>
+      <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
+        {items.map((item) => (
+          <li key={item.label} className="flex items-start gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky shrink-0 mt-1.5" />
+            <span className="min-w-0">
+              <span className="block font-medium text-cocoa-900">{item.label}</span>
+              <span className="block text-cocoa-900/55 truncate">{item.example}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
