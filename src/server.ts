@@ -29,6 +29,7 @@ import {
   logError,
   logSystem,
 } from './bots/owner.ts'
+import { handleRoleCommand, sendRoleReply } from './bots/role-bots.ts'
 import { clearHistory } from './db/threads.ts'
 import {
   listProducts,
@@ -73,6 +74,16 @@ const onMessage: MessageHandler = async (msg) => {
     const asyncReply = await handleOwnerAsyncCommand(msg)
     if (asyncReply) {
       await sendOwnerReply(msg.threadId, asyncReply)
+      return
+    }
+  }
+
+  // Per-agent bots (kitchen, marketing, concierge) — slash commands route to
+  // role-scoped read handlers. Free text continues into the agent below.
+  if (msg.channel === 'telegram' && msg.roleHint && msg.roleHint !== 'owner') {
+    const roleReply = await handleRoleCommand(msg)
+    if (roleReply) {
+      await sendRoleReply(msg.roleHint, msg.threadId, roleReply)
       return
     }
   }

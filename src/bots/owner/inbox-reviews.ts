@@ -1,17 +1,7 @@
 // Owner async slash commands for inbox + reviews + spend + GBP metrics.
 //
-// Hits the sandbox over HTTP (covered by team token, not Claude Max) — same
-// cost profile as DB-backed commands: instant, free, no `claude -p` spend.
-// Async only because of network I/O.
-//
-// Companion to commands.ts (sync, DB-backed) and the existing /campaigns +
-// /brief commands. These four close the WA/IG/GBP visibility gap on the
-// owner cockpit:
-//
-//   /inbox      WhatsApp + Instagram thread inbox
-//   /reviews    Recent Google Business reviews + 1-tap reply
-//   /spend      Marketing budget MTD
-//   /gb         Google Business profile metrics
+// Hits the sandbox over HTTP (covered by team token) — same cost profile as
+// DB-backed commands: instant, free, no `claude -p` spend.
 
 import { tryCallSandboxTool } from '../../lib/sandbox-mcp.ts'
 import type { BotReply } from './commands.ts'
