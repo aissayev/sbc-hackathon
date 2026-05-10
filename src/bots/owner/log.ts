@@ -14,8 +14,30 @@
 //   - quiet    — errors only
 //   - off      — nothing (also implied if TG_OWNER_BOT_TOKEN is unset)
 
-import { sendTelegram } from '../../channels/telegram.ts'
+import { sendTelegram, sendTelegramPhoto } from '../../channels/telegram.ts'
 import { config } from '../../config.ts'
+
+// Match URLs the website's /api/uploads emits inside the inbound text:
+//   [Photo from customer: https://hc-uploads.nyc3.cdn.digitaloceanspaces.com/uploads/threads/.../x.jpg (filename.jpg)]
+// We only forward URLs hosted on the configured uploads CDN so we never
+// re-host arbitrary attacker URLs in the owner chat.
+const PHOTO_LINE_RE = /\[Photo from customer: (https?:\/\/[^\s)]+) \(([^)]+)\)\]/g
+
+function isAllowedUploadHost(url: string): boolean {
+  try {
+    const u = new URL(url)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+    // DigitalOcean Spaces (current upload backend) and any host explicitly
+    // listed in TG_PHOTO_FORWARD_HOSTS (comma-separated) are allowed.
+    if (u.hostname.endsWith('.digitaloceanspaces.com')) return true
+    if (u.hostname.endsWith('.cdn.digitaloceanspaces.com')) return true
+    const allow = (process.env.TG_PHOTO_FORWARD_HOSTS ?? '')
+      .split(',').map((s) => s.trim()).filter(Boolean)
+    return allow.includes(u.hostname)
+  } catch {
+    return false
+  }
+}
 
 export type LogLevel = 'verbose' | 'normal' | 'quiet' | 'off'
 export type LogCategory = 'inbound' | 'outbound' | 'error' | 'system'
@@ -75,9 +97,29 @@ function shortThread(threadId: string): string {
 
 /**
  * `📨 [wa] +12815559001 → concierge: "do you have honey today?"`
+ *
+ * If the message body contains `[Photo from customer: <url> (<name>)]` markers
+ * (emitted by the website chat after a successful /api/uploads), also forward
+ * each photo to the owner chat as an inline image so Askhat can see it without
+ * leaving Telegram.
  */
 export function logInbound(channel: string, threadId: string, role: string, text: string): void {
   void logToOwner('inbound', `📨 [${shortChannel(channel)}] ${shortThread(threadId)} → ${role}: "${truncate(text)}"`)
+  void forwardPhotos(channel, threadId, text)
+}
+
+async function forwardPhotos(channel: string, threadId: string, text: string): Promise<void> {
+  const token = config.telegram.owner.token
+  const chatId = config.telegram.owner.chatId
+  if (!token || !chatId) return
+  PHOTO_LINE_RE.lastIndex = 0
+  for (let m = PHOTO_LINE_RE.exec(text); m; m = PHOTO_LINE_RE.exec(text)) {
+    const url = m[1]
+    const name = m[2]
+    if (!isAllowedUploadHost(url)) continue
+    const caption = `📷 [${shortChannel(channel)}] ${shortThread(threadId)} — ${truncate(name, 40)}`
+    await sendTelegramPhoto(token, chatId, url, caption)
+  }
 }
 
 /**

@@ -283,6 +283,14 @@ app.post('/api/leads/:source', async (c) => {
     return c.json({ error: 'validation failed', issues: parsed.error.issues }, 400)
   }
   const result = createLead(parsed.data)
+  // Forward to the owner: a one-line lead summary plus inline previews of any
+  // reference photos the customer attached. Best-effort — no-op when the
+  // owner-bot env vars aren't set.
+  if (result.ok) {
+    notifyOwnerOfLead(source, result.lead_id, parsed.data).catch((err) =>
+      console.error('[server] notifyOwnerOfLead failed:', (err as Error).message),
+    )
+  }
   return c.json({ ...result, next_step: 'awaiting_owner_review' })
 })
 
@@ -342,6 +350,30 @@ app.post('/api/uploads', async (c) => {
     return c.json({ error: 'upload_failed', reason: (err as Error).message }, 502)
   }
 })
+
+// Forward a custom-cake / B2B lead to the owner's Telegram chat: a one-line
+// summary plus inline previews of any reference_photo_urls the customer
+// attached. Best-effort — no-op when the owner-bot env vars aren't set.
+async function notifyOwnerOfLead(
+  source: string,
+  leadId: string,
+  payload: { contact: string; meta?: Record<string, unknown> },
+): Promise<void> {
+  const meta = (payload.meta ?? {}) as Record<string, unknown>
+  const photoUrls = Array.isArray(meta.reference_photo_urls)
+    ? (meta.reference_photo_urls as unknown[]).filter((u): u is string => typeof u === 'string')
+    : []
+  const formatted = typeof meta.formatted === 'string' ? meta.formatted : null
+  const header = `🎂 New ${source} lead · ${leadId}\n${formatted ?? `Contact: ${payload.contact}`}`
+  const { sendTelegram, sendTelegramPhoto } = await import('./channels/telegram.ts')
+  const token = config.telegram.owner.token
+  const chatId = config.telegram.owner.chatId
+  if (!token || !chatId) return
+  await sendTelegram(token, chatId, header)
+  for (const url of photoUrls) {
+    await sendTelegramPhoto(token, chatId, url, `📷 Reference for ${leadId}`)
+  }
+}
 
 app.get('/llms.txt', (c) =>
   c.text(`# HappyCake — agent-readable surface

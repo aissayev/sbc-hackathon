@@ -4,7 +4,16 @@ import * as React from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Check, Sparkles, ShoppingBag } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Sparkles,
+  ShoppingBag,
+  Image as ImageIcon,
+  Paperclip,
+  X,
+} from 'lucide-react'
 
 import {
   customCakeSchema,
@@ -24,6 +33,47 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 type StepKey = 'about' | 'flavor' | 'when' | 'contact' | 'review'
+
+interface ReferencePhoto {
+  id: string
+  name: string
+  sizeKb: number
+  type: string
+  previewUrl: string
+  file: File
+}
+
+interface UploadedFile {
+  url: string
+  name: string
+  size: number
+  type: string
+}
+
+const REF_MAX_PHOTOS = 5
+const REF_MAX_FILE_KB = 8 * 1024
+
+// Backend's /api/uploads is single-file (DO Spaces); loop on the client.
+async function uploadReferencePhotos(items: ReferencePhoto[]): Promise<UploadedFile[]> {
+  if (items.length === 0) return []
+  const out: UploadedFile[] = []
+  for (const a of items) {
+    const fd = new FormData()
+    fd.append('file', a.file, a.name)
+    fd.append('scope', 'order')
+    const res = await fetch('/api/uploads', { method: 'POST', body: fd })
+    const ct = res.headers.get('content-type') ?? ''
+    if (!ct.toLowerCase().includes('application/json')) {
+      throw new Error('Upload service is offline — try again or chat with us.')
+    }
+    const data = (await res.json()) as { ok?: boolean; url?: string; type?: string; bytes?: number; reason?: string; error?: string }
+    if (!res.ok || !data.ok || !data.url) {
+      throw new Error(data.reason ?? data.error ?? `Upload failed (${res.status})`)
+    }
+    out.push({ url: data.url, name: a.name, size: data.bytes ?? a.file.size, type: data.type ?? a.type })
+  }
+  return out
+}
 
 const STEPS: Array<{ key: StepKey; label: string; subtitle: string }> = [
   { key: 'about', label: 'About the cake', subtitle: 'What is it for, and how many people?' },
@@ -46,6 +96,54 @@ export function CustomCakeFunnel() {
   const [stepIdx, setStepIdx] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [photos, setPhotos] = React.useState<ReferencePhoto[]>([])
+  const [photoError, setPhotoError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      photos.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+    }
+    // cleanup on unmount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function addPhotos(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return
+    setPhotoError(null)
+    const next: ReferencePhoto[] = [...photos]
+    for (const file of Array.from(fileList)) {
+      if (next.length >= REF_MAX_PHOTOS) {
+        setPhotoError(`Up to ${REF_MAX_PHOTOS} reference photos.`)
+        break
+      }
+      if (!file.type.startsWith('image/')) {
+        setPhotoError(`"${file.name}" — only images.`)
+        continue
+      }
+      const sizeKb = Math.round(file.size / 1024)
+      if (sizeKb > REF_MAX_FILE_KB) {
+        setPhotoError(`"${file.name}" is over 8 MB.`)
+        continue
+      }
+      next.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: file.name,
+        sizeKb,
+        type: file.type,
+        previewUrl: URL.createObjectURL(file),
+        file,
+      })
+    }
+    setPhotos(next)
+  }
+
+  function removePhoto(id: string) {
+    setPhotos((cur) => {
+      const target = cur.find((p) => p.id === id)
+      if (target) URL.revokeObjectURL(target.previewUrl)
+      return cur.filter((p) => p.id !== id)
+    })
+  }
 
   const form = useForm<CustomCakeValues>({
     resolver: zodResolver(customCakeSchema),
@@ -57,6 +155,7 @@ export function CustomCakeFunnel() {
       color_theme: '',
       inscription: '',
       dietary_tags: [],
+      reference_photo_urls: [],
       scheduled_at_iso: defaultPickupTime(),
       pickup_or_delivery: 'pickup',
       customer_name: '',
@@ -87,10 +186,24 @@ export function CustomCakeFunnel() {
   }
 
   async function submit() {
-    const values = form.getValues()
     setSubmitting(true)
     setError(null)
     try {
+      let uploaded: UploadedFile[] = []
+      if (photos.length > 0) {
+        try {
+          uploaded = await uploadReferencePhotos(photos)
+        } catch (err) {
+          setError((err as Error).message || 'Photo upload failed.')
+          return
+        }
+      }
+      const photoUrls = uploaded.map((f) => {
+        return f.url.startsWith('http') ? f.url : `${window.location.origin}${f.url}`
+      })
+      // Persist URLs back into the form so the formatted summary includes them.
+      form.setValue('reference_photo_urls', photoUrls)
+      const values = { ...form.getValues(), reference_photo_urls: photoUrls }
       const payload = {
         contact: values.customer_phone || values.customer_email || values.customer_name,
         meta: {
@@ -102,6 +215,7 @@ export function CustomCakeFunnel() {
           scheduled_at_iso: new Date(values.scheduled_at_iso).toISOString(),
           pickup_or_delivery: values.pickup_or_delivery,
           notes: values.notes,
+          reference_photo_urls: photoUrls,
           formatted: formatCustomSpec(values),
         },
       }
@@ -140,10 +254,18 @@ export function CustomCakeFunnel() {
 
         <div className="mt-8 animate-fade-in">
           {step.key === 'about' && <AboutStep form={form} />}
-          {step.key === 'flavor' && <FlavorStep form={form} />}
+          {step.key === 'flavor' && (
+            <FlavorStep
+              form={form}
+              photos={photos}
+              photoError={photoError}
+              addPhotos={addPhotos}
+              removePhoto={removePhoto}
+            />
+          )}
           {step.key === 'when' && <WhenStep form={form} />}
           {step.key === 'contact' && <ContactStep form={form} />}
-          {step.key === 'review' && <ReviewStep form={form} />}
+          {step.key === 'review' && <ReviewStep form={form} photos={photos} />}
         </div>
 
         {error && (
@@ -181,7 +303,7 @@ export function CustomCakeFunnel() {
         </div>
       </div>
 
-      <SummaryAside form={form} />
+      <SummaryAside form={form} photoCount={photos.length} />
     </div>
   )
 }
@@ -275,7 +397,20 @@ function AboutStep({ form }: { form: ReturnType<typeof useForm<CustomCakeValues>
   )
 }
 
-function FlavorStep({ form }: { form: ReturnType<typeof useForm<CustomCakeValues>> }) {
+function FlavorStep({
+  form,
+  photos,
+  photoError,
+  addPhotos,
+  removePhoto,
+}: {
+  form: ReturnType<typeof useForm<CustomCakeValues>>
+  photos: ReferencePhoto[]
+  photoError: string | null
+  addPhotos: (files: FileList | null) => void
+  removePhoto: (id: string) => void
+}) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   return (
     <div className="space-y-8">
       <div>
@@ -357,6 +492,56 @@ function FlavorStep({ form }: { form: ReturnType<typeof useForm<CustomCakeValues
             </div>
           )}
         />
+      </div>
+
+      <div>
+        <Label className="text-base">Reference photos (optional)</Label>
+        <p className="mt-1 text-sm text-cocoa-900/65">
+          A photo of a cake you love, a sketch, an inspo image — anything that helps Askhat picture
+          what you have in mind. Up to 5 images, 8 MB each.
+        </p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => addPhotos(e.target.files)}
+          className="sr-only"
+        />
+        <div className="mt-4 flex flex-wrap items-start gap-3">
+          {photos.map((p) => (
+            <div
+              key={p.id}
+              className="relative group h-24 w-24 rounded-xl overflow-hidden border border-cocoa-700/15 bg-cream-100"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.previewUrl} alt={p.name} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removePhoto(p.id)}
+                aria-label={`Remove ${p.name}`}
+                className="absolute top-1 right-1 h-6 w-6 inline-flex items-center justify-center rounded-full bg-cocoa-900/70 text-cream hover:bg-cocoa-900"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {photos.length < REF_MAX_PHOTOS && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-24 w-24 rounded-xl border-2 border-dashed border-cocoa-700/25 bg-bakery hover:bg-cream-100 hover:border-sky transition-colors flex flex-col items-center justify-center gap-1 text-cocoa-900/65 hover:text-sky-700"
+            >
+              <Paperclip className="h-5 w-5" />
+              <span className="text-[11px] font-medium">Add photo</span>
+            </button>
+          )}
+        </div>
+        {photoError && (
+          <p className="mt-2 text-xs text-berry" role="alert">
+            {photoError}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -462,15 +647,34 @@ function ContactStep({ form }: { form: ReturnType<typeof useForm<CustomCakeValue
   )
 }
 
-function ReviewStep({ form }: { form: ReturnType<typeof useForm<CustomCakeValues>> }) {
+function ReviewStep({
+  form,
+  photos,
+}: {
+  form: ReturnType<typeof useForm<CustomCakeValues>>
+  photos: ReferencePhoto[]
+}) {
   const v = form.getValues()
   const summary = formatCustomSpec(v)
   return (
     <div>
       <p className="text-sm text-cocoa-900/70">
-        Looks good? Send it to Askhat. He'll confirm by phone within an hour during open hours and
-        give you the final price after he sees the design.
+        Looks good? Send it to Askhat. He&apos;ll confirm by phone within an hour during open hours
+        and give you the final price after he sees the design.
       </p>
+      {photos.length > 0 && (
+        <div className="mt-5">
+          <Label className="text-sm">Reference photos ({photos.length})</Label>
+          <ul className="mt-2 flex flex-wrap gap-3">
+            {photos.map((p) => (
+              <li key={p.id} className="h-20 w-20 rounded-lg overflow-hidden border border-cocoa-700/15">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.previewUrl} alt={p.name} className="h-full w-full object-cover" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <pre className="mt-5 whitespace-pre-wrap text-sm bg-cream-100 border border-cocoa-700/10 rounded-2xl p-5 font-mono text-cocoa-900">
         {summary}
       </pre>
@@ -478,7 +682,13 @@ function ReviewStep({ form }: { form: ReturnType<typeof useForm<CustomCakeValues
   )
 }
 
-function SummaryAside({ form }: { form: ReturnType<typeof useForm<CustomCakeValues>> }) {
+function SummaryAside({
+  form,
+  photoCount,
+}: {
+  form: ReturnType<typeof useForm<CustomCakeValues>>
+  photoCount: number
+}) {
   const v = form.watch()
   return (
     <aside className="lg:sticky lg:top-28 self-start bakery-card p-6 bg-cream-100">
@@ -489,6 +699,12 @@ function SummaryAside({ form }: { form: ReturnType<typeof useForm<CustomCakeValu
         <Row label="Flavor" value={v.flavor ? labelOf(FLAVORS, v.flavor) : undefined} />
         {v.color_theme && <Row label="Color" value={v.color_theme} />}
         {v.inscription && <Row label="Inscription" value={`"${v.inscription}"`} />}
+        {photoCount > 0 && (
+          <Row
+            label="Photos"
+            value={`${photoCount} reference${photoCount === 1 ? '' : 's'}`}
+          />
+        )}
         {v.dietary_tags?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {v.dietary_tags.map((t) => (
