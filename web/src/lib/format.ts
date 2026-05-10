@@ -59,13 +59,15 @@ export function brandCakeName(name: string): string {
 
 // Single source of truth for how an order id is shown in the UI.
 //
-// The canonical id is `ord_<13-digit-ms>_<6-char-base36>` — 24 chars —
-// and that's what the backend uses internally (paired with `square_order_id`
-// for Square reconciliation). The friendly alias `HC-1042` is a customer-
-// facing label derived from SQLite ROWID; we now prefer it anywhere a
-// human would read the id back. The backend's lookup accepts both forms.
+// Two ids exist per order:
+//   1. Canonical id  — `ord_<13-digit-ms>_<6-char-base36>` (24 chars). The
+//      backend's primary key, paired with `square_order_id` for Square
+//      reconciliation. Internal-only — customers never need to see this.
+//   2. Friendly alias — digits only, e.g. "1042" (derived from SQLite
+//      ROWID + 1000 offset). The customer-facing label. UI displays it
+//      as `#1042`. Grandma can read it aloud, kid can write it down.
 //
-// Variants:
+// `formatOrderId` variants (legacy long-id formatting):
 //   `full`   — entire `ord_<ms>_<rand>` string. Use only where the value
 //              must round-trip to a system that doesn't accept the
 //              friendly alias (rare).
@@ -77,14 +79,24 @@ export function formatOrderId(id: string, variant: 'full' | 'short' = 'full'): s
   return `…${id.slice(-6)}`
 }
 
-// Customer-facing display label. Prefers the friendly alias (`HC-1042`);
-// falls back to the long id formatter for older payloads or admin
-// contexts where the alias isn't populated. Always pass the whole
-// order-like object so the helper can pick the best label.
+// Customer-facing display label. Prefers the friendly alias (digits-only,
+// rendered as `#1042` for visual cue); falls back to the long id formatter
+// for older payloads or admin contexts where the alias isn't populated.
+// Always pass the whole order-like object so the helper can pick the best
+// label.
 export function displayOrderId(
   order: { id: string; friendly_id?: string | null },
   fallbackVariant: 'full' | 'short' = 'full',
 ): string {
-  if (order.friendly_id) return order.friendly_id
+  if (order.friendly_id) return `#${order.friendly_id}`
   return formatOrderId(order.id, fallbackVariant)
+}
+
+// URL-safe id for share / track links. Prefers the digits-only friendly
+// alias (so `/track/1042` is the public URL we send to customers) and
+// falls back to the canonical long id when the alias isn't available.
+// The backend's `getOrderStatus` accepts both forms, so the link resolves
+// either way.
+export function trackUrlId(order: { id: string; friendly_id?: string | null }): string {
+  return order.friendly_id ?? order.id
 }

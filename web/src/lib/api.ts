@@ -58,10 +58,11 @@ export interface OrderItem {
 
 export interface OrderStatus {
   id: string
-  // Short customer-facing alias. Shape: `HC-1042`. Stable per order,
-  // safe to read aloud over the phone. Optional because older clients
-  // and edge paths may not populate it; UI falls back to `id` when
-  // missing.
+  // Short customer-facing alias — digits only, e.g. "1042". Stable per
+  // order, safe to read aloud over the phone or write on a sticky note.
+  // The UI prefixes a `#` for display (`#1042`). Optional because older
+  // clients and edge paths may not populate it; UI falls back to `id`
+  // when missing.
   friendly_id?: string
   status: string
   total_cents: number
@@ -198,9 +199,10 @@ export interface DraftOrderInput {
 export interface DraftOrderResult {
   ok: boolean
   order_id?: string
-  // Short customer-facing alias (`HC-1042`) returned by the backend
-  // alongside the canonical `order_id`. The confirmation page surfaces
-  // it as the headline label.
+  // Short customer-facing alias (digits-only, e.g. "1042") returned by
+  // the backend alongside the canonical `order_id`. The confirmation
+  // page surfaces it as the headline label, and the post-order redirect
+  // prefers it so URLs stay readable.
   friendly_id?: string
   total_cents?: number
   reason?: string

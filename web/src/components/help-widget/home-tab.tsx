@@ -75,7 +75,7 @@ function TrackCard() {
         <div className="flex-1 min-w-0">
           <div className="font-medium text-cocoa-900 text-sm">Track your order</div>
           <div className="text-xs text-cocoa-900/60 leading-relaxed mt-0.5">
-            Paste the order id, see live status.
+            Type your order number, see live status.
           </div>
         </div>
         <ChevronDown

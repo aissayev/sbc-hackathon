@@ -172,6 +172,11 @@ type FormValues = z.infer<typeof schema>
 
 interface DraftOrderResponse {
   order_id: string
+  // Short customer-facing alias (digits-only, e.g. "1042"). The
+  // confirmation page redirect prefers this so the URL is grandma-readable
+  // (`/order/confirm/1042`); the backend lookup accepts both forms, so
+  // legacy bookmarks with the long id still resolve.
+  friendly_id?: string
   total_cents: number
   status: string
 }
@@ -391,7 +396,7 @@ export function OrderForm({ products }: { products: Product[] }) {
       setError(result.reason)
       return
     }
-    router.push(`/order/confirm/${result.data.order_id}`)
+    router.push(`/order/confirm/${result.data.friendly_id ?? result.data.order_id}`)
   }
 
   const isLast = stepIdx === STEPS.length - 1
