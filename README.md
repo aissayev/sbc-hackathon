@@ -68,7 +68,7 @@ If you see `(empty)` and `Invalid MCP configuration`, re-run `bun run setup:mcp`
 
 ## Architecture, in five lines
 
-- `claude -p` is the agent runtime. One subprocess per inbound message; per-role tool allowlists in [src/agent/invoke.ts](./src/agent/invoke.ts).
+- `claude -p` is the agent runtime. One subprocess per inbound message; per-role tool allowlists in [src/agent/allowlists.ts](./src/agent/allowlists.ts).
 - Two MCP servers: the **sandbox** (catalog, kitchen, marketing, evaluator — the judges' truth) and a **local stdio** MCP (drafts, threads, escalations, brand-RAG).
 - The frontend never talks to the sandbox MCP. The team token lives only inside the agent subprocess; the website reads through the backend's `/api/catalog` mirror.
 - Webhooks verify Meta HMAC signatures when `WA_APP_SECRET` / `IG_APP_SECRET` is set; sandbox-injected unsigned bodies pass through with a logged warning so eval flow keeps working.
