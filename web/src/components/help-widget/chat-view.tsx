@@ -163,9 +163,24 @@ export function ChatView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div ref={logRef} className="flex-1 overflow-y-auto p-4 space-y-3" aria-live="polite">
-        {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} size="compact" onTypingComplete={finishStreaming} />
-        ))}
+        {messages.map((m, i) => {
+          // Stack consecutive same-sender messages: skip the avatar +
+          // label row when this bubble's role matches the previous one
+          // and they're within ~2 minutes of each other (so a
+          // long-paused follow-up still shows fresh chrome).
+          const prev = i > 0 ? messages[i - 1] : null
+          const stacked =
+            !!prev && prev.role === m.role && m.ts - prev.ts < 120_000
+          return (
+            <ChatBubble
+              key={m.id}
+              message={m}
+              size="compact"
+              onTypingComplete={finishStreaming}
+              stacked={stacked}
+            />
+          )
+        })}
       </div>
       {messages.length <= 1 && (
         <div className="px-3 pb-2 flex flex-wrap gap-1.5">

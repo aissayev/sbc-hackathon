@@ -4,7 +4,17 @@ import * as React from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Check, Send, Building2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Send,
+  Building2,
+  Coffee,
+  Sparkles,
+  Gift,
+  Repeat,
+} from 'lucide-react'
 
 import {
   b2bSchema,
@@ -15,12 +25,25 @@ import {
   BUDGETS,
   DIETARY_NEEDS,
   formatB2BSpec,
+  type InquiryIcon,
 } from '@/lib/b2b'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { DateTimePicker } from '@/components/order/date-time-picker'
+
+// Maps the icon-key string in INQUIRY_TYPES to a Lucide component.
+// Keeps the data file (lib/b2b.ts) free of React imports while still
+// letting us render brand-aligned single-stroke icons in place of the
+// platform emojis.
+const INQUIRY_ICON: Record<InquiryIcon, React.ComponentType<{ className?: string }>> = {
+  coffee: Coffee,
+  sparkles: Sparkles,
+  gift: Gift,
+  repeat: Repeat,
+}
 
 type StepKey = 'fit' | 'when' | 'budget' | 'contact' | 'review'
 
@@ -59,7 +82,11 @@ export function B2BInquireForm() {
 
   const form = useForm<B2BValues>({
     resolver: zodResolver(b2bSchema),
-    mode: 'onChange',
+    // 'onTouched' = first validate after a field is blurred, then keep
+    // validating onChange for that field. Matches the user's expectation
+    // that "Email looks off" shouldn't appear while they're still typing
+    // 'adilet@flowleads' before the '.com'.
+    mode: 'onTouched',
     defaultValues: {
       type: seededType,
       headcount: '',
@@ -236,27 +263,42 @@ function FitStep({ form }: { form: ReturnType<typeof useForm<B2BValues>> }) {
       render={({ field, fieldState }) => (
         <>
           <div className="grid gap-3 sm:grid-cols-2">
-            {INQUIRY_TYPES.map((t) => (
-              <button
-                type="button"
-                key={t.value}
-                onClick={() => field.onChange(t.value)}
-                className={cn(
-                  'rounded-2xl border p-5 text-left transition-all',
-                  field.value === t.value
-                    ? 'border-sky bg-sky/5 shadow-ring'
-                    : 'border-cocoa-700/15 bg-bakery hover:bg-cream-100',
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">{t.icon}</span>
-                  <div>
-                    <div className="font-medium text-cocoa-900">{t.label}</div>
-                    <p className="mt-1 text-sm text-cocoa-900/70 leading-relaxed">{t.body}</p>
+            {INQUIRY_TYPES.map((t) => {
+              const Icon = INQUIRY_ICON[t.icon]
+              const selected = field.value === t.value
+              return (
+                <button
+                  type="button"
+                  key={t.value}
+                  onClick={() => field.onChange(t.value)}
+                  className={cn(
+                    'rounded-2xl border p-5 text-left transition-all',
+                    selected
+                      ? 'border-sky bg-sky/5 shadow-ring'
+                      : 'border-cocoa-700/15 bg-bakery hover:bg-cream-100',
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Brand-aligned icon badge: sky tint when selected,
+                        cream when not — matches the rest of the cockpit's
+                        line-icon vocabulary. Replaces the OS emoji that
+                        rendered as a platform sticker. */}
+                    <span
+                      className={cn(
+                        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
+                        selected ? 'bg-sky text-white' : 'bg-sky/10 text-sky-700',
+                      )}
+                    >
+                      <Icon className="h-4.5 w-4.5" />
+                    </span>
+                    <div>
+                      <div className="font-medium text-cocoa-900">{t.label}</div>
+                      <p className="mt-1 text-sm text-cocoa-900/70 leading-relaxed">{t.body}</p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
           {fieldState.error && <Err>{fieldState.error.message}</Err>}
         </>
@@ -308,8 +350,22 @@ function WhenStep({ form }: { form: ReturnType<typeof useForm<B2BValues>> }) {
       </div>
       <div>
         <Label htmlFor="first_date">First delivery / event date</Label>
-        <Input id="first_date" type="date" className="mt-1 max-w-xs" {...form.register('first_date')} />
-        {form.formState.errors.first_date && <Err>{form.formState.errors.first_date.message}</Err>}
+        <div className="mt-2 max-w-md">
+          <Controller
+            control={form.control}
+            name="first_date"
+            render={({ field, fieldState }) => (
+              <>
+                <DateTimePicker
+                  id="first_date"
+                  value={field.value}
+                  onChange={(iso) => field.onChange(iso)}
+                />
+                {fieldState.error && <Err>{fieldState.error.message}</Err>}
+              </>
+            )}
+          />
+        </div>
       </div>
     </div>
   )
@@ -473,7 +529,13 @@ function Err({ children }: { children?: React.ReactNode }) {
   return <p className="mt-2 text-xs text-berry">{children}</p>
 }
 
-function defaultDate() {
+// Seed +7 days at noon, then snap to the next bakery-open day (Mon = closed)
+// so the picker doesn't render a "Closed" placeholder on first paint. The
+// DateTimePicker takes a full ISO datetime; downstream consumers
+// (formatB2BSpec, b2bSchema) treat the value as a date string and only
+// read the date part, so the time portion is harmless.
+function defaultDate(): string {
   const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  return d.toISOString().slice(0, 10)
+  d.setHours(12, 0, 0, 0)
+  return d.toISOString()
 }

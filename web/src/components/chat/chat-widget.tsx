@@ -193,9 +193,19 @@ export function ChatWidget({
       </div>
 
       <div ref={logRef} className="p-5 space-y-3 h-[440px] overflow-y-auto" aria-live="polite">
-        {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} onTypingComplete={finishStreaming} />
-        ))}
+        {messages.map((m, i) => {
+          const prev = i > 0 ? messages[i - 1] : null
+          const stacked =
+            !!prev && prev.role === m.role && m.ts - prev.ts < 120_000
+          return (
+            <ChatBubble
+              key={m.id}
+              message={m}
+              onTypingComplete={finishStreaming}
+              stacked={stacked}
+            />
+          )
+        })}
       </div>
 
       {messages.length <= 1 && (
