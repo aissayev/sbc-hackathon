@@ -29,16 +29,27 @@ export interface AgentResult {
   error?: string
 }
 
-// Streaming events extracted from `claude -p --output-format stream-json` as
-// each subprocess stdout line lands. The wrapper emits these in real time so
-// callers (e.g. the TG owner cockpit) can edit a placeholder message live —
-// "Streaming Text for Bots" UX, but using the existing editMessageText API.
+// Streaming events extracted from `claude -p --output-format stream-json
+// --include-partial-messages` as each subprocess stdout line lands. The
+// wrapper emits these in real time so callers (e.g. the TG owner cockpit)
+// can edit a placeholder message live — "Streaming Text for Bots" UX, but
+// using the existing editMessageText API.
 //
-// stream-json grain: one event per assistant turn or tool round-trip, NOT
-// per-token. We get a complete `assistant` message after each LLM step, plus
-// `user` messages with `tool_result` blocks after each tool call. Final event
-// is `{type:'result',...}`. So "streaming" here is step-granular, not
-// character-granular — but it lines up with TG's edit cadence anyway.
+// With `--include-partial-messages`, claude -p emits TWO grains:
+//   1. `stream_event` lines (the `event` payload mirrors the Anthropic
+//      Messages API streaming format): per-token text_delta blocks for
+//      live text rendering, plus content_block_start / content_block_stop
+//      / message_stop boundaries. This is what makes the TG message
+//      visibly grow word-by-word.
+//   2. `assistant` lines (consolidated whole-message form) after each LLM
+//      step. We use this for tool_use input capture (the consolidated
+//      message has the parsed tool input ready) but skip text on it
+//      because the per-token deltas already streamed it.
+//
+// Without `--include-partial-messages` (legacy fallback in tests): only
+// `assistant` lines arrive, with the full text appearing as one block
+// per LLM step. The handler degrades gracefully — when no deltas have
+// streamed for the current message, the assistant text is still emitted.
 export type StreamEvent =
   | { kind: 'text'; chunk: string; running: string }
   | { kind: 'tool_start'; name: string }
@@ -205,6 +216,7 @@ export async function invokeAgent(opts: InvokeOptions): Promise<AgentResult> {
     config.agent.model,
     '--output-format',
     'stream-json',
+    '--include-partial-messages',
     '--verbose',
     '--append-system-prompt',
     systemPrompt,
@@ -258,8 +270,24 @@ export async function invokeAgent(opts: InvokeOptions): Promise<AgentResult> {
       message?: { content?: Array<{ type: string; name?: string; input?: unknown; text?: string }> }
       result?: string
       total_cost_usd?: number
+      event?: {
+        type?: string
+        index?: number
+        content_block?: { type?: string; name?: string; text?: string }
+        delta?: { type?: string; text?: string }
+      }
     }
 
+    // Tools we've already announced via tool_start (across both the
+    // stream_event content_block_start path and the consolidated assistant
+    // path) — prevents firing the same tool_start twice when both paths
+    // see the same block.
+    const toolStartsFired = new Set<string>()
+    // Track whether we've streamed text for the *current* assistant turn
+    // via partial deltas. If yes, skip the consolidated text in the
+    // assistant block so we don't double-render. Reset on each
+    // message_start (a new assistant turn).
+    let partialTextThisTurn = false
     const handleEvent = (evt: StreamJsonEvent) => {
       if (evt.type === 'result') {
         reply = evt.result ?? reply
@@ -267,18 +295,77 @@ export async function invokeAgent(opts: InvokeOptions): Promise<AgentResult> {
         safeStream({ kind: 'done', final: reply })
         return
       }
+
+      // ── stream_event path (per-token, --include-partial-messages) ────
+      // Mirrors the Anthropic Messages API streaming format. We use this
+      // as the primary source for live text rendering.
+      if (evt.type === 'stream_event' && evt.event) {
+        const e = evt.event
+        if (e.type === 'message_start') {
+          // New assistant turn — reset the per-turn dedup flag so the next
+          // message's consolidated text can stream through if no partials arrive.
+          partialTextThisTurn = false
+          return
+        }
+        if (e.type === 'content_block_start') {
+          if (e.content_block?.type === 'text') {
+            // Boundary between text blocks — inject a paragraph break so
+            // multi-block messages don't visually concatenate.
+            if (runningText.length > 0 && !runningText.endsWith('\n\n')) {
+              runningText += '\n\n'
+            }
+          } else if (
+            e.content_block?.type === 'tool_use' &&
+            e.content_block.name &&
+            e.content_block.name !== 'ToolSearch' &&
+            !toolStartsFired.has(e.content_block.name)
+          ) {
+            toolStartsFired.add(e.content_block.name)
+            safeStream({ kind: 'tool_start', name: e.content_block.name })
+          }
+          return
+        }
+        if (
+          e.type === 'content_block_delta' &&
+          e.delta?.type === 'text_delta' &&
+          typeof e.delta.text === 'string' &&
+          e.delta.text.length > 0
+        ) {
+          partialTextThisTurn = true
+          runningText += e.delta.text
+          safeStream({ kind: 'text', chunk: e.delta.text, running: runningText })
+          return
+        }
+        if (e.type === 'content_block_stop') {
+          return
+        }
+        return
+      }
+
+      // ── assistant consolidated path ──────────────────────────────────
+      // Always processed for tool_use → keeps tool_calls[] populated with
+      // parsed input. Text is skipped when partial deltas already streamed
+      // it; preserved as a fallback if --include-partial-messages was off
+      // or the stream_event lines were dropped for any reason.
       if (evt.type === 'assistant' && evt.message?.content) {
         for (const block of evt.message.content) {
           if (block.type === 'text' && typeof block.text === 'string' && block.text.length > 0) {
-            runningText = runningText ? `${runningText}\n\n${block.text}` : block.text
-            safeStream({ kind: 'text', chunk: block.text, running: runningText })
+            if (!partialTextThisTurn) {
+              runningText = runningText ? `${runningText}\n\n${block.text}` : block.text
+              safeStream({ kind: 'text', chunk: block.text, running: runningText })
+            }
+            // else: per-token deltas already streamed this block, skip.
           } else if (block.type === 'tool_use' && block.name && block.name !== 'ToolSearch') {
             tool_calls.push({ name: block.name, input: block.input })
-            safeStream({ kind: 'tool_start', name: block.name })
+            if (!toolStartsFired.has(block.name)) {
+              toolStartsFired.add(block.name)
+              safeStream({ kind: 'tool_start', name: block.name })
+            }
           }
         }
         return
       }
+
       if (evt.type === 'user' && evt.message?.content) {
         for (const block of evt.message.content) {
           // tool_result blocks confirm a tool call returned. Use the most recent
