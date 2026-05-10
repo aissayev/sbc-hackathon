@@ -29,7 +29,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'Our signature — six layers of golden honey biscuit, soft custard between every one, walnuts on top. Same recipe as the day we opened.',
-    photo_url: ASSETS.products[0],
+    photo_url: ASSETS.products[3],
     in_stock: 1,
     daily_capacity: 80,
     tradition: 'kazakh-european-honey',
@@ -46,7 +46,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'The full honey-cake experience — feeds about a dozen. Hand-decorated, hand-packed. About an hour\'s notice for cutting and packaging.',
-    photo_url: ASSETS.products[6],
+    photo_url: ASSETS.products[2],
     in_stock: 1,
     daily_capacity: 12,
     tradition: 'kazakh-european-honey',
@@ -63,7 +63,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten,nuts',
     description:
       'The full pistachio meringue roll — a long log of meringue, pistachio cream, and fresh raspberry. About 90 minutes to slice and pack. Serves 10–12.',
-    photo_url: ASSETS.products[3],
+    photo_url: ASSETS.products[4],
     in_stock: 1,
     daily_capacity: 8,
     tradition: 'modern-meringue',
@@ -80,7 +80,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'The full cloud — airy meringue layers and vanilla cream, hand-decorated. Feeds about a dozen. About 90 minutes to finish and pack.',
-    photo_url: ASSETS.products[8],
+    photo_url: ASSETS.products[5],
     in_stock: 1,
     daily_capacity: 8,
     tradition: 'modern-meringue',
@@ -97,7 +97,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'A full tray of tiramisu — espresso-soaked vanilla biscuit, milk-chocolate layers, mascarpone. Serves 10–12. Two hours notice.',
-    photo_url: ASSETS.products[1],
+    photo_url: ASSETS.products[7],
     in_stock: 1,
     daily_capacity: 6,
     tradition: 'italian-classic',
@@ -114,7 +114,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten,nuts',
     description:
       'Light meringue rolled with pistachio cream and the sour-sweet of fresh raspberry. By the slice, fresh from the case.',
-    photo_url: ASSETS.products[3],
+    photo_url: ASSETS.products[4],
     in_stock: 1,
     daily_capacity: 30,
     tradition: 'modern-meringue',
@@ -131,7 +131,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'Light, airy layers of meringue and delicate vanilla cream. Our most-loved seasonal slice — eats like dessert and breakfast at once.',
-    photo_url: ASSETS.products[8],
+    photo_url: ASSETS.products[5],
     in_stock: 1,
     daily_capacity: 25,
     tradition: 'modern-meringue',
@@ -148,7 +148,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'Vanilla biscuit soaked with espresso, milk-chocolate layers, mascarpone cream. A classic for the afternoon slow-down.',
-    photo_url: ASSETS.products[1],
+    photo_url: ASSETS.products[7],
     in_stock: 1,
     daily_capacity: 24,
     tradition: 'italian-classic',
@@ -165,7 +165,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'Crisp fried-dough nuggets bound with honey — a Central-Asian classic, perfect with tea or coffee. Sold by the cluster.',
-    photo_url: ASSETS.products[4],
+    photo_url: ASSETS.products[0],
     in_stock: 1,
     daily_capacity: 40,
     tradition: 'central-asian',
@@ -182,7 +182,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten,nuts',
     description:
       'Cocoa-rolled truffle bites with a hint of espresso — small, rich, dangerously poppable. Sold in pairs.',
-    photo_url: ASSETS.products[5],
+    photo_url: ASSETS.products[1],
     in_stock: 1,
     daily_capacity: 60,
     tradition: 'french-chocolate',
@@ -199,7 +199,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten',
     description:
       'Designed with you — flavors, fillings, message, photo or fondant. Serves 12–20. Minimum 24 hours notice; vegan or gluten-free needs 36 hours.',
-    photo_url: ASSETS.products[7],
+    photo_url: ASSETS.products[8],
     in_stock: 1,
     daily_capacity: 4,
     tradition: 'celebration',
@@ -233,7 +233,7 @@ export const CATALOG: Product[] = [
     allergens: 'eggs,dairy,gluten,nuts',
     description:
       'Mixed pastries and bite-size cakes — the right number of choices to keep a 10-person meeting happy.',
-    photo_url: ASSETS.products[2],
+    photo_url: ASSETS.products[6],
     in_stock: 1,
     daily_capacity: 6,
     tradition: 'catering',
