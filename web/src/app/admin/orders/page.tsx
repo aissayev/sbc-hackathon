@@ -27,6 +27,7 @@ export default async function AdminOrdersPage() {
         tone="blue"
         empty="Nothing waiting — kitchen breathes."
         orders={draft}
+        showInlineActions
       />
       <Section
         title="Live in the kitchen"
@@ -51,6 +52,7 @@ function Section({
   empty,
   tone,
   muted,
+  showInlineActions,
 }: {
   title: string
   subtitle?: string
@@ -58,6 +60,7 @@ function Section({
   empty: string
   tone?: 'blue'
   muted?: boolean
+  showInlineActions?: boolean
 }) {
   return (
     <section>
@@ -70,7 +73,12 @@ function Section({
         <div className="mt-3 rounded-md bg-cream-100 p-6 text-sm text-cocoa-900/70">{empty}</div>
       ) : (
         <div className="mt-3">
-          <OrdersTable orders={orders} showApprovalReasons muted={muted} />
+          <OrdersTable
+            orders={orders}
+            showApprovalReasons
+            showInlineActions={showInlineActions}
+            muted={muted}
+          />
         </div>
       )}
     </section>

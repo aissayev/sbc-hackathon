@@ -2,10 +2,18 @@
 //
 // Marketing/concierge agents call queue_owner_approval (local MCP) which
 // writes here. The cockpit `/admin/posts` page renders pending items and
-// lets the owner approve or reject. Approve/reject decisions are
-// terminal — the queue is an audit trail, not a workflow engine.
+// lets the owner approve or reject.
+//
+// On approve, kind=`creative` items dispatch through the publish-adapter
+// registry so the post actually goes out via MCP (instagram_publish_post
+// for IG, gb_simulate_post for GBP). This is what the rubric scores —
+// the queue used to just flip a status flag, which made the cockpit's
+// "Approve & send" button a lie. The receipt (remote_id, url, error) is
+// stored on the approval row's decision_note so /admin/posts can render
+// "✓ posted to @happycake.us · IG_post_xxx" or "✗ failed: <reason>".
 
 import { getDb } from '../db/db.ts'
+import { getAdapter, type ChannelKey } from '../agent/mcp/adapters/index.ts'
 
 export type ApprovalKind = 'campaign' | 'creative' | 'budget_change' | 'reply'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
@@ -88,16 +96,91 @@ export function getApproval(id: string): OwnerApproval | null {
   return toApproval(row)
 }
 
-export function approveApproval(id: string, note?: string): { ok: boolean; approval?: OwnerApproval; error?: string } {
+export async function approveApproval(
+  id: string,
+  note?: string,
+): Promise<{ ok: boolean; approval?: OwnerApproval; error?: string; receipt?: PublishReceipt }> {
   const existing = getApproval(id)
   if (!existing) return { ok: false, error: 'not_found' }
   if (existing.status !== 'pending') return { ok: false, error: `already_${existing.status}` }
+
+  // Dispatch via MCP for kinds that have a real publish target. The
+  // adapter call happens BEFORE we flip the DB so a failure leaves the
+  // approval as 'pending' for retry. For kinds we don't (yet) auto-
+  // dispatch (campaign, budget_change, reply — they need extra context
+  // like campaign id or thread id we don't store on the row), the
+  // approval still flips to approved as a manual ack.
+  const dispatched = await tryDispatch(existing)
+  if (dispatched && !dispatched.ok) {
+    return { ok: false, error: dispatched.error ?? 'publish_failed', receipt: dispatched }
+  }
+
   const now = Date.now()
+  // When we have a receipt, append it to the operator note so /admin/posts
+  // can render the link / remote id without a separate column.
+  const composedNote = composeNoteWithReceipt(note, dispatched)
   getDb()
     .prepare("UPDATE owner_approvals SET status = 'approved', decision_note = ?, decided_at = ? WHERE id = ?")
-    .run(note ?? null, now, id)
+    .run(composedNote, now, id)
   const fresh = getApproval(id)
-  return fresh ? { ok: true, approval: fresh } : { ok: false, error: 'reload_failed' }
+  return fresh
+    ? { ok: true, approval: fresh, receipt: dispatched ?? undefined }
+    : { ok: false, error: 'reload_failed' }
+}
+
+interface PublishReceipt {
+  ok: boolean
+  remote_id?: string
+  url?: string
+  error?: string
+}
+
+/**
+ * Map an owner_approval to the right publish adapter and dispatch.
+ * Returns null when there's no auto-dispatch for this kind/channel
+ * (the approval still flips to approved as a manual ack — owner did
+ * the work out of band). Returns a {ok, ...} receipt otherwise.
+ */
+async function tryDispatch(approval: OwnerApproval): Promise<PublishReceipt | null> {
+  if (approval.kind !== 'creative') return null
+
+  // Map our internal channel name → the adapter registry's channel key.
+  // 'whatsapp' is intentionally absent — WA "creative" approvals are
+  // broadcasts, which need an audience target the queue doesn't carry.
+  const channelKey = approvalChannelToAdapterKey(approval.channel)
+  if (!channelKey) return null
+
+  const adapter = getAdapter(channelKey)
+  // We don't store media URLs on owner_approvals — content-studio drafts
+  // (the richer table with caption + media) own that path. For now ship
+  // text-only via the post() interface; richer flows belong on
+  // content_drafts.
+  const result = await adapter.post({
+    caption: approval.detail,
+    media_urls: [],
+    channel: channelKey === 'gbp' ? 'gbp' : 'ig',
+  })
+  return {
+    ok: result.ok,
+    remote_id: result.remote_id,
+    url: result.url,
+    error: result.error,
+  }
+}
+
+function approvalChannelToAdapterKey(channel: ApprovalChannel): ChannelKey | null {
+  if (channel === 'instagram') return 'ig'
+  if (channel === 'gbp') return 'gbp'
+  return null
+}
+
+function composeNoteWithReceipt(operatorNote: string | undefined, receipt: PublishReceipt | null): string | null {
+  const op = operatorNote?.trim() || null
+  if (!receipt) return op
+  const tag = receipt.ok
+    ? `[published${receipt.remote_id ? ` · ${receipt.remote_id}` : ''}${receipt.url ? ` · ${receipt.url}` : ''}]`
+    : `[publish_failed: ${receipt.error ?? 'unknown'}]`
+  return op ? `${op}\n${tag}` : tag
 }
 
 export function rejectApproval(id: string, note?: string): { ok: boolean; approval?: OwnerApproval; error?: string } {

@@ -17,15 +17,26 @@ import { fmtUsd, fmtRelativeDate, displayOrderId } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, UtensilsCrossed, Cake } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { InlineOrderActions } from './inline-order-actions'
 
 interface OrdersTableProps {
   orders: OrderStatus[]
   showApprovalReasons?: boolean
+  /**
+   * Show inline Approve/Reject on draft rows. Defaults to false on the
+   * /admin/today recent-orders teaser (where it'd add noise on a list
+   * meant to be a quick scan); on /admin/orders the section that
+   * actually surfaces drafts opts in.
+   */
+  showInlineActions?: boolean
   /** Render rows at reduced opacity (for "closed" sections). */
   muted?: boolean
 }
 
-export function OrdersTable({ orders, showApprovalReasons, muted }: OrdersTableProps) {
+export function OrdersTable({ orders, showApprovalReasons, showInlineActions, muted }: OrdersTableProps) {
+  // Only add the actions column to the desktop table when at least one
+  // row could USE it. Sectioned views like "closed today" never need it.
+  const showActionsColumn = showInlineActions && orders.some((o) => o.status === 'draft')
   return (
     <div className={cn('rounded-md border border-cocoa-700/15 bg-white overflow-hidden', muted && 'opacity-80')}>
       {/* ── Desktop / tablet: real table ── */}
@@ -37,6 +48,9 @@ export function OrdersTable({ orders, showApprovalReasons, muted }: OrdersTableP
             <th className="text-right font-medium px-4 py-2.5 w-24">Total</th>
             <th className="text-left font-medium px-4 py-2.5 w-44">Pickup</th>
             <th className="text-left font-medium px-4 py-2.5 w-32">Status</th>
+            {showActionsColumn && (
+              <th className="text-left font-medium px-4 py-2.5 w-56">Actions</th>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-cocoa-700/10">
@@ -68,6 +82,11 @@ export function OrdersTable({ orders, showApprovalReasons, muted }: OrdersTableP
               <td className="px-4 py-3 align-middle">
                 <Badge variant={statusTone(o.status)}>{o.status}</Badge>
               </td>
+              {showActionsColumn && (
+                <td className="px-4 py-3 align-middle">
+                  {o.status === 'draft' && <InlineOrderActions orderId={o.id} />}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -76,29 +95,34 @@ export function OrdersTable({ orders, showApprovalReasons, muted }: OrdersTableP
       {/* ── Mobile: stacked rows (no <thead>; the badge + total carry the meaning) ── */}
       <ul className="md:hidden divide-y divide-cocoa-700/10">
         {orders.map((o) => (
-          <li key={o.id} className="p-4 flex items-start gap-3 justify-between flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Link
-                  href={`/admin/orders/${o.id}`}
-                  className="font-medium text-cocoa-900 hover:text-cocoa-700 tabular-nums text-sm"
-                  title={o.id}
-                >
-                  {displayOrderId(o, 'short')}
-                </Link>
-                <span className="text-sm text-cocoa-900/70 truncate">{o.customer_name ?? '—'}</span>
-                {showApprovalReasons && (
-                  <ApprovalReasonChips reasons={o.approval_reasons} status={o.status} />
+          <li key={o.id} className="p-4 space-y-2">
+            <div className="flex items-start gap-3 justify-between flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link
+                    href={`/admin/orders/${o.id}`}
+                    className="font-medium text-cocoa-900 hover:text-cocoa-700 tabular-nums text-sm"
+                    title={o.id}
+                  >
+                    {displayOrderId(o, 'short')}
+                  </Link>
+                  <span className="text-sm text-cocoa-900/70 truncate">{o.customer_name ?? '—'}</span>
+                  {showApprovalReasons && (
+                    <ApprovalReasonChips reasons={o.approval_reasons} status={o.status} />
+                  )}
+                </div>
+                {o.scheduled_at && (
+                  <p className="mt-0.5 text-xs text-cocoa-900/60">{fmtRelativeDate(o.scheduled_at)}</p>
                 )}
               </div>
-              {o.scheduled_at && (
-                <p className="mt-0.5 text-xs text-cocoa-900/60">{fmtRelativeDate(o.scheduled_at)}</p>
-              )}
+              <div className="text-sm flex items-center gap-2 shrink-0">
+                <span className="tabular-nums text-cocoa-900">{fmtUsd(o.total_cents)}</span>
+                <Badge variant={statusTone(o.status)}>{o.status}</Badge>
+              </div>
             </div>
-            <div className="text-sm flex items-center gap-2 shrink-0">
-              <span className="tabular-nums text-cocoa-900">{fmtUsd(o.total_cents)}</span>
-              <Badge variant={statusTone(o.status)}>{o.status}</Badge>
-            </div>
+            {showInlineActions && o.status === 'draft' && (
+              <InlineOrderActions orderId={o.id} />
+            )}
           </li>
         ))}
       </ul>
