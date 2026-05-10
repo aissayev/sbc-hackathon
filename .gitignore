@@ -35,6 +35,11 @@ build/
 
 # Claude Code per-machine settings
 .claude/settings.local.json
+.claude/launch.json
+
+# Customer file uploads (chat photos, custom-cake reference images).
+# Runtime data — not source.
+data/uploads/
 
 # Resolved MCP config (contains team token). Use .mcp.json.template instead.
 .mcp.json

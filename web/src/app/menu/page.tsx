@@ -101,13 +101,7 @@ export default async function MenuPage(props: { searchParams?: SearchParams }) {
 
       <section className="container mt-8 mb-16 space-y-14">
         {grouped.length === 0 ? (
-          <div className="bakery-card p-10 text-center text-cocoa-900/70">
-            Nothing matches that filter today. Try a different option, or{' '}
-            <Link href="/chat" className="text-sky-700 underline">
-              ask us in chat
-            </Link>
-            .
-          </div>
+          <MenuEmpty hasFilters={Boolean(q || allergenFree.length)} hasAnyProducts={all.length > 0} />
         ) : (
           grouped.map(({ kind, items }) => (
             <KindSection key={kind} kind={kind} items={items} />
@@ -137,6 +131,35 @@ function KindSection({ kind, items }: { kind: ProductKind; items: Product[] }) {
           <ProductCard key={p.id} product={p} />
         ))}
       </div>
+    </div>
+  )
+}
+
+function MenuEmpty({ hasFilters, hasAnyProducts }: { hasFilters: boolean; hasAnyProducts: boolean }) {
+  if (!hasAnyProducts) {
+    return (
+      <div className="bakery-card p-10 text-center">
+        <p className="display-h3 text-xl text-cocoa-900">The case is between bakes.</p>
+        <p className="mt-2 text-cocoa-900/70 max-w-md mx-auto">
+          We can't reach the kitchen right now. Call us at {BRAND.phone.display} or{' '}
+          <Link href="/chat" className="text-sky-700 underline">
+            send a message
+          </Link>{' '}
+          and we'll tell you what's ready.
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div className="bakery-card p-10 text-center">
+      <p className="display-h3 text-xl text-cocoa-900">No matches with these filters.</p>
+      <p className="mt-2 text-cocoa-900/70">
+        {hasFilters ? 'Loosen a filter, or ' : 'Try a different search, or '}
+        <Link href="/menu" className="text-sky-700 underline">
+          show everything
+        </Link>{' '}
+        — there's plenty in the case today.
+      </p>
     </div>
   )
 }
