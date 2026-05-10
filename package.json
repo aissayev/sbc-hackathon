@@ -39,6 +39,7 @@
     "self-eval": "bun src/scripts/self-eval.ts",
     "marketing:digest": "bun src/scripts/marketing-digest.ts",
     "wa:followup": "bun src/scripts/wa-followup.ts",
+    "wa-ig:smoke": "bun src/scripts/wa-ig-smoke.ts",
     "e2e": "bun src/scripts/e2e-suite.ts",
     "smoke:full": "bun src/scripts/smoke-full.ts"
   },
