@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { listProducts, type Product } from '@/lib/api'
-import { BRAND, ASSETS, PILLARS } from '@/lib/brand'
+import { BRAND, ASSETS } from '@/lib/brand'
 import { BLOG_POSTS } from '@/lib/blog'
 import { Eyebrow } from '@/components/brand/eyebrow'
 import { ProductCard } from '@/components/product/product-card'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { HoursTable } from '@/components/brand/hours'
 import { QuickOrderForm } from '@/components/order/quick-order-form'
 import { HeroDecor } from '@/components/sections/hero-decor'
+import { EditorialTriptych } from '@/components/sections/editorial-triptych'
 import { PlaceToGather } from '@/components/sections/place-to-gather'
 import { Testimonials } from '@/components/sections/testimonials'
 import { NewsletterBand } from '@/components/sections/newsletter-band'
@@ -16,24 +17,9 @@ import { VisitBand } from '@/components/sections/visit-band'
 import { ThreeWaysBand } from '@/components/sections/three-ways-band'
 import { ShowcaseRow } from '@/components/sections/showcase-row'
 import { DeliveryZones } from '@/components/sections/delivery-zones'
-import {
-  ArrowRight,
-  Sparkles,
-  Coffee,
-  Gift,
-  Heart,
-  MapPin,
-  Phone,
-  Instagram,
-  Leaf,
-  ExternalLink,
-  Star,
-  Clock,
-} from 'lucide-react'
+import { ArrowRight, Sparkles, MapPin, Star, Clock } from 'lucide-react'
 
 export const revalidate = 60
-
-const PILLAR_ICONS = { sparkles: Sparkles, coffee: Coffee, gift: Gift, heart: Heart } as const
 
 export default async function HomePage() {
   // includeOutOfStock so the showcase can surface the "Out today" state via
@@ -85,7 +71,7 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
       <Hero products={inStockProducts} />
-      <Pillars />
+      <EditorialTriptych />
 
       <ShowcaseRow products={products} />
 
@@ -188,56 +174,6 @@ function Hero({ products }: { products: Product[] }) {
         <div className="lg:col-span-5 relative">
           <QuickOrderForm products={products} />
         </div>
-      </div>
-    </section>
-  )
-}
-
-function Pillars() {
-  return (
-    <section className="container mt-16 md:mt-24">
-      <div className="grid gap-10 lg:grid-cols-12 lg:gap-14 items-start">
-        {/* Editorial left rail — anchors the section instead of yet another
-            centered title block. The h2 doubles as the section anchor; the
-            paragraph sets up the four pillars on the right. */}
-        <div className="lg:col-span-4 lg:sticky lg:top-24">
-          <Eyebrow>Why guests come back</Eyebrow>
-          <h2 className="display-h2 mt-3 [text-wrap:balance]">
-            Small bakery. <span className="text-sky">Big care</span> in every slice.
-          </h2>
-          <p className="mt-4 text-cocoa-900/70 leading-relaxed">
-            Four things we promise and four things we deliver, every day. The same recipes that
-            opened the shop, the same hands that decorate the boxes, the same welcome at the
-            counter.
-          </p>
-        </div>
-
-        {/* Numbered pillar list. Each row reads as a row not a card — less
-            grid-of-cards corporate, more "things we believe" editorial. */}
-        <ol className="lg:col-span-8 grid gap-px bg-cocoa-700/8 rounded-3xl overflow-hidden border border-cocoa-700/8">
-          {PILLARS.map((p, i) => {
-            const Icon = PILLAR_ICONS[p.icon as keyof typeof PILLAR_ICONS] ?? Sparkles
-            return (
-              <li
-                key={p.title}
-                className="group relative flex items-start gap-5 bg-bakery p-6 md:p-7 transition-colors hover:bg-cream-50"
-              >
-                <div className="shrink-0 flex flex-col items-center gap-2">
-                  <span className="text-[11px] tracking-[0.18em] uppercase text-cocoa-900/45 font-medium tabular-nums">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <span className="h-12 w-12 rounded-2xl bg-sky-100 text-sky inline-flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="display-h3 text-lg">{p.title}</h3>
-                  <p className="mt-2 text-sm text-cocoa-900/70 leading-relaxed">{p.body}</p>
-                </div>
-              </li>
-            )
-          })}
-        </ol>
       </div>
     </section>
   )

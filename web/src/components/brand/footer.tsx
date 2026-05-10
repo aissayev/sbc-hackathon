@@ -109,6 +109,8 @@ export function SiteFooter() {
             <FooterEyebrow>About</FooterEyebrow>
             <ul className="mt-3 grid gap-2 text-sm text-cream/80">
               <li><Link href="/about" className="hover:text-cream">About us</Link></li>
+              <li><Link href="/gift-cards" className="hover:text-cream">Gift cards</Link></li>
+              <li><Link href="/careers" className="hover:text-cream">Careers</Link></li>
               <li><Link href="/blog" className="hover:text-cream">Stories &amp; guides</Link></li>
               <li><Link href="/press" className="hover:text-cream">Press &amp; podcasts</Link></li>
               <li><Link href="/policies" className="hover:text-cream">Visit &amp; FAQ</Link></li>
