@@ -506,6 +506,14 @@ export interface ChannelStatus {
   threadCount: number
   lastEventAt: number
   notes?: string
+  // Real-Meta credential state — independent from `mode` (which describes
+  // the sandbox side). Lets the cockpit say truthfully when WhatsApp/Instagram
+  // outbound to a real customer would silently no-op due to missing env.
+  liveMeta?: {
+    state: 'complete' | 'partial' | 'unset' | 'unsupported'
+    missing: string[]
+    summary: string
+  }
 }
 
 export async function listChannels(): Promise<ChannelStatus[]> {
